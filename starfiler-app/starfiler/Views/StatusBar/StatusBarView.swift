@@ -16,7 +16,11 @@ final class StatusBarView: NSView {
 
     func update(path: String, itemCount: Int, markedCount: Int) {
         pathLabel.stringValue = path
-        countLabel.stringValue = "\(itemCount) items | \(markedCount) marked"
+        if markedCount > 0 {
+            countLabel.stringValue = "\(itemCount) items | \(markedCount) marked"
+        } else {
+            countLabel.stringValue = "\(itemCount) items"
+        }
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -32,9 +36,13 @@ final class StatusBarView: NSView {
 
         pathLabel.translatesAutoresizingMaskIntoConstraints = false
         pathLabel.lineBreakMode = .byTruncatingMiddle
+        pathLabel.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        pathLabel.textColor = .secondaryLabelColor
 
         countLabel.translatesAutoresizingMaskIntoConstraints = false
         countLabel.alignment = .right
+        countLabel.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        countLabel.textColor = .secondaryLabelColor
 
         addSubview(pathLabel)
         addSubview(countLabel)

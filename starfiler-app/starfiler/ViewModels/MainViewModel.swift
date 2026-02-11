@@ -24,6 +24,7 @@ final class MainViewModel {
 
     private(set) var activePaneSide: PaneSide
     var previewVisible: Bool
+    var sidebarVisible: Bool
     var clipboard: [URL]
     var clipboardOperation: ClipboardOperation?
     var undoManager: UndoManager?
@@ -37,7 +38,8 @@ final class MainViewModel {
         initialShowHiddenFiles: Bool = false,
         initialSortColumn: AppConfig.SortColumn = .name,
         initialSortAscending: Bool = true,
-        initialPreviewVisible: Bool = true,
+        initialPreviewVisible: Bool = false,
+        initialSidebarVisible: Bool = true,
         initialLeftDirectory: URL = UserPaths.homeDirectoryURL,
         initialRightDirectory: URL? = nil
     ) {
@@ -62,6 +64,7 @@ final class MainViewModel {
         self.previewPane = PreviewViewModel()
         self.activePaneSide = .left
         self.previewVisible = initialPreviewVisible
+        self.sidebarVisible = initialSidebarVisible
         self.clipboard = []
         self.clipboardOperation = nil
         self.undoManager = nil
@@ -99,8 +102,12 @@ final class MainViewModel {
         previewVisible.toggle()
     }
 
+    func toggleSidebar() {
+        sidebarVisible.toggle()
+    }
+
     func refreshPreviewForActivePane() {
-        previewPane.currentURL = activePane.selectedItem?.url
+        previewPane.currentURL = previewableURL(for: activePane.selectedItem)
     }
 
     func updatePreviewSelection(for side: PaneSide, selectedItem: FileItem?) {
@@ -108,7 +115,17 @@ final class MainViewModel {
             return
         }
 
-        previewPane.currentURL = selectedItem?.url
+        previewPane.currentURL = previewableURL(for: selectedItem)
+    }
+
+    private func previewableURL(for item: FileItem?) -> URL? {
+        guard let item else {
+            return nil
+        }
+        if item.isDirectory && !item.isPackage {
+            return nil
+        }
+        return item.url
     }
 
     func copyMarked() {

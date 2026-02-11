@@ -40,5 +40,6 @@ enum KeyAction: String, Codable, CaseIterable, Sendable {
     case undo
     case openFile
     case openFileInFinder
+    case toggleSidebar
     case quit
 }

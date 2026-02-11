@@ -28,7 +28,7 @@ private final class MarkedRowView: NSTableRowView {
     }
 }
 
-final class FilePaneViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, KeyActionDelegate {
+final class FilePaneViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate, KeyActionDelegate {
     private enum Column {
         static let name = NSUserInterfaceItemIdentifier("name")
         static let size = NSUserInterfaceItemIdentifier("size")
@@ -100,6 +100,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         configureFilterBar()
         configureSpotlightBar()
         configureDragAndDrop()
+        configureContextMenu()
         bindViewModel()
         setActive(false)
     }
@@ -177,6 +178,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         tableView.intercellSpacing = NSSize(width: 8, height: 0)
         tableView.keyActionDelegate = self
         tableView.setVimMode(vimModeState.mode)
+        tableView.target = self
+        tableView.doubleAction = #selector(handleDoubleClick(_:))
 
         let nameColumn = NSTableColumn(identifier: Column.name)
         nameColumn.title = "Name"
@@ -288,6 +291,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             self.tableView.setVimMode(self.vimModeState.mode)
             self.focusTable()
         }
+    }
+
+    private func configureContextMenu() {
+        let menu = NSMenu()
+        menu.delegate = self
+        tableView.menu = menu
     }
 
     private func configureDragAndDrop() {
@@ -547,7 +556,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             viewModel.goToParent()
             handled = true
         case .enterDirectory:
-            viewModel.enterSelected()
+            openSelectedFile()
             handled = true
         case .switchPane:
             handled = handleTabPressed()
@@ -578,7 +587,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         case .openFileInFinder:
             revealSelectedInFinder()
             handled = true
-        case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo, .togglePreview, .openBookmarks, .addBookmark:
+        case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo, .togglePreview, .toggleSidebar, .openBookmarks, .addBookmark:
             handled = onFileOperationRequested?(action) ?? false
         case .enterFilterMode:
             showFilterBar()
@@ -623,6 +632,14 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         return handled
     }
 
+    @objc
+    private func handleDoubleClick(_ sender: Any?) {
+        guard tableView.clickedRow >= 0 else {
+            return
+        }
+        openSelectedFile()
+    }
+
     private func openSelectedFile() {
         guard let item = viewModel.selectedItem else {
             return
@@ -649,5 +666,97 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         alert.informativeText = message
         alert.addButton(withTitle: "OK")
         alert.runModal()
+    }
+
+    // MARK: - Context Menu
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+
+        let clickedRow = tableView.clickedRow
+        guard clickedRow >= 0, viewModel.directoryContents.displayedItems.indices.contains(clickedRow) else {
+            return
+        }
+
+        let item = viewModel.directoryContents.displayedItems[clickedRow]
+
+        if item.isDirectory && !item.isPackage {
+            let openItem = NSMenuItem(title: "Open", action: #selector(contextMenuOpen(_:)), keyEquivalent: "")
+            openItem.target = self
+            menu.addItem(openItem)
+        } else {
+            let openItem = NSMenuItem(title: "Open with Default App", action: #selector(contextMenuOpen(_:)), keyEquivalent: "")
+            openItem.target = self
+            menu.addItem(openItem)
+        }
+
+        let revealItem = NSMenuItem(title: "Reveal in Finder", action: #selector(contextMenuRevealInFinder(_:)), keyEquivalent: "")
+        revealItem.target = self
+        menu.addItem(revealItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let copyItem = NSMenuItem(title: "Copy", action: #selector(contextMenuCopy(_:)), keyEquivalent: "")
+        copyItem.target = self
+        menu.addItem(copyItem)
+
+        let moveItem = NSMenuItem(title: "Cut", action: #selector(contextMenuCut(_:)), keyEquivalent: "")
+        moveItem.target = self
+        menu.addItem(moveItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let renameItem = NSMenuItem(title: "Rename...", action: #selector(contextMenuRename(_:)), keyEquivalent: "")
+        renameItem.target = self
+        menu.addItem(renameItem)
+
+        let deleteItem = NSMenuItem(title: "Move to Trash", action: #selector(contextMenuDelete(_:)), keyEquivalent: "")
+        deleteItem.target = self
+        menu.addItem(deleteItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let newFolderItem = NSMenuItem(title: "New Folder", action: #selector(contextMenuNewFolder(_:)), keyEquivalent: "")
+        newFolderItem.target = self
+        menu.addItem(newFolderItem)
+    }
+
+    @objc private func contextMenuOpen(_ sender: Any?) {
+        let clickedRow = tableView.clickedRow
+        guard clickedRow >= 0 else {
+            return
+        }
+        viewModel.setCursor(index: clickedRow)
+        openSelectedFile()
+    }
+
+    @objc private func contextMenuRevealInFinder(_ sender: Any?) {
+        let clickedRow = tableView.clickedRow
+        guard clickedRow >= 0,
+              viewModel.directoryContents.displayedItems.indices.contains(clickedRow) else {
+            return
+        }
+        let item = viewModel.directoryContents.displayedItems[clickedRow]
+        NSWorkspace.shared.activateFileViewerSelecting([item.url])
+    }
+
+    @objc private func contextMenuCopy(_ sender: Any?) {
+        onFileOperationRequested?(.copy)
+    }
+
+    @objc private func contextMenuCut(_ sender: Any?) {
+        onFileOperationRequested?(.move)
+    }
+
+    @objc private func contextMenuRename(_ sender: Any?) {
+        onFileOperationRequested?(.rename)
+    }
+
+    @objc private func contextMenuDelete(_ sender: Any?) {
+        onFileOperationRequested?(.delete)
+    }
+
+    @objc private func contextMenuNewFolder(_ sender: Any?) {
+        onFileOperationRequested?(.createDirectory)
     }
 }

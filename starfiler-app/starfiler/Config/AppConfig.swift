@@ -11,6 +11,7 @@ struct AppConfig: Codable, Sendable {
     var defaultSortColumn: SortColumn
     var defaultSortAscending: Bool
     var previewPaneVisible: Bool
+    var sidebarVisible: Bool
     var lastLeftPanePath: String
     var lastRightPanePath: String
     var lastActivePane: String
@@ -19,7 +20,8 @@ struct AppConfig: Codable, Sendable {
         showHiddenFiles: Bool = false,
         defaultSortColumn: SortColumn = .name,
         defaultSortAscending: Bool = true,
-        previewPaneVisible: Bool = true,
+        previewPaneVisible: Bool = false,
+        sidebarVisible: Bool = true,
         lastLeftPanePath: String = UserPaths.homeDirectoryPath,
         lastRightPanePath: String = UserPaths.homeDirectoryPath,
         lastActivePane: String = "left"
@@ -28,6 +30,7 @@ struct AppConfig: Codable, Sendable {
         self.defaultSortColumn = defaultSortColumn
         self.defaultSortAscending = defaultSortAscending
         self.previewPaneVisible = previewPaneVisible
+        self.sidebarVisible = sidebarVisible
         self.lastLeftPanePath = lastLeftPanePath
         self.lastRightPanePath = lastRightPanePath
         self.lastActivePane = lastActivePane

@@ -13,6 +13,7 @@ enum StarfilerMain {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var mainWindowController: MainWindowController?
+    private var keybindingsWindowController: NSWindowController?
     private var launchTask: Task<Void, Never>?
     private let securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared
 
@@ -131,11 +132,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let viewMenuItem = NSMenuItem()
         mainMenu.addItem(viewMenuItem)
         let viewMenu = NSMenu(title: "View")
+        viewMenu.addItem(withTitle: "Toggle Sidebar", action: #selector(menuToggleSidebar(_:)), keyEquivalent: "s")
         viewMenu.addItem(withTitle: "Toggle Preview", action: #selector(menuTogglePreview(_:)), keyEquivalent: "p")
         viewMenu.addItem(withTitle: "Toggle Hidden Files", action: #selector(menuToggleHiddenFiles(_:)), keyEquivalent: ".")
         viewMenu.addItem(NSMenuItem.separator())
+        viewMenu.addItem(withTitle: "Sort by Name", action: #selector(menuSortByName(_:)), keyEquivalent: "")
+        viewMenu.addItem(withTitle: "Sort by Size", action: #selector(menuSortBySize(_:)), keyEquivalent: "")
+        viewMenu.addItem(withTitle: "Sort by Date", action: #selector(menuSortByDate(_:)), keyEquivalent: "")
+        viewMenu.addItem(withTitle: "Reverse Sort Order", action: #selector(menuReverseSortOrder(_:)), keyEquivalent: "")
+        viewMenu.addItem(NSMenuItem.separator())
         viewMenu.addItem(withTitle: "Refresh", action: #selector(menuRefresh(_:)), keyEquivalent: "r")
         viewMenuItem.submenu = viewMenu
+
+        // Settings menu
+        let settingsMenuItem = NSMenuItem()
+        mainMenu.addItem(settingsMenuItem)
+        let settingsMenu = NSMenu(title: "Settings")
+        settingsMenu.addItem(withTitle: "Keybindings...", action: #selector(menuShowKeybindings(_:)), keyEquivalent: ",")
+        settingsMenuItem.submenu = settingsMenu
 
         // Go menu
         let goMenuItem = NSMenuItem()
@@ -147,6 +161,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         goMenu.addItem(NSMenuItem.separator())
         let homeItem = goMenu.addItem(withTitle: "Home", action: #selector(menuGoHome(_:)), keyEquivalent: "h")
         homeItem.keyEquivalentModifierMask = [.command, .shift]
+        goMenu.addItem(withTitle: "Desktop", action: #selector(menuGoDesktop(_:)), keyEquivalent: "")
+        goMenu.addItem(withTitle: "Documents", action: #selector(menuGoDocuments(_:)), keyEquivalent: "")
+        goMenu.addItem(withTitle: "Downloads", action: #selector(menuGoDownloads(_:)), keyEquivalent: "")
         goMenuItem.submenu = goMenu
 
         // Window menu
@@ -234,7 +251,63 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc private func menuGoDesktop(_ sender: Any?) {
+        mainWindowController?.performAction {
+            $0.activePane.navigate(to: URL(fileURLWithPath: UserPaths.homeDirectoryPath + "/Desktop", isDirectory: true))
+        }
+    }
+
+    @objc private func menuGoDocuments(_ sender: Any?) {
+        mainWindowController?.performAction {
+            $0.activePane.navigate(to: URL(fileURLWithPath: UserPaths.homeDirectoryPath + "/Documents", isDirectory: true))
+        }
+    }
+
+    @objc private func menuGoDownloads(_ sender: Any?) {
+        mainWindowController?.performAction {
+            $0.activePane.navigate(to: URL(fileURLWithPath: UserPaths.homeDirectoryPath + "/Downloads", isDirectory: true))
+        }
+    }
+
+    @objc private func menuSortByName(_ sender: Any?) {
+        mainWindowController?.performAction { $0.activePane.sortByName() }
+    }
+
+    @objc private func menuSortBySize(_ sender: Any?) {
+        mainWindowController?.performAction { $0.activePane.sortBySize() }
+    }
+
+    @objc private func menuSortByDate(_ sender: Any?) {
+        mainWindowController?.performAction { $0.activePane.sortByDate() }
+    }
+
+    @objc private func menuReverseSortOrder(_ sender: Any?) {
+        mainWindowController?.performAction { $0.activePane.reverseSortOrder() }
+    }
+
+    @objc private func menuToggleSidebar(_ sender: Any?) {
+        mainWindowController?.performAction { $0.toggleSidebar() }
+    }
+
     @objc private func menuSwitchPane(_ sender: Any?) {
         mainWindowController?.performAction { $0.switchActivePane() }
+    }
+
+    @objc private func menuShowKeybindings(_ sender: Any?) {
+        presentKeybindingsWindow()
+    }
+
+    private func presentKeybindingsWindow() {
+        let keybindingsVC = KeybindingsViewController()
+        let window = NSWindow(contentViewController: keybindingsVC)
+        window.title = "Keybindings"
+        window.setContentSize(NSSize(width: 640, height: 500))
+        window.styleMask = [.titled, .closable, .resizable]
+        window.minSize = NSSize(width: 500, height: 400)
+        window.center()
+
+        let windowController = NSWindowController(window: window)
+        windowController.showWindow(self)
+        keybindingsWindowController = windowController
     }
 }

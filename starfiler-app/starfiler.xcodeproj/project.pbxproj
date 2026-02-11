@@ -47,6 +47,9 @@
 		CC0000000000000000000026 /* SpotlightSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000029 /* SpotlightSearchService.swift */; };
 		CC0000000000000000000027 /* QuickLookUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BB000000000000000000002A /* QuickLookUI.framework */; };
 		CC0000000000000000000028 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000002B /* Assets.xcassets */; };
+		CC0000000000000000000029 /* SidebarViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000002C /* SidebarViewModel.swift */; };
+		CC000000000000000000002A /* SidebarViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000002D /* SidebarViewController.swift */; };
+		CC000000000000000000002B /* KeybindingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000002E /* KeybindingsViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -93,6 +96,9 @@
 		BB0000000000000000000029 /* SpotlightSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightSearchService.swift; sourceTree = "<group>"; };
 		BB000000000000000000002A /* QuickLookUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuickLookUI.framework; path = System/Library/Frameworks/QuickLookUI.framework; sourceTree = SDKROOT; };
 		BB000000000000000000002B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		BB000000000000000000002C /* SidebarViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarViewModel.swift; sourceTree = "<group>"; };
+		BB000000000000000000002D /* SidebarViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarViewController.swift; sourceTree = "<group>"; };
+		BB000000000000000000002E /* KeybindingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeybindingsViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -165,13 +171,31 @@
 			isa = PBXGroup;
 			children = (
 				AA000000000000000000000D /* SplitView */,
+				AA0000000000000000000030 /* Sidebar */,
 				AA0000000000000000000007 /* Pane */,
 				AA0000000000000000000024 /* Preview */,
 				AA0000000000000000000025 /* Bookmarks */,
 				AA0000000000000000000023 /* FilterBar */,
 				AA0000000000000000000008 /* StatusBar */,
+				AA0000000000000000000031 /* Settings */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000030 /* Sidebar */ = {
+			isa = PBXGroup;
+			children = (
+				BB000000000000000000002D /* SidebarViewController.swift */,
+			);
+			path = Sidebar;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000031 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				BB000000000000000000002E /* KeybindingsViewController.swift */,
+			);
+			path = Settings;
 			sourceTree = "<group>";
 		};
 		AA000000000000000000000D /* SplitView */ = {
@@ -229,6 +253,7 @@
 				BB0000000000000000000006 /* FilePaneViewModel.swift */,
 				BB0000000000000000000011 /* MainViewModel.swift */,
 				BB0000000000000000000024 /* PreviewViewModel.swift */,
+				BB000000000000000000002C /* SidebarViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -415,6 +440,9 @@
 				CC0000000000000000000024 /* FileDragSource.swift in Sources */,
 				CC0000000000000000000025 /* FileDropTarget.swift in Sources */,
 				CC0000000000000000000026 /* SpotlightSearchService.swift in Sources */,
+				CC0000000000000000000029 /* SidebarViewModel.swift in Sources */,
+				CC000000000000000000002A /* SidebarViewController.swift in Sources */,
+				CC000000000000000000002B /* KeybindingsViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

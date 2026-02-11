@@ -448,46 +448,6 @@ final class FilePaneViewModel {
         }
     }
 
-    func copySelection() {
-        // Phase 5+ implementation point.
-    }
-
-    func pasteClipboard() {
-        // Phase 5+ implementation point.
-    }
-
-    func moveSelection() {
-        // Phase 5+ implementation point.
-    }
-
-    func deleteSelection() {
-        // Phase 5+ implementation point.
-    }
-
-    func renameSelection() {
-        // Phase 5+ implementation point.
-    }
-
-    func createDirectory() {
-        // Phase 5+ implementation point.
-    }
-
-    func togglePreview() {
-        // Phase 7 implementation point.
-    }
-
-    func openBookmarks() {
-        // Phase 9 implementation point.
-    }
-
-    func addBookmark() {
-        // Phase 9 implementation point.
-    }
-
-    func undoLastAction() {
-        // Phase 5+ implementation point.
-    }
-
     private func loadDirectory(at directory: URL, previousDirectory: URL?) {
         if isSpotlightSearchActive {
             endSpotlightSearch(restoringDirectoryContents: false)

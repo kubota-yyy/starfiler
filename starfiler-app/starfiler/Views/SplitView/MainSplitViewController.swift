@@ -9,6 +9,9 @@ final class MainSplitViewController: NSSplitViewController {
 
     private let viewModel: MainViewModel
     private let configManager: ConfigManager
+    private let sidebarViewModel: SidebarViewModel
+    private let sidebarViewController: SidebarViewController
+    private let sidebarSplitItem: NSSplitViewItem
     private let leftPaneViewController: FilePaneViewController
     private let rightPaneViewController: FilePaneViewController
     private let previewPaneViewController: PreviewPaneViewController
@@ -25,6 +28,11 @@ final class MainSplitViewController: NSSplitViewController {
     init(viewModel: MainViewModel, configManager: ConfigManager) {
         self.viewModel = viewModel
         self.configManager = configManager
+
+        self.sidebarViewModel = SidebarViewModel(configManager: configManager)
+        self.sidebarViewController = SidebarViewController(viewModel: sidebarViewModel)
+        self.sidebarSplitItem = NSSplitViewItem(sidebarWithViewController: sidebarViewController)
+
         self.leftPaneViewController = FilePaneViewController(viewModel: viewModel.leftPane)
         self.rightPaneViewController = FilePaneViewController(viewModel: viewModel.rightPane)
         self.previewPaneViewController = PreviewPaneViewController(viewModel: viewModel.previewPane)
@@ -50,8 +58,10 @@ final class MainSplitViewController: NSSplitViewController {
 
         configureSplitView()
         bindPaneControllers()
+        bindSidebar()
         refreshActivePaneUI(focusActivePane: false)
         viewModel.refreshPreviewForActivePane()
+        applySidebarVisibility(animated: false)
         applyPreviewPaneVisibility(animated: false)
     }
 
@@ -68,10 +78,20 @@ final class MainSplitViewController: NSSplitViewController {
         applyPreviewPaneVisibility(animated: true)
     }
 
+    func toggleSidebarPane() {
+        viewModel.toggleSidebar()
+        applySidebarVisibility(animated: true)
+    }
+
     private func configureSplitView() {
         splitView.isVertical = true
         splitView.dividerStyle = .thin
-        splitView.autosaveName = "MainSplitView"
+        splitView.autosaveName = "MainSplitViewV2"
+
+        sidebarSplitItem.minimumThickness = 140
+        sidebarSplitItem.maximumThickness = 240
+        sidebarSplitItem.canCollapse = true
+        addSplitViewItem(sidebarSplitItem)
 
         let leftItem = NSSplitViewItem(viewController: leftPaneViewController)
         leftItem.minimumThickness = 280
@@ -123,6 +143,12 @@ final class MainSplitViewController: NSSplitViewController {
         }
     }
 
+    private func bindSidebar() {
+        sidebarViewController.onNavigateRequested = { [weak self] url in
+            self?.viewModel.activePane.navigate(to: url)
+        }
+    }
+
     private func handleTabSwitch() -> Bool {
         viewModel.switchActivePane()
         refreshActivePaneUI(focusActivePane: true)
@@ -164,6 +190,9 @@ final class MainSplitViewController: NSSplitViewController {
         case .togglePreview:
             togglePreviewPane()
             return true
+        case .toggleSidebar:
+            toggleSidebarPane()
+            return true
         case .openBookmarks:
             presentBookmarksPopover()
             return true
@@ -184,6 +213,22 @@ final class MainSplitViewController: NSSplitViewController {
         }
 
         publishActivePaneStatus()
+    }
+
+    private func applySidebarVisibility(animated: Bool) {
+        let shouldCollapse = !viewModel.sidebarVisible
+        guard sidebarSplitItem.isCollapsed != shouldCollapse else {
+            return
+        }
+
+        if animated {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.18
+                sidebarSplitItem.animator().isCollapsed = shouldCollapse
+            }
+        } else {
+            sidebarSplitItem.isCollapsed = shouldCollapse
+        }
     }
 
     private func applyPreviewPaneVisibility(animated: Bool) {
@@ -378,6 +423,7 @@ final class MainSplitViewController: NSSplitViewController {
 
         do {
             try configManager.saveBookmarksConfig(bookmarksConfig)
+            sidebarViewController.reloadData()
         } catch {
             let alert = NSAlert()
             alert.alertStyle = .critical

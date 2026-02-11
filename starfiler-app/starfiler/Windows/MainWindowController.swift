@@ -27,6 +27,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             initialSortColumn: appConfig.defaultSortColumn,
             initialSortAscending: appConfig.defaultSortAscending,
             initialPreviewVisible: appConfig.previewPaneVisible,
+            initialSidebarVisible: appConfig.sidebarVisible,
             initialLeftDirectory: leftDirectory,
             initialRightDirectory: rightDirectory
         )
@@ -120,6 +121,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             defaultSortColumn: Self.sortColumn(from: activeSortDescriptor.column),
             defaultSortAscending: activeSortDescriptor.ascending,
             previewPaneVisible: mainViewModel.previewVisible,
+            sidebarVisible: mainViewModel.sidebarVisible,
             lastLeftPanePath: mainViewModel.leftPane.paneState.currentDirectory.path,
             lastRightPanePath: mainViewModel.rightPane.paneState.currentDirectory.path,
             lastActivePane: mainViewModel.activePaneSide == .left ? "left" : "right"
