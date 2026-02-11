@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(starfiler-app/**)",
+      "Read(docs/**)",
+      "Edit(starfiler-app/**)",
+      "Write(starfiler-app/**)",
+      "Bash(cd /Users/workspace/NilOne/starfiler*)",
+      "Bash(xcodebuild*)",
+      "Bash(git *)"
+    ]
+  }
+}
