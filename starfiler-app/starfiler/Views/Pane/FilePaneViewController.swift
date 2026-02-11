@@ -25,10 +25,16 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }()
 
     private let viewModel: FilePaneViewModel
+    private let headerView = NSView()
+    private let pathLabel = NSTextField(labelWithString: "")
     private let scrollView = NSScrollView()
     private let tableView = FileTableView()
 
+    private var isPaneActive = false
+
     var onStatusChanged: ((String, Int) -> Void)?
+    var onTabPressed: (() -> Bool)?
+    var onDidRequestActivate: (() -> Void)?
 
     init(viewModel: FilePaneViewModel) {
         self.viewModel = viewModel
@@ -45,18 +51,20 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        configureContainerAppearance()
         configureTableView()
         configureLayout()
         bindViewModel()
-    }
-
-    override func viewDidAppear() {
-        super.viewDidAppear()
-        view.window?.makeFirstResponder(tableView)
+        setActive(false)
     }
 
     func focusTable() {
         view.window?.makeFirstResponder(tableView)
+    }
+
+    func setActive(_ active: Bool) {
+        isPaneActive = active
+        updateActiveAppearance()
     }
 
     func numberOfRows(in tableView: NSTableView) -> Int {
@@ -88,6 +96,20 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             return
         }
         viewModel.setCursor(index: selectedRow)
+    }
+
+    private func configureContainerAppearance() {
+        view.wantsLayer = true
+        view.layer?.cornerRadius = 6
+        view.layer?.borderWidth = 2
+        view.layer?.masksToBounds = true
+
+        headerView.translatesAutoresizingMaskIntoConstraints = false
+        headerView.wantsLayer = true
+
+        pathLabel.translatesAutoresizingMaskIntoConstraints = false
+        pathLabel.lineBreakMode = .byTruncatingMiddle
+        pathLabel.font = .monospacedSystemFont(ofSize: 12, weight: .semibold)
     }
 
     private func configureTableView() {
@@ -125,15 +147,33 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         tableView.keyDownHandler = { [weak self] event in
             self?.handleKeyEvent(event) ?? false
         }
+        tableView.tabKeyHandler = { [weak self] in
+            self?.handleTabPressed() ?? false
+        }
+        tableView.didBecomeFirstResponderHandler = { [weak self] in
+            self?.onDidRequestActivate?()
+        }
     }
 
     private func configureLayout() {
+        view.addSubview(headerView)
         view.addSubview(scrollView)
 
+        headerView.addSubview(pathLabel)
+
         NSLayoutConstraint.activate([
+            headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            headerView.topAnchor.constraint(equalTo: view.topAnchor),
+            headerView.heightAnchor.constraint(equalToConstant: 28),
+
+            pathLabel.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 10),
+            pathLabel.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -10),
+            pathLabel.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
+
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
+            scrollView.topAnchor.constraint(equalTo: headerView.bottomAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
@@ -171,7 +211,19 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private func publishStatus() {
-        onStatusChanged?(viewModel.paneState.currentDirectory.path, viewModel.directoryContents.displayedItems.count)
+        let path = viewModel.paneState.currentDirectory.path
+        pathLabel.stringValue = path
+        onStatusChanged?(path, viewModel.directoryContents.displayedItems.count)
+    }
+
+    private func updateActiveAppearance() {
+        let borderColor = isPaneActive ? NSColor.controlAccentColor : NSColor.separatorColor
+        let headerColor = isPaneActive ? NSColor.controlAccentColor.withAlphaComponent(0.16) : NSColor.quaternaryLabelColor.withAlphaComponent(0.1)
+
+        view.layer?.borderColor = borderColor.cgColor
+        headerView.layer?.backgroundColor = headerColor.cgColor
+        pathLabel.textColor = isPaneActive ? .labelColor : .secondaryLabelColor
+        scrollView.alphaValue = isPaneActive ? 1.0 : 0.86
     }
 
     private func makeNameCell(for item: FileItem) -> NSTableCellView {
@@ -255,6 +307,10 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             return ""
         }
         return Self.dateFormatter.string(from: date)
+    }
+
+    private func handleTabPressed() -> Bool {
+        onTabPressed?() ?? false
     }
 
     private func handleKeyEvent(_ event: NSEvent) -> Bool {

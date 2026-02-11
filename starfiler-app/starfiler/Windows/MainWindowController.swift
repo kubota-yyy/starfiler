@@ -1,8 +1,8 @@
 import AppKit
 
 final class MainWindowController: NSWindowController {
-    private let filePaneViewModel: FilePaneViewModel
-    private lazy var filePaneViewController = FilePaneViewController(viewModel: filePaneViewModel)
+    private let mainViewModel: MainViewModel
+    private lazy var mainSplitViewController = MainSplitViewController(viewModel: mainViewModel)
     private let statusBarView = StatusBarView()
 
     init(
@@ -10,10 +10,11 @@ final class MainWindowController: NSWindowController {
         securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared,
         initialDirectory: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
     ) {
-        self.filePaneViewModel = FilePaneViewModel(
+        self.mainViewModel = MainViewModel(
             fileSystemService: fileSystemService,
             securityScopedBookmarkService: securityScopedBookmarkService,
-            initialDirectory: initialDirectory
+            initialLeftDirectory: initialDirectory,
+            initialRightDirectory: initialDirectory
         )
 
         let window = NSWindow(
@@ -33,7 +34,7 @@ final class MainWindowController: NSWindowController {
 
     override func showWindow(_ sender: Any?) {
         super.showWindow(sender)
-        filePaneViewController.focusTable()
+        mainSplitViewController.focusActivePane()
     }
 
     private func configureWindow() {
@@ -50,30 +51,30 @@ final class MainWindowController: NSWindowController {
         containerView.translatesAutoresizingMaskIntoConstraints = false
         containerViewController.view = containerView
 
-        containerViewController.addChild(filePaneViewController)
-        let paneView = filePaneViewController.view
-        paneView.translatesAutoresizingMaskIntoConstraints = false
+        containerViewController.addChild(mainSplitViewController)
+        let splitView = mainSplitViewController.view
+        splitView.translatesAutoresizingMaskIntoConstraints = false
 
-        containerView.addSubview(paneView)
+        containerView.addSubview(splitView)
         containerView.addSubview(statusBarView)
 
         NSLayoutConstraint.activate([
-            paneView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
-            paneView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
-            paneView.topAnchor.constraint(equalTo: containerView.topAnchor),
-            paneView.bottomAnchor.constraint(equalTo: statusBarView.topAnchor),
+            splitView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            splitView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            splitView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            splitView.bottomAnchor.constraint(equalTo: statusBarView.topAnchor),
 
             statusBarView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
             statusBarView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
             statusBarView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
         ])
 
-        filePaneViewController.onStatusChanged = { [weak self] path, itemCount in
+        mainSplitViewController.onStatusChanged = { [weak self] path, itemCount in
             self?.statusBarView.update(path: path, itemCount: itemCount)
         }
         statusBarView.update(
-            path: filePaneViewModel.paneState.currentDirectory.path,
-            itemCount: filePaneViewModel.directoryContents.displayedItems.count
+            path: mainViewModel.activePane.paneState.currentDirectory.path,
+            itemCount: mainViewModel.activePane.directoryContents.displayedItems.count
         )
 
         window.contentViewController = containerViewController

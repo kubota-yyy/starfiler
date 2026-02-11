@@ -1,5 +1,10 @@
 import Foundation
 
+enum PaneSide: Sendable {
+    case left
+    case right
+}
+
 struct PaneState: Hashable, Sendable {
     var currentDirectory: URL
     var cursorIndex: Int

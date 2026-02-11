@@ -2,6 +2,8 @@ import AppKit
 
 final class FileTableView: NSTableView {
     var keyDownHandler: ((NSEvent) -> Bool)?
+    var tabKeyHandler: (() -> Bool)?
+    var didBecomeFirstResponderHandler: (() -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -19,11 +21,23 @@ final class FileTableView: NSTableView {
             return
         }
 
+        if event.keyCode == 48, tabKeyHandler?() == true {
+            return
+        }
+
         if keyDownHandler?(event) == true {
             return
         }
 
         super.keyDown(with: event)
+    }
+
+    override func becomeFirstResponder() -> Bool {
+        let didBecome = super.becomeFirstResponder()
+        if didBecome {
+            didBecomeFirstResponderHandler?()
+        }
+        return didBecome
     }
 
     private func configureTableBehavior() {

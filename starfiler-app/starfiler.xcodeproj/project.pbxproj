@@ -20,6 +20,8 @@
 		CC000000000000000000000B /* NavigationHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000000B /* NavigationHistory.swift */; };
 		CC000000000000000000000C /* URL+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000000C /* URL+Extensions.swift */; };
 		CC000000000000000000000D /* SecurityScopedBookmarkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* SecurityScopedBookmarkService.swift */; };
+		CC000000000000000000000E /* MainViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000011 /* MainViewModel.swift */; };
+		CC000000000000000000000F /* MainSplitViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000012 /* MainSplitViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -39,6 +41,8 @@
 		BB000000000000000000000E /* starfiler.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = starfiler.entitlements; sourceTree = "<group>"; };
 		BB000000000000000000000F /* starfiler.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; path = starfiler.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB0000000000000000000010 /* SecurityScopedBookmarkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityScopedBookmarkService.swift; sourceTree = "<group>"; };
+		BB0000000000000000000011 /* MainViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewModel.swift; sourceTree = "<group>"; };
+		BB0000000000000000000012 /* MainSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainSplitViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -103,10 +107,19 @@
 		AA0000000000000000000006 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				AA000000000000000000000D /* SplitView */,
 				AA0000000000000000000007 /* Pane */,
 				AA0000000000000000000008 /* StatusBar */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		AA000000000000000000000D /* SplitView */ = {
+			isa = PBXGroup;
+			children = (
+				BB0000000000000000000012 /* MainSplitViewController.swift */,
+			);
+			path = SplitView;
 			sourceTree = "<group>";
 		};
 		AA0000000000000000000007 /* Pane */ = {
@@ -130,6 +143,7 @@
 			isa = PBXGroup;
 			children = (
 				BB0000000000000000000006 /* FilePaneViewModel.swift */,
+				BB0000000000000000000011 /* MainViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -243,6 +257,8 @@
 				CC000000000000000000000B /* NavigationHistory.swift in Sources */,
 				CC000000000000000000000C /* URL+Extensions.swift in Sources */,
 				CC000000000000000000000D /* SecurityScopedBookmarkService.swift in Sources */,
+				CC000000000000000000000E /* MainViewModel.swift in Sources */,
+				CC000000000000000000000F /* MainSplitViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
