@@ -46,6 +46,7 @@
 		CC0000000000000000000025 /* FileDropTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000028 /* FileDropTarget.swift */; };
 		CC0000000000000000000026 /* SpotlightSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000029 /* SpotlightSearchService.swift */; };
 		CC0000000000000000000027 /* QuickLookUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BB000000000000000000002A /* QuickLookUI.framework */; };
+		CC0000000000000000000028 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000002B /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -63,7 +64,7 @@
 		BB000000000000000000000C /* URL+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URL+Extensions.swift"; sourceTree = "<group>"; };
 		BB000000000000000000000D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		BB000000000000000000000E /* starfiler.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = starfiler.entitlements; sourceTree = "<group>"; };
-		BB000000000000000000000F /* starfiler.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; path = starfiler.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BB000000000000000000000F /* Starfiler.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; path = Starfiler.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB0000000000000000000010 /* SecurityScopedBookmarkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityScopedBookmarkService.swift; sourceTree = "<group>"; };
 		BB0000000000000000000011 /* MainViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewModel.swift; sourceTree = "<group>"; };
 		BB0000000000000000000012 /* MainSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainSplitViewController.swift; sourceTree = "<group>"; };
@@ -91,6 +92,7 @@
 		BB0000000000000000000028 /* FileDropTarget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileDropTarget.swift; sourceTree = "<group>"; };
 		BB0000000000000000000029 /* SpotlightSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightSearchService.swift; sourceTree = "<group>"; };
 		BB000000000000000000002A /* QuickLookUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuickLookUI.framework; path = System/Library/Frameworks/QuickLookUI.framework; sourceTree = SDKROOT; };
+		BB000000000000000000002B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -127,6 +129,7 @@
 				AA0000000000000000000020 /* Keyboard */,
 				AA000000000000000000000C /* Extensions */,
 				AA0000000000000000000022 /* Resources */,
+				BB000000000000000000002B /* Assets.xcassets */,
 				BB000000000000000000002A /* QuickLookUI.framework */,
 				BB000000000000000000000E /* starfiler.entitlements */,
 			);
@@ -136,7 +139,7 @@
 		AA0000000000000000000003 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				BB000000000000000000000F /* starfiler.app */,
+				BB000000000000000000000F /* Starfiler.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -321,8 +324,8 @@
 			dependencies = (
 			);
 			name = starfiler;
-			productName = starfiler;
-			productReference = BB000000000000000000000F /* starfiler.app */;
+			productName = Starfiler;
+			productReference = BB000000000000000000000F /* Starfiler.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -364,6 +367,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CC0000000000000000000017 /* DefaultKeybindings.json in Resources */,
+				CC0000000000000000000028 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -515,6 +519,7 @@
 		AA0000000000000000000018 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = starfiler/starfiler.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -528,7 +533,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nilone.starfiler;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = Starfiler;
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -538,6 +543,7 @@
 		AA0000000000000000000019 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = starfiler/starfiler.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -551,7 +557,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nilone.starfiler;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = Starfiler;
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
