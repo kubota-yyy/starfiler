@@ -18,7 +18,7 @@ final class BookmarkSearchPanelController: NSObject, NSTableViewDataSource, NSTa
 
     func showRelativeTo(window: NSWindow) {
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 500, height: 340),
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 400),
             styleMask: [.titled, .closable, .nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -98,8 +98,8 @@ final class BookmarkSearchPanelController: NSObject, NSTableViewDataSource, NSTa
         tableView.delegate = self
         tableView.dataSource = self
         tableView.headerView = nil
-        tableView.rowHeight = 28
-        tableView.intercellSpacing = NSSize(width: 0, height: 0)
+        tableView.rowHeight = 44
+        tableView.intercellSpacing = NSSize(width: 0, height: 1)
         tableView.selectionHighlightStyle = .regular
         tableView.allowsTypeSelect = false
         tableView.usesAutomaticRowHeights = false
@@ -217,9 +217,9 @@ final class BookmarkSearchPanelController: NSObject, NSTableViewDataSource, NSTa
         groupLabel.translatesAutoresizingMaskIntoConstraints = false
         groupLabel.font = .systemFont(ofSize: 10, weight: .medium)
         groupLabel.textColor = .secondaryLabelColor
+        groupLabel.alignment = .right
+        groupLabel.lineBreakMode = .byTruncatingTail
         groupLabel.tag = 1
-        groupLabel.setContentHuggingPriority(.defaultHigh, for: .horizontal)
-        groupLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         let nameLabel = NSTextField(labelWithString: result.displayName)
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -252,19 +252,18 @@ final class BookmarkSearchPanelController: NSObject, NSTableViewDataSource, NSTa
         NSLayoutConstraint.activate([
             groupLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 8),
             groupLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            groupLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 70),
+            groupLabel.widthAnchor.constraint(equalToConstant: 52),
 
             nameLabel.leadingAnchor.constraint(equalTo: groupLabel.trailingAnchor, constant: 8),
-            nameLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 3),
+            nameLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 6),
+            nameLabel.trailingAnchor.constraint(equalTo: hintLabel.leadingAnchor, constant: -4),
 
             pathLabel.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
-            pathLabel.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -2),
+            pathLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 2),
             pathLabel.trailingAnchor.constraint(equalTo: hintLabel.leadingAnchor, constant: -4),
 
             hintLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -8),
             hintLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-
-            nameLabel.trailingAnchor.constraint(equalTo: hintLabel.leadingAnchor, constant: -4),
         ])
 
         return container
