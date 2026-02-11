@@ -1,0 +1,44 @@
+{
+  "bindings": {
+    "normal": {
+      "j": "cursorDown",
+      "k": "cursorUp",
+      "h": "cursorLeft",
+      "l": "cursorRight",
+      "g g": "goToTop",
+      "G": "goToBottom",
+      "Ctrl-u": "pageUp",
+      "Ctrl-d": "pageDown",
+      "Return": "enterDirectory",
+      "Backspace": "goToParent",
+      "H": "goBack",
+      "L": "goForward",
+      "Space": "toggleMark",
+      "v": "enterVisualMode",
+      "y": "copy",
+      "p": "paste",
+      "d d": "delete",
+      "c w": "rename",
+      "/": "enterFilterMode",
+      "Tab": "switchPane",
+      "Ctrl-p": "togglePreview",
+      ".": "toggleHiddenFiles",
+      "u": "undo",
+      "b": "openBookmarks",
+      "B": "addBookmark",
+      "r": "refresh",
+      "q": "quit"
+    },
+    "visual": {
+      "j": "cursorDown",
+      "k": "cursorUp",
+      "Escape": "exitVisualMode",
+      "y": "copy",
+      "d": "delete"
+    },
+    "filter": {
+      "Escape": "clearFilter",
+      "Return": "clearFilter"
+    }
+  }
+}

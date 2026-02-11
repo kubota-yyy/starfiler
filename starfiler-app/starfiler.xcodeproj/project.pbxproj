@@ -22,6 +22,14 @@
 		CC000000000000000000000D /* SecurityScopedBookmarkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* SecurityScopedBookmarkService.swift */; };
 		CC000000000000000000000E /* MainViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000011 /* MainViewModel.swift */; };
 		CC000000000000000000000F /* MainSplitViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000012 /* MainSplitViewController.swift */; };
+		CC0000000000000000000010 /* KeyEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000013 /* KeyEvent.swift */; };
+		CC0000000000000000000011 /* KeyAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000014 /* KeyAction.swift */; };
+		CC0000000000000000000012 /* KeyInterpreter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000015 /* KeyInterpreter.swift */; };
+		CC0000000000000000000013 /* KeybindingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000016 /* KeybindingManager.swift */; };
+		CC0000000000000000000014 /* VimModeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000017 /* VimModeState.swift */; };
+		CC0000000000000000000015 /* KeybindingsConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000018 /* KeybindingsConfig.swift */; };
+		CC0000000000000000000016 /* NSEvent+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000019 /* NSEvent+Extensions.swift */; };
+		CC0000000000000000000017 /* DefaultKeybindings.json in Resources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000001A /* DefaultKeybindings.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -43,6 +51,14 @@
 		BB0000000000000000000010 /* SecurityScopedBookmarkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityScopedBookmarkService.swift; sourceTree = "<group>"; };
 		BB0000000000000000000011 /* MainViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewModel.swift; sourceTree = "<group>"; };
 		BB0000000000000000000012 /* MainSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainSplitViewController.swift; sourceTree = "<group>"; };
+		BB0000000000000000000013 /* KeyEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyEvent.swift; sourceTree = "<group>"; };
+		BB0000000000000000000014 /* KeyAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyAction.swift; sourceTree = "<group>"; };
+		BB0000000000000000000015 /* KeyInterpreter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyInterpreter.swift; sourceTree = "<group>"; };
+		BB0000000000000000000016 /* KeybindingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeybindingManager.swift; sourceTree = "<group>"; };
+		BB0000000000000000000017 /* VimModeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VimModeState.swift; sourceTree = "<group>"; };
+		BB0000000000000000000018 /* KeybindingsConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeybindingsConfig.swift; sourceTree = "<group>"; };
+		BB0000000000000000000019 /* NSEvent+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSEvent+Extensions.swift"; sourceTree = "<group>"; };
+		BB000000000000000000001A /* DefaultKeybindings.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = DefaultKeybindings.json; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -73,7 +89,10 @@
 				AA0000000000000000000009 /* ViewModels */,
 				AA000000000000000000000A /* Services */,
 				AA000000000000000000000B /* Models */,
+				AA0000000000000000000021 /* Config */,
+				AA0000000000000000000020 /* Keyboard */,
 				AA000000000000000000000C /* Extensions */,
+				AA0000000000000000000022 /* Resources */,
 				BB000000000000000000000E /* starfiler.entitlements */,
 			);
 			path = starfiler;
@@ -172,8 +191,37 @@
 			isa = PBXGroup;
 			children = (
 				BB000000000000000000000C /* URL+Extensions.swift */,
+				BB0000000000000000000019 /* NSEvent+Extensions.swift */,
 			);
 			path = Extensions;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000020 /* Keyboard */ = {
+			isa = PBXGroup;
+			children = (
+				BB0000000000000000000013 /* KeyEvent.swift */,
+				BB0000000000000000000014 /* KeyAction.swift */,
+				BB0000000000000000000015 /* KeyInterpreter.swift */,
+				BB0000000000000000000016 /* KeybindingManager.swift */,
+				BB0000000000000000000017 /* VimModeState.swift */,
+			);
+			path = Keyboard;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000021 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				BB0000000000000000000018 /* KeybindingsConfig.swift */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000022 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				BB000000000000000000001A /* DefaultKeybindings.json */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -234,6 +282,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CC0000000000000000000017 /* DefaultKeybindings.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -259,6 +308,13 @@
 				CC000000000000000000000D /* SecurityScopedBookmarkService.swift in Sources */,
 				CC000000000000000000000E /* MainViewModel.swift in Sources */,
 				CC000000000000000000000F /* MainSplitViewController.swift in Sources */,
+				CC0000000000000000000010 /* KeyEvent.swift in Sources */,
+				CC0000000000000000000011 /* KeyAction.swift in Sources */,
+				CC0000000000000000000012 /* KeyInterpreter.swift in Sources */,
+				CC0000000000000000000013 /* KeybindingManager.swift in Sources */,
+				CC0000000000000000000014 /* VimModeState.swift in Sources */,
+				CC0000000000000000000015 /* KeybindingsConfig.swift in Sources */,
+				CC0000000000000000000016 /* NSEvent+Extensions.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

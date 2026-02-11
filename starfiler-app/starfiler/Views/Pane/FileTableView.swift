@@ -1,9 +1,14 @@
 import AppKit
 
+protocol KeyActionDelegate: AnyObject {
+    func fileTableView(_ tableView: FileTableView, didTrigger action: KeyAction) -> Bool
+}
+
 final class FileTableView: NSTableView {
-    var keyDownHandler: ((NSEvent) -> Bool)?
-    var tabKeyHandler: (() -> Bool)?
+    weak var keyActionDelegate: (any KeyActionDelegate)?
     var didBecomeFirstResponderHandler: (() -> Void)?
+
+    private var keyInterpreter = KeyInterpreter()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -17,16 +22,25 @@ final class FileTableView: NSTableView {
 
     override func keyDown(with event: NSEvent) {
         if event.modifierFlags.contains(.command) {
+            keyInterpreter.clearPendingSequence()
             super.keyDown(with: event)
             return
         }
 
-        if event.keyCode == 48, tabKeyHandler?() == true {
+        guard let keyEvent = event.keyEvent else {
+            super.keyDown(with: event)
             return
         }
 
-        if keyDownHandler?(event) == true {
+        switch keyInterpreter.interpret(keyEvent) {
+        case .action(let action):
+            if keyActionDelegate?.fileTableView(self, didTrigger: action) == true {
+                return
+            }
+        case .pending:
             return
+        case .unhandled:
+            break
         }
 
         super.keyDown(with: event)
@@ -38,6 +52,14 @@ final class FileTableView: NSTableView {
             didBecomeFirstResponderHandler?()
         }
         return didBecome
+    }
+
+    func setVimMode(_ mode: VimMode) {
+        keyInterpreter.setMode(mode)
+    }
+
+    func setSequenceTimeout(_ timeout: TimeInterval) {
+        keyInterpreter.setTimeout(timeout)
     }
 
     private func configureTableBehavior() {

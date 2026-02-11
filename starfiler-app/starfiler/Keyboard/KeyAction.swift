@@ -1,0 +1,41 @@
+import Foundation
+
+enum KeyAction: String, Codable, CaseIterable, Sendable {
+    case cursorUp
+    case cursorDown
+    case cursorLeft
+    case cursorRight
+    case pageUp
+    case pageDown
+    case goToTop
+    case goToBottom
+    case goBack
+    case goForward
+    case goToParent
+    case enterDirectory
+    case switchPane
+    case toggleMark
+    case markAll
+    case clearMarks
+    case enterVisualMode
+    case exitVisualMode
+    case copy
+    case paste
+    case move
+    case delete
+    case rename
+    case createDirectory
+    case enterFilterMode
+    case clearFilter
+    case togglePreview
+    case toggleHiddenFiles
+    case sortByName
+    case sortBySize
+    case sortByDate
+    case reverseSortOrder
+    case refresh
+    case openBookmarks
+    case addBookmark
+    case undo
+    case quit
+}
