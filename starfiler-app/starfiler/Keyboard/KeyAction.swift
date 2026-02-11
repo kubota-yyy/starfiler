@@ -38,5 +38,7 @@ enum KeyAction: String, Codable, CaseIterable, Sendable {
     case openBookmarks
     case addBookmark
     case undo
+    case openFile
+    case openFileInFinder
     case quit
 }

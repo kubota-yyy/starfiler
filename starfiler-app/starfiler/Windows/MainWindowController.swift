@@ -60,6 +60,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         persistAppConfig()
     }
 
+    func performAction(_ block: (MainViewModel) -> Void) {
+        block(mainViewModel)
+    }
+
     private func configureWindow() {
         guard let window else {
             return
@@ -67,8 +71,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
         window.title = "starfiler"
         window.minSize = NSSize(width: 800, height: 600)
-        window.center()
+        window.setFrameAutosaveName("MainWindow")
         window.delegate = self
+
+        if !window.setFrameUsingName("MainWindow") {
+            window.center()
+        }
 
         let containerViewController = NSViewController()
         let containerView = NSView()

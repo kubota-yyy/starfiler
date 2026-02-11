@@ -1,7 +1,7 @@
 import Foundation
 
 protocol SpotlightSearching: AnyObject {
-    func search(query: String, scope: URL?) -> AsyncStream<[FileItem]>
+    @MainActor func search(query: String, scope: URL?) -> AsyncStream<[FileItem]>
     func cancel()
 }
 

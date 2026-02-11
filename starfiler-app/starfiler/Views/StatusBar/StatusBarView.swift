@@ -19,6 +19,12 @@ final class StatusBarView: NSView {
         countLabel.stringValue = "\(itemCount) items | \(markedCount) marked"
     }
 
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
+        layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+    }
+
     private func setupView() {
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true

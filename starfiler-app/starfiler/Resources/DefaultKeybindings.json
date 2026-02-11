@@ -28,6 +28,8 @@
       "b": "openBookmarks",
       "B": "addBookmark",
       "r": "refresh",
+      "o": "openFile",
+      "O": "openFileInFinder",
       "q": "quit"
     },
     "visual": {

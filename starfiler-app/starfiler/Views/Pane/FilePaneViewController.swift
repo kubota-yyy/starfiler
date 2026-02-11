@@ -1,5 +1,14 @@
 import AppKit
 
+private final class AppearanceTrackingView: NSView {
+    var onAppearanceChanged: (() -> Void)?
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        onAppearanceChanged?()
+    }
+}
+
 private final class MarkedRowView: NSTableRowView {
     var isMarkedRow = false
     var isVisualMode = false
@@ -76,7 +85,11 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     override func loadView() {
-        view = NSView()
+        let containerView = AppearanceTrackingView()
+        containerView.onAppearanceChanged = { [weak self] in
+            self?.updateActiveAppearance()
+        }
+        view = containerView
     }
 
     override func viewDidLoad() {
@@ -327,6 +340,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             }
 
             self.tableView.reloadData()
+            self.syncSelectionFromViewModel()
             self.publishStatus()
         }
 
@@ -558,6 +572,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             tableView.setVimMode(vimModeState.mode)
             viewModel.exitVisualMode()
             handled = true
+        case .openFile:
+            openSelectedFile()
+            handled = true
+        case .openFileInFinder:
+            revealSelectedInFinder()
+            handled = true
         case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo, .togglePreview, .openBookmarks, .addBookmark:
             handled = onFileOperationRequested?(action) ?? false
         case .enterFilterMode:
@@ -601,6 +621,25 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         return handled
+    }
+
+    private func openSelectedFile() {
+        guard let item = viewModel.selectedItem else {
+            return
+        }
+
+        if item.isDirectory && !item.isPackage {
+            viewModel.enterSelected()
+        } else {
+            NSWorkspace.shared.open(item.url)
+        }
+    }
+
+    private func revealSelectedInFinder() {
+        guard let item = viewModel.selectedItem else {
+            return
+        }
+        NSWorkspace.shared.activateFileViewerSelecting([item.url])
     }
 
     private func presentDropError(_ message: String) {

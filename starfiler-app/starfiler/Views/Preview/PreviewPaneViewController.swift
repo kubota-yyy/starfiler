@@ -27,6 +27,11 @@ final class PreviewPaneViewController: NSViewController {
         applyPreviewURL(viewModel.currentURL)
     }
 
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        view.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.6).cgColor
+    }
+
     private func configureView() {
         view.wantsLayer = true
         view.layer?.borderWidth = 1
