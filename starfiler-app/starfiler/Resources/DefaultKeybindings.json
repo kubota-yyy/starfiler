@@ -22,6 +22,7 @@
       "/": "enterFilterMode",
       "Tab": "switchPane",
       "Ctrl-p": "togglePreview",
+      "Ctrl-f": "enterSpotlightSearch",
       ".": "toggleHiddenFiles",
       "u": "undo",
       "b": "openBookmarks",

@@ -49,11 +49,19 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private let scrollView = NSScrollView()
     private let tableView = FileTableView()
     private let filterBarViewController = FilterBarViewController()
+    private let spotlightBarViewController = FilterBarViewController(prompt: "?", placeholder: "Search with Spotlight...")
+    private let fileDragSource = FileDragSource()
+
+    private lazy var fileDropTarget = FileDropTarget { [weak self] in
+        self?.viewModel.paneState.currentDirectory ?? URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+    }
 
     private var isPaneActive = false
+    private var isDropTargetHighlighted = false
     private var vimModeState = VimModeState()
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
+    var onSelectionChanged: ((FileItem?) -> Void)?
     var onTabPressed: (() -> Bool)?
     var onDidRequestActivate: (() -> Void)?
     var onFileOperationRequested: ((KeyAction) -> Bool)?
@@ -77,6 +85,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         configureTableView()
         configureLayout()
         configureFilterBar()
+        configureSpotlightBar()
+        configureDragAndDrop()
         bindViewModel()
         setActive(false)
     }
@@ -224,7 +234,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             self?.viewModel.setFilterText(text)
         }
 
-        filterBarViewController.onDidClose = { [weak self] in
+        filterBarViewController.onDidClose = { [weak self] _ in
             guard let self else {
                 return
             }
@@ -232,6 +242,65 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             self.vimModeState.enterNormalMode()
             self.tableView.setVimMode(self.vimModeState.mode)
             self.focusTable()
+        }
+    }
+
+    private func configureSpotlightBar() {
+        addChild(spotlightBarViewController)
+
+        let spotlightView = spotlightBarViewController.view
+        view.addSubview(spotlightView)
+
+        NSLayoutConstraint.activate([
+            spotlightView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
+            spotlightView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
+            spotlightView.topAnchor.constraint(equalTo: headerView.bottomAnchor, constant: 8)
+        ])
+
+        spotlightBarViewController.onTextChanged = { [weak self] text in
+            self?.viewModel.updateSpotlightSearchQuery(text)
+        }
+
+        spotlightBarViewController.onDidClose = { [weak self] reason in
+            guard let self else {
+                return
+            }
+
+            if reason == .submit {
+                self.viewModel.enterSelected()
+            }
+            self.viewModel.exitSpotlightSearchMode()
+
+            self.vimModeState.enterNormalMode()
+            self.tableView.setVimMode(self.vimModeState.mode)
+            self.focusTable()
+        }
+    }
+
+    private func configureDragAndDrop() {
+        tableView.registerForDraggedTypes([.fileURL])
+        tableView.setDraggingSourceOperationMask([.copy, .move], forLocal: true)
+        tableView.setDraggingSourceOperationMask([.copy], forLocal: false)
+        tableView.dragSourceHandler = fileDragSource
+        tableView.dragURLsProvider = { [weak self] in
+            self?.viewModel.markedOrSelectedURLs() ?? []
+        }
+        tableView.dropTargetHandler = fileDropTarget
+
+        fileDropTarget.onHighlightChanged = { [weak self] highlighted in
+            guard let self else {
+                return
+            }
+            self.isDropTargetHighlighted = highlighted
+            self.updateActiveAppearance()
+        }
+
+        fileDropTarget.onDropCompleted = { [weak self] in
+            self?.viewModel.refreshCurrentDirectory()
+        }
+
+        fileDropTarget.onDropFailed = { [weak self] message in
+            self?.presentDropError(message)
         }
     }
 
@@ -244,10 +313,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             self.tableView.reloadData()
             self.syncSelectionFromViewModel()
             self.publishStatus()
+            self.publishSelection()
         }
 
         viewModel.onCursorChanged = { [weak self] _ in
             self?.syncSelectionFromViewModel()
+            self?.publishSelection()
         }
 
         viewModel.onMarkedIndicesChanged = { [weak self] _ in
@@ -260,6 +331,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         publishStatus()
+        publishSelection()
     }
 
     private func syncSelectionFromViewModel() {
@@ -282,9 +354,21 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         onStatusChanged?(path, viewModel.directoryContents.displayedItems.count, viewModel.markedCount)
     }
 
+    private func publishSelection() {
+        onSelectionChanged?(viewModel.selectedItem)
+    }
+
     private func updateActiveAppearance() {
-        let borderColor = isPaneActive ? NSColor.controlAccentColor : NSColor.separatorColor
-        let headerColor = isPaneActive ? NSColor.controlAccentColor.withAlphaComponent(0.16) : NSColor.quaternaryLabelColor.withAlphaComponent(0.1)
+        let borderColor: NSColor
+        if isDropTargetHighlighted {
+            borderColor = .systemBlue
+        } else {
+            borderColor = isPaneActive ? .controlAccentColor : .separatorColor
+        }
+
+        let headerColor = isPaneActive
+            ? NSColor.controlAccentColor.withAlphaComponent(0.16)
+            : NSColor.quaternaryLabelColor.withAlphaComponent(0.1)
 
         view.layer?.borderColor = borderColor.cgColor
         headerView.layer?.backgroundColor = headerColor.cgColor
@@ -382,6 +466,10 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private func showFilterBar() {
+        if spotlightBarViewController.isVisible {
+            spotlightBarViewController.close()
+        }
+
         vimModeState.enterFilterMode()
         tableView.setVimMode(vimModeState.mode)
         filterBarViewController.show(currentText: viewModel.directoryContents.filterText)
@@ -389,6 +477,21 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     private func closeFilterBar() {
         filterBarViewController.close()
+    }
+
+    private func showSpotlightSearchBar() {
+        if filterBarViewController.isVisible {
+            filterBarViewController.close()
+        }
+
+        viewModel.enterSpotlightSearchMode()
+        vimModeState.enterFilterMode()
+        tableView.setVimMode(vimModeState.mode)
+        spotlightBarViewController.show(currentText: "")
+    }
+
+    private func closeSpotlightSearchBar() {
+        spotlightBarViewController.close()
     }
 
     @discardableResult
@@ -455,22 +558,24 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             tableView.setVimMode(vimModeState.mode)
             viewModel.exitVisualMode()
             handled = true
-        case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo:
+        case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo, .togglePreview, .openBookmarks, .addBookmark:
             handled = onFileOperationRequested?(action) ?? false
         case .enterFilterMode:
             showFilterBar()
             handled = true
+        case .enterSpotlightSearch:
+            showSpotlightSearchBar()
+            handled = true
         case .clearFilter:
             if filterBarViewController.isVisible {
                 closeFilterBar()
+            } else if spotlightBarViewController.isVisible {
+                closeSpotlightSearchBar()
             } else {
                 viewModel.clearFilter()
                 vimModeState.enterNormalMode()
                 tableView.setVimMode(vimModeState.mode)
             }
-            handled = true
-        case .togglePreview:
-            viewModel.togglePreview()
             handled = true
         case .toggleHiddenFiles:
             viewModel.toggleHiddenFiles()
@@ -490,17 +595,20 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         case .refresh:
             viewModel.refresh()
             handled = true
-        case .openBookmarks:
-            viewModel.openBookmarks()
-            handled = true
-        case .addBookmark:
-            viewModel.addBookmark()
-            handled = true
         case .quit:
             NSApp.terminate(nil)
             handled = true
         }
 
         return handled
+    }
+
+    private func presentDropError(_ message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Drop Failed"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 }

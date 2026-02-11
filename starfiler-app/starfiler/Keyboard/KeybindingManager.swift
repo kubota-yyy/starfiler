@@ -43,10 +43,15 @@ struct KeybindingManager: Sendable {
         ) else {
             return nil
         }
-
-        return applicationSupportURL
+        let configDirectory = applicationSupportURL
             .appendingPathComponent(bundleIdentifier, isDirectory: true)
-            .appendingPathComponent("Keybindings.json", isDirectory: false)
+            .appendingPathComponent("Config", isDirectory: true)
+
+        if !fileManager.fileExists(atPath: configDirectory.path) {
+            try? fileManager.createDirectory(at: configDirectory, withIntermediateDirectories: true)
+        }
+
+        return configDirectory.appendingPathComponent("Keybindings.json", isDirectory: false)
     }
 
     private static func loadConfig(from url: URL?, fileManager: FileManager) -> KeybindingsConfig? {

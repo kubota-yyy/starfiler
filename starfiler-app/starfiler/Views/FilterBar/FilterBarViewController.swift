@@ -1,13 +1,30 @@
 import AppKit
 
 final class FilterBarViewController: NSViewController, NSTextFieldDelegate {
+    enum CloseReason {
+        case cancel
+        case submit
+        case programmatic
+    }
+
     var onTextChanged: ((String) -> Void)?
-    var onDidClose: (() -> Void)?
+    var onDidClose: ((CloseReason) -> Void)?
 
     private let backgroundView = NSVisualEffectView()
-    private let promptLabel = NSTextField(labelWithString: "/")
+    private let promptLabel: NSTextField
     private let textField = NSTextField()
     private(set) var isVisible = false
+    private let placeholder: String
+
+    init(prompt: String = "/", placeholder: String = "Filter files...") {
+        self.placeholder = placeholder
+        self.promptLabel = NSTextField(labelWithString: prompt)
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     override func loadView() {
         view = NSView()
@@ -35,14 +52,14 @@ final class FilterBarViewController: NSViewController, NSTextFieldDelegate {
         focusInput()
     }
 
-    func close() {
+    func close(reason: CloseReason = .programmatic) {
         guard isVisible else {
             return
         }
 
         isVisible = false
         view.isHidden = true
-        onDidClose?()
+        onDidClose?(reason)
     }
 
     private func configureView() {
@@ -62,7 +79,7 @@ final class FilterBarViewController: NSViewController, NSTextFieldDelegate {
 
         textField.translatesAutoresizingMaskIntoConstraints = false
         textField.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
-        textField.placeholderString = "Filter files..."
+        textField.placeholderString = placeholder
         textField.isBordered = false
         textField.isBezeled = false
         textField.focusRingType = .none
@@ -108,7 +125,10 @@ final class FilterBarViewController: NSViewController, NSTextFieldDelegate {
         if commandSelector == #selector(NSResponder.cancelOperation(_:)) ||
             commandSelector == #selector(NSResponder.insertNewline(_:))
         {
-            close()
+            let reason: CloseReason = commandSelector == #selector(NSResponder.insertNewline(_:))
+                ? .submit
+                : .cancel
+            close(reason: reason)
             return true
         }
 

@@ -1,8 +1,9 @@
 import AppKit
 
-final class MainWindowController: NSWindowController {
+final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let mainViewModel: MainViewModel
-    private lazy var mainSplitViewController = MainSplitViewController(viewModel: mainViewModel)
+    private let configManager: ConfigManager
+    private lazy var mainSplitViewController = MainSplitViewController(viewModel: mainViewModel, configManager: configManager)
     private let statusBarView = StatusBarView()
     private let appUndoManager = UndoManager()
 
@@ -11,12 +12,28 @@ final class MainWindowController: NSWindowController {
         securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared,
         initialDirectory: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
     ) {
+        let configManager = ConfigManager()
+        self.configManager = configManager
+
+        let appConfig = configManager.loadAppConfig()
+        let fallbackDirectory = initialDirectory.standardizedFileURL
+        let leftDirectory = Self.resolveDirectory(path: appConfig.lastLeftPanePath, fallback: fallbackDirectory)
+        let rightDirectory = Self.resolveDirectory(path: appConfig.lastRightPanePath, fallback: leftDirectory)
+
         self.mainViewModel = MainViewModel(
             fileSystemService: fileSystemService,
             securityScopedBookmarkService: securityScopedBookmarkService,
-            initialLeftDirectory: initialDirectory,
-            initialRightDirectory: initialDirectory
+            initialShowHiddenFiles: appConfig.showHiddenFiles,
+            initialSortColumn: appConfig.defaultSortColumn,
+            initialSortAscending: appConfig.defaultSortAscending,
+            initialPreviewVisible: appConfig.previewPaneVisible,
+            initialLeftDirectory: leftDirectory,
+            initialRightDirectory: rightDirectory
         )
+
+        if appConfig.lastActivePane == "right" {
+            self.mainViewModel.setActivePane(.right)
+        }
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1100, height: 720),
@@ -39,6 +56,10 @@ final class MainWindowController: NSWindowController {
         mainSplitViewController.focusActivePane()
     }
 
+    func windowWillClose(_ notification: Notification) {
+        persistAppConfig()
+    }
+
     private func configureWindow() {
         guard let window else {
             return
@@ -47,6 +68,7 @@ final class MainWindowController: NSWindowController {
         window.title = "starfiler"
         window.minSize = NSSize(width: 800, height: 600)
         window.center()
+        window.delegate = self
 
         let containerViewController = NSViewController()
         let containerView = NSView()
@@ -81,5 +103,42 @@ final class MainWindowController: NSWindowController {
         )
 
         window.contentViewController = containerViewController
+    }
+
+    private func persistAppConfig() {
+        let activeSortDescriptor = mainViewModel.activePane.directoryContents.sortDescriptor
+        let appConfig = AppConfig(
+            showHiddenFiles: mainViewModel.activePane.directoryContents.showHiddenFiles,
+            defaultSortColumn: Self.sortColumn(from: activeSortDescriptor.column),
+            defaultSortAscending: activeSortDescriptor.ascending,
+            previewPaneVisible: mainViewModel.previewVisible,
+            lastLeftPanePath: mainViewModel.leftPane.paneState.currentDirectory.path,
+            lastRightPanePath: mainViewModel.rightPane.paneState.currentDirectory.path,
+            lastActivePane: mainViewModel.activePaneSide == .left ? "left" : "right"
+        )
+
+        try? configManager.saveAppConfig(appConfig)
+    }
+
+    private static func resolveDirectory(path: String, fallback: URL) -> URL {
+        let resolvedURL = URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
+
+        var isDirectory: ObjCBool = false
+        if FileManager.default.fileExists(atPath: resolvedURL.path, isDirectory: &isDirectory), isDirectory.boolValue {
+            return resolvedURL
+        }
+
+        return fallback
+    }
+
+    private static func sortColumn(from column: DirectoryContents.SortDescriptor.Column) -> AppConfig.SortColumn {
+        switch column {
+        case .name:
+            return .name
+        case .size:
+            return .size
+        case .date:
+            return .date
+        }
     }
 }

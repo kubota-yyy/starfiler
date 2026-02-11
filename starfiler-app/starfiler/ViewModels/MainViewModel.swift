@@ -17,11 +17,13 @@ struct TextInputPrompt {
 final class MainViewModel {
     let leftPane: FilePaneViewModel
     let rightPane: FilePaneViewModel
+    let previewPane: PreviewViewModel
     let securityScopedBookmarkService: any SecurityScopedBookmarkProviding
 
     private let fileOperationQueue: FileOperationQueue
 
     private(set) var activePaneSide: PaneSide
+    var previewVisible: Bool
     var clipboard: [URL]
     var clipboardOperation: ClipboardOperation?
     var undoManager: UndoManager?
@@ -32,6 +34,10 @@ final class MainViewModel {
         fileSystemService: FileSystemProviding = FileSystemService(),
         securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared,
         fileOperationQueue: FileOperationQueue = FileOperationQueue(),
+        initialShowHiddenFiles: Bool = false,
+        initialSortColumn: AppConfig.SortColumn = .name,
+        initialSortAscending: Bool = true,
+        initialPreviewVisible: Bool = true,
         initialLeftDirectory: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
         initialRightDirectory: URL? = nil
     ) {
@@ -53,12 +59,22 @@ final class MainViewModel {
             initialDirectory: normalizedRightDirectory
         )
 
+        self.previewPane = PreviewViewModel()
         self.activePaneSide = .left
+        self.previewVisible = initialPreviewVisible
         self.clipboard = []
         self.clipboardOperation = nil
         self.undoManager = nil
         self.requestTextInput = nil
         self.lastOperationError = nil
+
+        leftPane.setShowHiddenFiles(initialShowHiddenFiles)
+        rightPane.setShowHiddenFiles(initialShowHiddenFiles)
+
+        let sortDescriptor = Self.sortDescriptor(for: initialSortColumn, ascending: initialSortAscending)
+        leftPane.setSortDescriptor(sortDescriptor)
+        rightPane.setSortDescriptor(sortDescriptor)
+        refreshPreviewForActivePane()
     }
 
     var activePane: FilePaneViewModel {
@@ -71,10 +87,28 @@ final class MainViewModel {
 
     func setActivePane(_ side: PaneSide) {
         activePaneSide = side
+        refreshPreviewForActivePane()
     }
 
     func switchActivePane() {
         activePaneSide = activePaneSide == .left ? .right : .left
+        refreshPreviewForActivePane()
+    }
+
+    func togglePreviewPane() {
+        previewVisible.toggle()
+    }
+
+    func refreshPreviewForActivePane() {
+        previewPane.currentURL = activePane.selectedItem?.url
+    }
+
+    func updatePreviewSelection(for side: PaneSide, selectedItem: FileItem?) {
+        guard activePaneSide == side else {
+            return
+        }
+
+        previewPane.currentURL = selectedItem?.url
     }
 
     func copyMarked() {
@@ -294,5 +328,19 @@ final class MainViewModel {
     private func resumeDirectoryMonitoring() {
         leftPane.resumeDirectoryMonitoring()
         rightPane.resumeDirectoryMonitoring()
+    }
+
+    private static func sortDescriptor(
+        for column: AppConfig.SortColumn,
+        ascending: Bool
+    ) -> DirectoryContents.SortDescriptor {
+        switch column {
+        case .name:
+            return .name(ascending: ascending)
+        case .size:
+            return .size(ascending: ascending)
+        case .date:
+            return .date(ascending: ascending)
+        }
     }
 }

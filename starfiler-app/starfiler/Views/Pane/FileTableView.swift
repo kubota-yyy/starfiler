@@ -7,6 +7,9 @@ protocol KeyActionDelegate: AnyObject {
 final class FileTableView: NSTableView {
     weak var keyActionDelegate: (any KeyActionDelegate)?
     var didBecomeFirstResponderHandler: (() -> Void)?
+    var dragSourceHandler: FileDragSource?
+    var dropTargetHandler: FileDropTarget?
+    var dragURLsProvider: (() -> [URL])?
 
     private var keyInterpreter = KeyInterpreter()
 
@@ -44,6 +47,42 @@ final class FileTableView: NSTableView {
         }
 
         super.keyDown(with: event)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        if
+            let dragSourceHandler,
+            let dragURLsProvider,
+            dragSourceHandler.beginDragging(from: self, with: event, urls: dragURLsProvider())
+        {
+            return
+        }
+
+        super.mouseDragged(with: event)
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        dropTargetHandler?.draggingEntered(sender) ?? []
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        dropTargetHandler?.draggingUpdated(sender) ?? []
+    }
+
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        dropTargetHandler?.draggingExited(sender)
+    }
+
+    override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        dropTargetHandler?.prepareForDragOperation(sender) ?? false
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        dropTargetHandler?.performDragOperation(sender) ?? false
+    }
+
+    override func concludeDragOperation(_ sender: NSDraggingInfo?) {
+        dropTargetHandler?.concludeDragOperation(sender)
     }
 
     override func becomeFirstResponder() -> Bool {

@@ -1,0 +1,30 @@
+import Foundation
+
+struct BookmarksConfig: Codable, Sendable {
+    var groups: [BookmarkGroup]
+
+    init(groups: [BookmarkGroup] = []) {
+        self.groups = groups
+    }
+
+    static func load(from url: URL, fileManager: FileManager = .default) throws -> BookmarksConfig {
+        guard fileManager.fileExists(atPath: url.path) else {
+            return BookmarksConfig()
+        }
+
+        let data = try Data(contentsOf: url)
+        return try JSONDecoder().decode(BookmarksConfig.self, from: data)
+    }
+
+    func save(to url: URL, fileManager: FileManager = .default) throws {
+        let parentDirectory = url.deletingLastPathComponent()
+        if !fileManager.fileExists(atPath: parentDirectory.path) {
+            try fileManager.createDirectory(at: parentDirectory, withIntermediateDirectories: true)
+        }
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(self)
+        try data.write(to: url, options: [.atomic])
+    }
+}

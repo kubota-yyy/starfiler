@@ -35,6 +35,17 @@
 		CC000000000000000000001A /* FileOperationQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000001D /* FileOperationQueue.swift */; };
 		CC000000000000000000001B /* DirectoryMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000001E /* DirectoryMonitor.swift */; };
 		CC000000000000000000001C /* FilterBarViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000001F /* FilterBarViewController.swift */; };
+		CC000000000000000000001D /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000020 /* AppConfig.swift */; };
+		CC000000000000000000001E /* BookmarksConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000021 /* BookmarksConfig.swift */; };
+		CC000000000000000000001F /* ConfigManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000022 /* ConfigManager.swift */; };
+		CC0000000000000000000020 /* BookmarkGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000023 /* BookmarkGroup.swift */; };
+		CC0000000000000000000021 /* PreviewViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000024 /* PreviewViewModel.swift */; };
+		CC0000000000000000000022 /* PreviewPaneViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000025 /* PreviewPaneViewController.swift */; };
+		CC0000000000000000000023 /* BookmarkPopoverViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000026 /* BookmarkPopoverViewController.swift */; };
+		CC0000000000000000000024 /* FileDragSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000027 /* FileDragSource.swift */; };
+		CC0000000000000000000025 /* FileDropTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000028 /* FileDropTarget.swift */; };
+		CC0000000000000000000026 /* SpotlightSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000029 /* SpotlightSearchService.swift */; };
+		CC0000000000000000000027 /* QuickLookUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BB000000000000000000002A /* QuickLookUI.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -69,6 +80,17 @@
 		BB000000000000000000001D /* FileOperationQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileOperationQueue.swift; sourceTree = "<group>"; };
 		BB000000000000000000001E /* DirectoryMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectoryMonitor.swift; sourceTree = "<group>"; };
 		BB000000000000000000001F /* FilterBarViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterBarViewController.swift; sourceTree = "<group>"; };
+		BB0000000000000000000020 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+		BB0000000000000000000021 /* BookmarksConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarksConfig.swift; sourceTree = "<group>"; };
+		BB0000000000000000000022 /* ConfigManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigManager.swift; sourceTree = "<group>"; };
+		BB0000000000000000000023 /* BookmarkGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkGroup.swift; sourceTree = "<group>"; };
+		BB0000000000000000000024 /* PreviewViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewViewModel.swift; sourceTree = "<group>"; };
+		BB0000000000000000000025 /* PreviewPaneViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewPaneViewController.swift; sourceTree = "<group>"; };
+		BB0000000000000000000026 /* BookmarkPopoverViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkPopoverViewController.swift; sourceTree = "<group>"; };
+		BB0000000000000000000027 /* FileDragSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileDragSource.swift; sourceTree = "<group>"; };
+		BB0000000000000000000028 /* FileDropTarget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileDropTarget.swift; sourceTree = "<group>"; };
+		BB0000000000000000000029 /* SpotlightSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightSearchService.swift; sourceTree = "<group>"; };
+		BB000000000000000000002A /* QuickLookUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuickLookUI.framework; path = System/Library/Frameworks/QuickLookUI.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -76,6 +98,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CC0000000000000000000027 /* QuickLookUI.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -100,9 +123,11 @@
 				AA000000000000000000000A /* Services */,
 				AA000000000000000000000B /* Models */,
 				AA0000000000000000000021 /* Config */,
+				AA0000000000000000000026 /* DragDrop */,
 				AA0000000000000000000020 /* Keyboard */,
 				AA000000000000000000000C /* Extensions */,
 				AA0000000000000000000022 /* Resources */,
+				BB000000000000000000002A /* QuickLookUI.framework */,
 				BB000000000000000000000E /* starfiler.entitlements */,
 			);
 			path = starfiler;
@@ -138,6 +163,8 @@
 			children = (
 				AA000000000000000000000D /* SplitView */,
 				AA0000000000000000000007 /* Pane */,
+				AA0000000000000000000024 /* Preview */,
+				AA0000000000000000000025 /* Bookmarks */,
 				AA0000000000000000000023 /* FilterBar */,
 				AA0000000000000000000008 /* StatusBar */,
 			);
@@ -177,11 +204,28 @@
 			path = FilterBar;
 			sourceTree = "<group>";
 		};
+		AA0000000000000000000024 /* Preview */ = {
+			isa = PBXGroup;
+			children = (
+				BB0000000000000000000025 /* PreviewPaneViewController.swift */,
+			);
+			path = Preview;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000025 /* Bookmarks */ = {
+			isa = PBXGroup;
+			children = (
+				BB0000000000000000000026 /* BookmarkPopoverViewController.swift */,
+			);
+			path = Bookmarks;
+			sourceTree = "<group>";
+		};
 		AA0000000000000000000009 /* ViewModels */ = {
 			isa = PBXGroup;
 			children = (
 				BB0000000000000000000006 /* FilePaneViewModel.swift */,
 				BB0000000000000000000011 /* MainViewModel.swift */,
+				BB0000000000000000000024 /* PreviewViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -194,6 +238,7 @@
 				BB0000000000000000000010 /* SecurityScopedBookmarkService.swift */,
 				BB000000000000000000001C /* FileOperationService.swift */,
 				BB000000000000000000001D /* FileOperationQueue.swift */,
+				BB0000000000000000000029 /* SpotlightSearchService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -206,6 +251,7 @@
 				BB000000000000000000000A /* PaneState.swift */,
 				BB000000000000000000000B /* NavigationHistory.swift */,
 				BB000000000000000000001B /* FileOperation.swift */,
+				BB0000000000000000000023 /* BookmarkGroup.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -234,9 +280,21 @@
 		AA0000000000000000000021 /* Config */ = {
 			isa = PBXGroup;
 			children = (
+				BB0000000000000000000020 /* AppConfig.swift */,
+				BB0000000000000000000021 /* BookmarksConfig.swift */,
+				BB0000000000000000000022 /* ConfigManager.swift */,
 				BB0000000000000000000018 /* KeybindingsConfig.swift */,
 			);
 			path = Config;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000026 /* DragDrop */ = {
+			isa = PBXGroup;
+			children = (
+				BB0000000000000000000027 /* FileDragSource.swift */,
+				BB0000000000000000000028 /* FileDropTarget.swift */,
+			);
+			path = DragDrop;
 			sourceTree = "<group>";
 		};
 		AA0000000000000000000022 /* Resources */ = {
@@ -343,6 +401,16 @@
 				CC000000000000000000001A /* FileOperationQueue.swift in Sources */,
 				CC000000000000000000001B /* DirectoryMonitor.swift in Sources */,
 				CC000000000000000000001C /* FilterBarViewController.swift in Sources */,
+				CC000000000000000000001D /* AppConfig.swift in Sources */,
+				CC000000000000000000001E /* BookmarksConfig.swift in Sources */,
+				CC000000000000000000001F /* ConfigManager.swift in Sources */,
+				CC0000000000000000000020 /* BookmarkGroup.swift in Sources */,
+				CC0000000000000000000021 /* PreviewViewModel.swift in Sources */,
+				CC0000000000000000000022 /* PreviewPaneViewController.swift in Sources */,
+				CC0000000000000000000023 /* BookmarkPopoverViewController.swift in Sources */,
+				CC0000000000000000000024 /* FileDragSource.swift in Sources */,
+				CC0000000000000000000025 /* FileDropTarget.swift in Sources */,
+				CC0000000000000000000026 /* SpotlightSearchService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

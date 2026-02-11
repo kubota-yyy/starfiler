@@ -37,17 +37,23 @@ final class FilePaneViewModel {
     private let fileSystemService: FileSystemProviding
     private let securityScopedBookmarkService: any SecurityScopedBookmarkProviding
     private let directoryMonitor: any DirectoryMonitoring
+    private let spotlightSearchService: any SpotlightSearching
     private nonisolated(unsafe) var loadTask: Task<Void, Never>?
+    private nonisolated(unsafe) var spotlightSearchTask: Task<Void, Never>?
+    private var isSpotlightSearchActive = false
+    private var pendingRevealURL: URL?
 
     init(
         fileSystemService: FileSystemProviding = FileSystemService(),
         securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared,
         directoryMonitor: any DirectoryMonitoring = DirectoryMonitor(),
+        spotlightSearchService: (any SpotlightSearching)? = nil,
         initialDirectory: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
     ) {
         self.fileSystemService = fileSystemService
         self.securityScopedBookmarkService = securityScopedBookmarkService
         self.directoryMonitor = directoryMonitor
+        self.spotlightSearchService = spotlightSearchService ?? SpotlightSearchService()
         let normalizedDirectory = initialDirectory.standardizedFileURL
         self.paneState = PaneState(currentDirectory: normalizedDirectory)
         self.directoryContents = DirectoryContents()
@@ -56,6 +62,8 @@ final class FilePaneViewModel {
 
     deinit {
         loadTask?.cancel()
+        spotlightSearchTask?.cancel()
+        spotlightSearchService.cancel()
         directoryMonitor.stopMonitoring()
     }
 
@@ -100,6 +108,10 @@ final class FilePaneViewModel {
     }
 
     func navigate(to directory: URL) {
+        if isSpotlightSearchActive {
+            endSpotlightSearch(restoringDirectoryContents: false)
+        }
+
         let destination = directory.standardizedFileURL
         guard destination != paneState.currentDirectory else {
             return
@@ -111,6 +123,10 @@ final class FilePaneViewModel {
     }
 
     func goBack() {
+        if isSpotlightSearchActive {
+            endSpotlightSearch(restoringDirectoryContents: false)
+        }
+
         let currentDirectory = paneState.currentDirectory
         guard let destination = navigationHistory.goBack(from: currentDirectory) else {
             return
@@ -119,6 +135,10 @@ final class FilePaneViewModel {
     }
 
     func goForward() {
+        if isSpotlightSearchActive {
+            endSpotlightSearch(restoringDirectoryContents: false)
+        }
+
         let currentDirectory = paneState.currentDirectory
         guard let destination = navigationHistory.goForward(from: currentDirectory) else {
             return
@@ -127,6 +147,10 @@ final class FilePaneViewModel {
     }
 
     func goToParent() {
+        if isSpotlightSearchActive {
+            endSpotlightSearch(restoringDirectoryContents: false)
+        }
+
         let parent = paneState.currentDirectory.deletingLastPathComponent()
         guard parent.path != paneState.currentDirectory.path else {
             return
@@ -135,10 +159,66 @@ final class FilePaneViewModel {
     }
 
     func enterSelected() {
+        if isSpotlightSearchActive {
+            enterSpotlightSelection()
+            return
+        }
+
         guard let item = selectedItem, item.isDirectory, !item.isPackage else {
             return
         }
         navigate(to: item.url)
+    }
+
+    func enterSpotlightSearchMode() {
+        guard !isSpotlightSearchActive else {
+            return
+        }
+
+        isSpotlightSearchActive = true
+        paneState.markedIndices.removeAll()
+        paneState.visualAnchorIndex = nil
+        applySpotlightResults([])
+    }
+
+    func updateSpotlightSearchQuery(_ query: String) {
+        guard isSpotlightSearchActive else {
+            return
+        }
+
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        spotlightSearchTask?.cancel()
+        spotlightSearchService.cancel()
+
+        guard !trimmedQuery.isEmpty else {
+            applySpotlightResults([])
+            return
+        }
+
+        let scope = paneState.currentDirectory
+
+        spotlightSearchTask = Task { [weak self] in
+            guard let self else {
+                return
+            }
+
+            let stream = self.spotlightSearchService.search(query: trimmedQuery, scope: scope)
+            for await items in stream {
+                guard !Task.isCancelled, self.isSpotlightSearchActive else {
+                    return
+                }
+
+                self.applySpotlightResults(items)
+            }
+        }
+    }
+
+    func exitSpotlightSearchMode() {
+        guard isSpotlightSearchActive else {
+            return
+        }
+
+        endSpotlightSearch(restoringDirectoryContents: true)
     }
 
     func moveCursor(by delta: Int) {
@@ -305,10 +385,16 @@ final class FilePaneViewModel {
     }
 
     func refresh() {
+        guard !isSpotlightSearchActive else {
+            return
+        }
         refreshCurrentDirectory(preservingSelectionByURL: true)
     }
 
     func refreshCurrentDirectory() {
+        guard !isSpotlightSearchActive else {
+            return
+        }
         refreshCurrentDirectory(preservingSelectionByURL: true)
     }
 
@@ -340,6 +426,13 @@ final class FilePaneViewModel {
                 updatedContents.allItems = items
                 updatedContents.recompute()
                 self.directoryContents = updatedContents
+
+                if self.revealPendingSelectionIfNeeded() {
+                    self.clampMarkedIndices()
+                    self.clampVisualAnchorIndex()
+                    self.updateVisualSelectionForCurrentCursorIfNeeded()
+                    return
+                }
 
                 if let selectionSnapshot {
                     self.restoreSelection(from: selectionSnapshot)
@@ -396,6 +489,10 @@ final class FilePaneViewModel {
     }
 
     private func loadDirectory(at directory: URL, previousDirectory: URL?) {
+        if isSpotlightSearchActive {
+            endSpotlightSearch(restoringDirectoryContents: false)
+        }
+
         if let previousDirectory, previousDirectory != directory {
             directoryMonitor.stopMonitoring()
         }
@@ -433,9 +530,13 @@ final class FilePaneViewModel {
                 updatedContents.allItems = items
                 updatedContents.recompute()
                 self.directoryContents = updatedContents
-                self.clampCursorIndex()
-                self.clampMarkedIndices()
-                self.clampVisualAnchorIndex()
+
+                if !self.revealPendingSelectionIfNeeded() {
+                    self.clampCursorIndex()
+                    self.clampMarkedIndices()
+                    self.clampVisualAnchorIndex()
+                }
+
                 self.startMonitoringCurrentDirectory(directory)
             } catch {
                 if didAcquireDestinationScope {
@@ -595,5 +696,64 @@ final class FilePaneViewModel {
         }
 
         updateVisualSelectionForCurrentCursorIfNeeded()
+    }
+
+    private func enterSpotlightSelection() {
+        guard let selectedItem else {
+            return
+        }
+
+        let selectedURL = selectedItem.url.standardizedFileURL
+        let targetDirectory = selectedURL.deletingLastPathComponent().standardizedFileURL
+        pendingRevealURL = selectedURL
+
+        if targetDirectory == paneState.currentDirectory {
+            endSpotlightSearch(restoringDirectoryContents: true)
+            return
+        }
+
+        endSpotlightSearch(restoringDirectoryContents: false)
+        navigate(to: targetDirectory)
+    }
+
+    private func applySpotlightResults(_ items: [FileItem]) {
+        var updatedContents = directoryContents
+        updatedContents.allItems = items
+        updatedContents.filterText = ""
+        updatedContents.recompute()
+        directoryContents = updatedContents
+        paneState.markedIndices.removeAll()
+        paneState.visualAnchorIndex = nil
+        clampCursorIndex()
+        clampMarkedIndices()
+        clampVisualAnchorIndex()
+    }
+
+    private func endSpotlightSearch(restoringDirectoryContents: Bool) {
+        isSpotlightSearchActive = false
+        spotlightSearchTask?.cancel()
+        spotlightSearchTask = nil
+        spotlightSearchService.cancel()
+
+        if restoringDirectoryContents {
+            refreshCurrentDirectory(preservingSelectionByURL: false)
+        }
+    }
+
+    private func revealPendingSelectionIfNeeded() -> Bool {
+        guard let pendingRevealURL else {
+            return false
+        }
+
+        defer {
+            self.pendingRevealURL = nil
+        }
+
+        guard let index = directoryContents.displayedItems.firstIndex(where: { $0.url.standardizedFileURL == pendingRevealURL }) else {
+            return false
+        }
+
+        paneState.cursorIndex = index
+        return true
     }
 }

@@ -27,6 +27,7 @@ enum KeyAction: String, Codable, CaseIterable, Sendable {
     case createDirectory
     case enterFilterMode
     case clearFilter
+    case enterSpotlightSearch
     case togglePreview
     case toggleHiddenFiles
     case sortByName
