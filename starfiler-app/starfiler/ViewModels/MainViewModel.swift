@@ -205,6 +205,11 @@ final class MainViewModel {
                 return
             }
 
+            self.suspendDirectoryMonitoring()
+            defer {
+                self.resumeDirectoryMonitoring()
+            }
+
             let stream = await self.fileOperationQueue.enqueue(operation: operation)
             await self.consume(
                 stream: stream,
@@ -217,6 +222,11 @@ final class MainViewModel {
     private func runQueueUndo(registerUndoWithManager: Bool) async {
         guard let stream = await fileOperationQueue.undo() else {
             return
+        }
+
+        suspendDirectoryMonitoring()
+        defer {
+            resumeDirectoryMonitoring()
         }
 
         await consume(
@@ -274,5 +284,15 @@ final class MainViewModel {
     private func refreshPanesAfterFileOperation() {
         leftPane.refreshCurrentDirectory()
         rightPane.refreshCurrentDirectory()
+    }
+
+    private func suspendDirectoryMonitoring() {
+        leftPane.suspendDirectoryMonitoring()
+        rightPane.suspendDirectoryMonitoring()
+    }
+
+    private func resumeDirectoryMonitoring() {
+        leftPane.resumeDirectoryMonitoring()
+        rightPane.resumeDirectoryMonitoring()
     }
 }

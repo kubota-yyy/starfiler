@@ -48,6 +48,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private let pathLabel = NSTextField(labelWithString: "")
     private let scrollView = NSScrollView()
     private let tableView = FileTableView()
+    private let filterBarViewController = FilterBarViewController()
 
     private var isPaneActive = false
     private var vimModeState = VimModeState()
@@ -75,6 +76,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         configureContainerAppearance()
         configureTableView()
         configureLayout()
+        configureFilterBar()
         bindViewModel()
         setActive(false)
     }
@@ -204,6 +206,33 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             scrollView.topAnchor.constraint(equalTo: headerView.bottomAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
+    }
+
+    private func configureFilterBar() {
+        addChild(filterBarViewController)
+
+        let filterView = filterBarViewController.view
+        view.addSubview(filterView)
+
+        NSLayoutConstraint.activate([
+            filterView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
+            filterView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
+            filterView.topAnchor.constraint(equalTo: headerView.bottomAnchor, constant: 8)
+        ])
+
+        filterBarViewController.onTextChanged = { [weak self] text in
+            self?.viewModel.setFilterText(text)
+        }
+
+        filterBarViewController.onDidClose = { [weak self] in
+            guard let self else {
+                return
+            }
+
+            self.vimModeState.enterNormalMode()
+            self.tableView.setVimMode(self.vimModeState.mode)
+            self.focusTable()
+        }
     }
 
     private func bindViewModel() {
@@ -352,6 +381,16 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         onTabPressed?() ?? false
     }
 
+    private func showFilterBar() {
+        vimModeState.enterFilterMode()
+        tableView.setVimMode(vimModeState.mode)
+        filterBarViewController.show(currentText: viewModel.directoryContents.filterText)
+    }
+
+    private func closeFilterBar() {
+        filterBarViewController.close()
+    }
+
     @discardableResult
     private func handleKeyAction(_ action: KeyAction) -> Bool {
         let handled: Bool
@@ -419,13 +458,16 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo:
             handled = onFileOperationRequested?(action) ?? false
         case .enterFilterMode:
-            vimModeState.enterFilterMode()
-            tableView.setVimMode(vimModeState.mode)
+            showFilterBar()
             handled = true
         case .clearFilter:
-            viewModel.clearFilter()
-            vimModeState.enterNormalMode()
-            tableView.setVimMode(vimModeState.mode)
+            if filterBarViewController.isVisible {
+                closeFilterBar()
+            } else {
+                viewModel.clearFilter()
+                vimModeState.enterNormalMode()
+                tableView.setVimMode(vimModeState.mode)
+            }
             handled = true
         case .togglePreview:
             viewModel.togglePreview()
@@ -446,7 +488,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             viewModel.reverseSortOrder()
             handled = true
         case .refresh:
-            viewModel.refreshCurrentDirectory()
+            viewModel.refresh()
             handled = true
         case .openBookmarks:
             viewModel.openBookmarks()

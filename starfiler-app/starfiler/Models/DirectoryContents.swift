@@ -2,9 +2,44 @@ import Foundation
 
 struct DirectoryContents: Sendable {
     enum SortDescriptor: Hashable, Sendable {
+        enum Column: Hashable, Sendable {
+            case name
+            case size
+            case date
+        }
+
         case name(ascending: Bool)
         case size(ascending: Bool)
-        case dateModified(ascending: Bool)
+        case date(ascending: Bool)
+
+        init(column: Column, ascending: Bool) {
+            switch column {
+            case .name:
+                self = .name(ascending: ascending)
+            case .size:
+                self = .size(ascending: ascending)
+            case .date:
+                self = .date(ascending: ascending)
+            }
+        }
+
+        var column: Column {
+            switch self {
+            case .name:
+                return .name
+            case .size:
+                return .size
+            case .date:
+                return .date
+            }
+        }
+
+        var ascending: Bool {
+            switch self {
+            case .name(let ascending), .size(let ascending), .date(let ascending):
+                return ascending
+            }
+        }
     }
 
     var allItems: [FileItem]
@@ -44,6 +79,11 @@ struct DirectoryContents: Sendable {
         displayedItems = items
     }
 
+    mutating func setSortDescriptor(_ sortDescriptor: SortDescriptor) {
+        self.sortDescriptor = sortDescriptor
+        recompute()
+    }
+
     private func compare(_ lhs: FileItem, _ rhs: FileItem) -> Bool {
         let lhsIsBrowsableDirectory = lhs.isDirectory && !lhs.isPackage
         let rhsIsBrowsableDirectory = rhs.isDirectory && !rhs.isPackage
@@ -62,7 +102,7 @@ struct DirectoryContents: Sendable {
                 return ascending ? lhsSize < rhsSize : lhsSize > rhsSize
             }
             return compareNames(lhs.name, rhs.name, ascending: true)
-        case .dateModified(let ascending):
+        case .date(let ascending):
             let lhsDate = lhs.dateModified ?? .distantPast
             let rhsDate = rhs.dateModified ?? .distantPast
             if lhsDate != rhsDate {

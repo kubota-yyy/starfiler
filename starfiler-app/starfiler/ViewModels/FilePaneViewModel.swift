@@ -5,6 +5,11 @@ import Observation
 @Observable
 final class FilePaneViewModel {
     private static let defaultPageStep = 10
+    private struct SelectionSnapshot {
+        let cursorURL: URL?
+        let markedURLs: Set<URL>
+        let visualAnchorURL: URL?
+    }
 
     private(set) var directoryContents: DirectoryContents {
         didSet {
@@ -31,15 +36,18 @@ final class FilePaneViewModel {
 
     private let fileSystemService: FileSystemProviding
     private let securityScopedBookmarkService: any SecurityScopedBookmarkProviding
+    private let directoryMonitor: any DirectoryMonitoring
     private nonisolated(unsafe) var loadTask: Task<Void, Never>?
 
     init(
         fileSystemService: FileSystemProviding = FileSystemService(),
         securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared,
+        directoryMonitor: any DirectoryMonitoring = DirectoryMonitor(),
         initialDirectory: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
     ) {
         self.fileSystemService = fileSystemService
         self.securityScopedBookmarkService = securityScopedBookmarkService
+        self.directoryMonitor = directoryMonitor
         let normalizedDirectory = initialDirectory.standardizedFileURL
         self.paneState = PaneState(currentDirectory: normalizedDirectory)
         self.directoryContents = DirectoryContents()
@@ -48,6 +56,7 @@ final class FilePaneViewModel {
 
     deinit {
         loadTask?.cancel()
+        directoryMonitor.stopMonitoring()
     }
 
     var selectedItem: FileItem? {
@@ -278,26 +287,42 @@ final class FilePaneViewModel {
     }
 
     func sortByDate() {
-        applySortDescriptor(.dateModified(ascending: true))
+        applySortDescriptor(.date(ascending: true))
+    }
+
+    func setSortDescriptor(_ sortDescriptor: DirectoryContents.SortDescriptor) {
+        applySortDescriptor(sortDescriptor)
     }
 
     func reverseSortOrder() {
-        let nextSortDescriptor: DirectoryContents.SortDescriptor
-
-        switch directoryContents.sortDescriptor {
-        case .name(let ascending):
-            nextSortDescriptor = .name(ascending: !ascending)
-        case .size(let ascending):
-            nextSortDescriptor = .size(ascending: !ascending)
-        case .dateModified(let ascending):
-            nextSortDescriptor = .dateModified(ascending: !ascending)
-        }
+        let currentSortDescriptor = directoryContents.sortDescriptor
+        let nextSortDescriptor = DirectoryContents.SortDescriptor(
+            column: currentSortDescriptor.column,
+            ascending: !currentSortDescriptor.ascending
+        )
 
         applySortDescriptor(nextSortDescriptor)
     }
 
+    func refresh() {
+        refreshCurrentDirectory(preservingSelectionByURL: true)
+    }
+
     func refreshCurrentDirectory() {
+        refreshCurrentDirectory(preservingSelectionByURL: true)
+    }
+
+    func suspendDirectoryMonitoring() {
+        directoryMonitor.suspend()
+    }
+
+    func resumeDirectoryMonitoring() {
+        directoryMonitor.resume()
+    }
+
+    private func refreshCurrentDirectory(preservingSelectionByURL: Bool) {
         let currentDirectory = paneState.currentDirectory
+        let selectionSnapshot = preservingSelectionByURL ? captureSelectionSnapshot() : nil
 
         loadTask?.cancel()
         loadTask = Task { [weak self] in
@@ -315,10 +340,15 @@ final class FilePaneViewModel {
                 updatedContents.allItems = items
                 updatedContents.recompute()
                 self.directoryContents = updatedContents
-                self.clampCursorIndex()
-                self.clampMarkedIndices()
-                self.clampVisualAnchorIndex()
-                self.updateVisualSelectionForCurrentCursorIfNeeded()
+
+                if let selectionSnapshot {
+                    self.restoreSelection(from: selectionSnapshot)
+                } else {
+                    self.clampCursorIndex()
+                    self.clampMarkedIndices()
+                    self.clampVisualAnchorIndex()
+                    self.updateVisualSelectionForCurrentCursorIfNeeded()
+                }
             } catch {
                 // Keep the latest successfully loaded view when refresh fails.
             }
@@ -366,6 +396,10 @@ final class FilePaneViewModel {
     }
 
     private func loadDirectory(at directory: URL, previousDirectory: URL?) {
+        if let previousDirectory, previousDirectory != directory {
+            directoryMonitor.stopMonitoring()
+        }
+
         loadTask?.cancel()
 
         loadTask = Task { [weak self] in
@@ -402,9 +436,14 @@ final class FilePaneViewModel {
                 self.clampCursorIndex()
                 self.clampMarkedIndices()
                 self.clampVisualAnchorIndex()
+                self.startMonitoringCurrentDirectory(directory)
             } catch {
                 if didAcquireDestinationScope {
                     await self.securityScopedBookmarkService.stopAccessing(directory)
+                }
+
+                if let previousDirectory {
+                    self.startMonitoringCurrentDirectory(previousDirectory)
                 }
             }
         }
@@ -412,8 +451,7 @@ final class FilePaneViewModel {
 
     private func applySortDescriptor(_ sortDescriptor: DirectoryContents.SortDescriptor) {
         var updatedContents = directoryContents
-        updatedContents.sortDescriptor = sortDescriptor
-        updatedContents.recompute()
+        updatedContents.setSortDescriptor(sortDescriptor)
         directoryContents = updatedContents
         clampCursorIndex()
         clampMarkedIndices()
@@ -477,5 +515,85 @@ final class FilePaneViewModel {
         let lowerBound = min(clampedAnchor, clampedCurrent)
         let upperBound = max(clampedAnchor, clampedCurrent)
         paneState.markedIndices = IndexSet(integersIn: lowerBound ..< (upperBound + 1))
+    }
+
+    private func startMonitoringCurrentDirectory(_ directory: URL) {
+        let monitoredDirectory = directory.standardizedFileURL
+        directoryMonitor.startMonitoring(url: monitoredDirectory) { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.refresh()
+            }
+        }
+    }
+
+    private func captureSelectionSnapshot() -> SelectionSnapshot {
+        let displayedItems = directoryContents.displayedItems
+
+        let cursorURL: URL?
+        if displayedItems.indices.contains(paneState.cursorIndex) {
+            cursorURL = displayedItems[paneState.cursorIndex].url.standardizedFileURL
+        } else {
+            cursorURL = nil
+        }
+
+        let markedURLs = Set(
+            paneState.markedIndices.compactMap { index -> URL? in
+                guard displayedItems.indices.contains(index) else {
+                    return nil
+                }
+                return displayedItems[index].url.standardizedFileURL
+            }
+        )
+
+        let visualAnchorURL: URL?
+        if let visualAnchorIndex = paneState.visualAnchorIndex, displayedItems.indices.contains(visualAnchorIndex) {
+            visualAnchorURL = displayedItems[visualAnchorIndex].url.standardizedFileURL
+        } else {
+            visualAnchorURL = nil
+        }
+
+        return SelectionSnapshot(
+            cursorURL: cursorURL,
+            markedURLs: markedURLs,
+            visualAnchorURL: visualAnchorURL
+        )
+    }
+
+    private func restoreSelection(from snapshot: SelectionSnapshot) {
+        let displayedItems = directoryContents.displayedItems
+        guard !displayedItems.isEmpty else {
+            paneState.cursorIndex = 0
+            paneState.markedIndices.removeAll()
+            paneState.visualAnchorIndex = nil
+            return
+        }
+
+        let indexByURL = Dictionary(
+            uniqueKeysWithValues: displayedItems.enumerated().map { index, item in
+                (item.url.standardizedFileURL, index)
+            }
+        )
+
+        if let cursorURL = snapshot.cursorURL, let restoredCursorIndex = indexByURL[cursorURL] {
+            paneState.cursorIndex = restoredCursorIndex
+        } else {
+            clampCursorIndex()
+        }
+
+        var restoredMarkedIndices = IndexSet()
+        for markedURL in snapshot.markedURLs {
+            if let markedIndex = indexByURL[markedURL] {
+                restoredMarkedIndices.insert(markedIndex)
+            }
+        }
+        paneState.markedIndices = restoredMarkedIndices
+
+        if let visualAnchorURL = snapshot.visualAnchorURL, let restoredVisualAnchorIndex = indexByURL[visualAnchorURL] {
+            paneState.visualAnchorIndex = restoredVisualAnchorIndex
+        } else {
+            paneState.visualAnchorIndex = nil
+        }
+
+        updateVisualSelectionForCurrentCursorIfNeeded()
     }
 }
