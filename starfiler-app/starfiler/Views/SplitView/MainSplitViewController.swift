@@ -18,7 +18,9 @@ final class MainSplitViewController: NSSplitViewController {
     private let previewSplitItem: NSSplitViewItem
 
     private var bookmarksConfig: BookmarksConfig
-    private var bookmarkPopover: NSPopover?
+    private var bookmarkSearchPanelController: BookmarkSearchPanelController?
+    private var batchRenameWindowController: NSWindowController?
+    private var syncWindowController: NSWindowController?
 
     private var leftPaneStatus: PaneStatus
     private var rightPaneStatus: PaneStatus
@@ -29,7 +31,10 @@ final class MainSplitViewController: NSSplitViewController {
         self.viewModel = viewModel
         self.configManager = configManager
 
-        self.sidebarViewModel = SidebarViewModel(configManager: configManager)
+        self.sidebarViewModel = SidebarViewModel(
+            configManager: configManager,
+            visitHistoryService: viewModel.visitHistoryService
+        )
         self.sidebarViewController = SidebarViewController(viewModel: sidebarViewModel)
         self.sidebarSplitItem = NSSplitViewItem(sidebarWithViewController: sidebarViewController)
 
@@ -59,10 +64,13 @@ final class MainSplitViewController: NSSplitViewController {
         configureSplitView()
         bindPaneControllers()
         bindSidebar()
+        bindVisitHistory()
         refreshActivePaneUI(focusActivePane: false)
         viewModel.refreshPreviewForActivePane()
         applySidebarVisibility(animated: false)
         applyPreviewPaneVisibility(animated: false)
+
+        propagateBookmarksConfig()
     }
 
     required init?(coder: NSCoder) {
@@ -81,6 +89,11 @@ final class MainSplitViewController: NSSplitViewController {
     func toggleSidebarPane() {
         viewModel.toggleSidebar()
         applySidebarVisibility(animated: true)
+    }
+
+    func setFilerTheme(_ theme: FilerTheme) {
+        leftPaneViewController.applyTheme(theme)
+        rightPaneViewController.applyTheme(theme)
     }
 
     private func configureSplitView() {
@@ -141,6 +154,17 @@ final class MainSplitViewController: NSSplitViewController {
         rightPaneViewController.onFileOperationRequested = { [weak self] action in
             self?.handleGlobalAction(action) ?? false
         }
+
+        leftPaneViewController.onBookmarkJump = { [weak self] path in
+            self?.navigateToSearchResult(BookmarkSearchViewModel.SearchResult(
+                groupName: "", displayName: "", path: path, shortcutHint: nil
+            ))
+        }
+        rightPaneViewController.onBookmarkJump = { [weak self] path in
+            self?.navigateToSearchResult(BookmarkSearchViewModel.SearchResult(
+                groupName: "", displayName: "", path: path, shortcutHint: nil
+            ))
+        }
     }
 
     private func bindSidebar() {
@@ -193,11 +217,20 @@ final class MainSplitViewController: NSSplitViewController {
         case .toggleSidebar:
             toggleSidebarPane()
             return true
-        case .openBookmarks:
-            presentBookmarksPopover()
+        case .openBookmarkSearch:
+            presentBookmarkSearchPanel()
+            return true
+        case .openHistory:
+            presentBookmarkSearchPanel()
             return true
         case .addBookmark:
             presentAddBookmarkAlert()
+            return true
+        case .batchRename:
+            presentBatchRenameWindow()
+            return true
+        case .syncPanes:
+            presentSyncWindow()
             return true
         default:
             return false
@@ -303,50 +336,65 @@ final class MainSplitViewController: NSSplitViewController {
         return inputField.stringValue
     }
 
-    private func presentBookmarksPopover() {
-        bookmarkPopover?.performClose(nil)
-
-        guard !bookmarksConfig.groups.isEmpty else {
-            let alert = NSAlert()
-            alert.alertStyle = .informational
-            alert.messageText = "No bookmarks"
-            alert.informativeText = "Press B to add the current directory to a bookmark group."
-            alert.addButton(withTitle: "OK")
-            alert.runModal()
-            return
+    private func bindVisitHistory() {
+        viewModel.leftPane.onDirectoryChanged = { [weak self] url in
+            self?.viewModel.visitHistoryService.recordVisit(to: url)
+            self?.sidebarViewModel.reloadSections()
         }
-
-        let contentViewController = BookmarkPopoverViewController(groups: bookmarksConfig.groups)
-        contentViewController.onOpenEntry = { [weak self] entry in
-            self?.openBookmarkEntry(entry)
-            self?.bookmarkPopover?.performClose(nil)
+        viewModel.rightPane.onDirectoryChanged = { [weak self] url in
+            self?.viewModel.visitHistoryService.recordVisit(to: url)
+            self?.sidebarViewModel.reloadSections()
         }
-
-        let popover = NSPopover()
-        popover.behavior = .transient
-        popover.contentViewController = contentViewController
-
-        let sourcePaneView = paneViewController(for: viewModel.activePaneSide).view
-        popover.show(relativeTo: sourcePaneView.bounds, of: sourcePaneView, preferredEdge: .maxY)
-        bookmarkPopover = popover
     }
 
-    private func openBookmarkEntry(_ entry: BookmarkEntry) {
+    private func propagateBookmarksConfig() {
+        leftPaneViewController.updateBookmarksConfig(bookmarksConfig)
+        rightPaneViewController.updateBookmarksConfig(bookmarksConfig)
+    }
+
+    private func presentBookmarkSearchPanel() {
+        bookmarkSearchPanelController?.dismiss()
+
+        let searchVM = BookmarkSearchViewModel()
+        searchVM.load(
+            from: bookmarksConfig,
+            history: viewModel.visitHistoryService.recentEntries(limit: 20)
+        )
+
+        let panel = BookmarkSearchPanelController(viewModel: searchVM)
+        panel.onSelectEntry = { [weak self] result in
+            self?.navigateToSearchResult(result)
+        }
+        panel.onDismiss = { [weak self] in
+            self?.bookmarkSearchPanelController = nil
+            self?.focusActivePane()
+        }
+
+        guard let window = view.window else {
+            return
+        }
+
+        panel.showRelativeTo(window: window)
+        bookmarkSearchPanelController = panel
+    }
+
+    private func navigateToSearchResult(_ result: BookmarkSearchViewModel.SearchResult) {
+        let path = result.path
         var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: entry.path, isDirectory: &isDirectory) else {
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) else {
             let alert = NSAlert()
             alert.alertStyle = .warning
-            alert.messageText = "Bookmark not found"
-            alert.informativeText = entry.path
+            alert.messageText = "Path not found"
+            alert.informativeText = path
             alert.addButton(withTitle: "OK")
             alert.runModal()
             return
         }
 
-        let bookmarkedURL = URL(fileURLWithPath: entry.path).standardizedFileURL
+        let url = URL(fileURLWithPath: path).standardizedFileURL
         let destination = isDirectory.boolValue
-            ? bookmarkedURL
-            : bookmarkedURL.deletingLastPathComponent().standardizedFileURL
+            ? url
+            : url.deletingLastPathComponent().standardizedFileURL
 
         viewModel.activePane.navigate(to: destination)
     }
@@ -364,21 +412,37 @@ final class MainSplitViewController: NSSplitViewController {
         alert.addButton(withTitle: "Save")
         alert.addButton(withTitle: "Cancel")
 
-        let accessoryContainer = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 82))
+        let accessoryContainer = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 134))
 
-        let groupPopup = NSPopUpButton(frame: NSRect(x: 0, y: 52, width: 340, height: 26), pullsDown: false)
+        let groupPopup = NSPopUpButton(frame: NSRect(x: 0, y: 104, width: 340, height: 26), pullsDown: false)
         groupPopup.addItems(withTitles: bookmarksConfig.groups.map(\.name))
         groupPopup.addItem(withTitle: "New Group")
 
-        let newGroupField = NSTextField(frame: NSRect(x: 0, y: 26, width: 340, height: 24))
+        let newGroupField = NSTextField(frame: NSRect(x: 0, y: 78, width: 260, height: 24))
         newGroupField.placeholderString = "New group name"
 
-        let displayNameField = NSTextField(frame: NSRect(x: 0, y: 0, width: 340, height: 24))
+        let groupShortcutField = NSTextField(frame: NSRect(x: 270, y: 78, width: 70, height: 24))
+        groupShortcutField.placeholderString = "Key"
+        groupShortcutField.alignment = .center
+
+        let displayNameField = NSTextField(frame: NSRect(x: 0, y: 52, width: 340, height: 24))
         displayNameField.stringValue = defaultDisplayName
+
+        let shortcutLabel = NSTextField(labelWithString: "Shortcut key (1 char):")
+        shortcutLabel.frame = NSRect(x: 0, y: 26, width: 200, height: 20)
+        shortcutLabel.font = .systemFont(ofSize: 11)
+        shortcutLabel.textColor = .secondaryLabelColor
+
+        let shortcutField = NSTextField(frame: NSRect(x: 0, y: 0, width: 70, height: 24))
+        shortcutField.placeholderString = "Key"
+        shortcutField.alignment = .center
 
         accessoryContainer.addSubview(groupPopup)
         accessoryContainer.addSubview(newGroupField)
+        accessoryContainer.addSubview(groupShortcutField)
         accessoryContainer.addSubview(displayNameField)
+        accessoryContainer.addSubview(shortcutLabel)
+        accessoryContainer.addSubview(shortcutField)
         alert.accessoryView = accessoryContainer
 
         guard alert.runModal() == .alertFirstButtonReturn else {
@@ -387,10 +451,13 @@ final class MainSplitViewController: NSSplitViewController {
 
         let selectedGroupIndex = groupPopup.indexOfSelectedItem
         let selectedGroupName: String
+        var groupShortcutKey: String?
         if selectedGroupIndex >= 0, selectedGroupIndex < bookmarksConfig.groups.count {
             selectedGroupName = bookmarksConfig.groups[selectedGroupIndex].name
         } else {
             selectedGroupName = newGroupField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            let groupKey = groupShortcutField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            groupShortcutKey = groupKey.isEmpty ? nil : String(groupKey.prefix(1))
         }
 
         guard !selectedGroupName.isEmpty else {
@@ -400,13 +467,21 @@ final class MainSplitViewController: NSSplitViewController {
         let displayName = displayNameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedDisplayName = displayName.isEmpty ? defaultDisplayName : displayName
 
+        let entryShortcut = shortcutField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let entryShortcutKey: String? = entryShortcut.isEmpty ? nil : String(entryShortcut.prefix(1))
+
         saveBookmark(
-            entry: BookmarkEntry(displayName: resolvedDisplayName, path: currentDirectory.path),
-            groupName: selectedGroupName
+            entry: BookmarkEntry(
+                displayName: resolvedDisplayName,
+                path: currentDirectory.path,
+                shortcutKey: entryShortcutKey
+            ),
+            groupName: selectedGroupName,
+            groupShortcutKey: groupShortcutKey
         )
     }
 
-    private func saveBookmark(entry: BookmarkEntry, groupName: String) {
+    private func saveBookmark(entry: BookmarkEntry, groupName: String, groupShortcutKey: String? = nil) {
         var groups = bookmarksConfig.groups
 
         if let groupIndex = groups.firstIndex(where: { $0.name == groupName }) {
@@ -416,7 +491,11 @@ final class MainSplitViewController: NSSplitViewController {
                 groups[groupIndex].entries.append(entry)
             }
         } else {
-            groups.append(BookmarkGroup(name: groupName, entries: [entry]))
+            groups.append(BookmarkGroup(
+                name: groupName,
+                entries: [entry],
+                shortcutKey: groupShortcutKey
+            ))
         }
 
         bookmarksConfig.groups = groups.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
@@ -424,6 +503,7 @@ final class MainSplitViewController: NSSplitViewController {
         do {
             try configManager.saveBookmarksConfig(bookmarksConfig)
             sidebarViewController.reloadData()
+            propagateBookmarksConfig()
         } catch {
             let alert = NSAlert()
             alert.alertStyle = .critical
@@ -432,5 +512,73 @@ final class MainSplitViewController: NSSplitViewController {
             alert.addButton(withTitle: "OK")
             alert.runModal()
         }
+    }
+
+    // MARK: - Batch Rename
+
+    func presentBatchRenameWindow() {
+        let urls = viewModel.activePane.markedOrSelectedURLs()
+        guard !urls.isEmpty else { return }
+
+        let urlSet = Set(urls)
+        let items = viewModel.activePane.directoryContents.displayedItems
+            .filter { urlSet.contains($0.url) }
+        guard !items.isEmpty else { return }
+
+        let allItems = viewModel.activePane.directoryContents.displayedItems
+
+        let batchVM = BatchRenameViewModel(
+            sourceFiles: items,
+            allDirectoryFiles: allItems,
+            configManager: configManager
+        )
+
+        batchVM.onApplyRequested = { [weak self] changes in
+            self?.viewModel.executeBatchRename(renames: changes)
+            self?.batchRenameWindowController?.close()
+            self?.batchRenameWindowController = nil
+        }
+
+        batchVM.onDismissRequested = { [weak self] in
+            self?.batchRenameWindowController?.close()
+            self?.batchRenameWindowController = nil
+        }
+
+        let vc = BatchRenameViewController(viewModel: batchVM)
+        let window = NSWindow(contentViewController: vc)
+        window.title = "Batch Rename (\(items.count) files)"
+        window.setContentSize(NSSize(width: 720, height: 600))
+        window.styleMask = [.titled, .closable, .resizable]
+        window.minSize = NSSize(width: 600, height: 400)
+        window.center()
+
+        let wc = NSWindowController(window: window)
+        wc.showWindow(nil)
+        batchRenameWindowController = wc
+    }
+
+    // MARK: - Sync Panes
+
+    func presentSyncWindow() {
+        let leftDir = viewModel.leftPane.paneState.currentDirectory
+        let rightDir = viewModel.rightPane.paneState.currentDirectory
+
+        let syncVM = SyncViewModel(
+            leftDirectory: leftDir,
+            rightDirectory: rightDir,
+            configManager: configManager
+        )
+
+        let vc = SyncViewController(viewModel: syncVM)
+        let window = NSWindow(contentViewController: vc)
+        window.title = "Sync Panes"
+        window.setContentSize(NSSize(width: 800, height: 600))
+        window.styleMask = [.titled, .closable, .resizable]
+        window.minSize = NSSize(width: 640, height: 400)
+        window.center()
+
+        let wc = NSWindowController(window: window)
+        wc.showWindow(nil)
+        syncWindowController = wc
     }
 }

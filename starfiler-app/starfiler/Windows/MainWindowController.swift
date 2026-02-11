@@ -3,6 +3,7 @@ import AppKit
 final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let mainViewModel: MainViewModel
     private let configManager: ConfigManager
+    private var filerTheme: FilerTheme
     private lazy var mainSplitViewController = MainSplitViewController(viewModel: mainViewModel, configManager: configManager)
     private let statusBarView = StatusBarView()
     private let appUndoManager = UndoManager()
@@ -15,14 +16,20 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         let configManager = ConfigManager()
         self.configManager = configManager
 
+        Self.initializeDefaultBookmarksIfNeeded(configManager: configManager)
+
         let appConfig = configManager.loadAppConfig()
+        self.filerTheme = appConfig.filerTheme
         let fallbackDirectory = initialDirectory.standardizedFileURL
         let leftDirectory = Self.resolveDirectory(path: appConfig.lastLeftPanePath, fallback: fallbackDirectory)
         let rightDirectory = Self.resolveDirectory(path: appConfig.lastRightPanePath, fallback: leftDirectory)
 
+        let visitHistoryService = VisitHistoryService(configManager: configManager)
+
         self.mainViewModel = MainViewModel(
             fileSystemService: fileSystemService,
             securityScopedBookmarkService: securityScopedBookmarkService,
+            visitHistoryService: visitHistoryService,
             initialShowHiddenFiles: appConfig.showHiddenFiles,
             initialSortColumn: appConfig.defaultSortColumn,
             initialSortAscending: appConfig.defaultSortAscending,
@@ -65,6 +72,28 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         block(mainViewModel)
     }
 
+    var currentFilerTheme: FilerTheme {
+        filerTheme
+    }
+
+    func updateFilerTheme(_ theme: FilerTheme) {
+        guard filerTheme != theme else {
+            return
+        }
+
+        filerTheme = theme
+        mainSplitViewController.setFilerTheme(theme)
+        persistAppConfig()
+    }
+
+    func presentBatchRename() {
+        mainSplitViewController.presentBatchRenameWindow()
+    }
+
+    func presentSyncWindow() {
+        mainSplitViewController.presentSyncWindow()
+    }
+
     private func configureWindow() {
         guard let window else {
             return
@@ -85,6 +114,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         containerViewController.view = containerView
 
         containerViewController.addChild(mainSplitViewController)
+        mainSplitViewController.setFilerTheme(filerTheme)
         let splitView = mainSplitViewController.view
         splitView.translatesAutoresizingMaskIntoConstraints = false
 
@@ -124,7 +154,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             sidebarVisible: mainViewModel.sidebarVisible,
             lastLeftPanePath: mainViewModel.leftPane.paneState.currentDirectory.path,
             lastRightPanePath: mainViewModel.rightPane.paneState.currentDirectory.path,
-            lastActivePane: mainViewModel.activePaneSide == .left ? "left" : "right"
+            lastActivePane: mainViewModel.activePaneSide == .left ? "left" : "right",
+            filerTheme: filerTheme
         )
 
         try? configManager.saveAppConfig(appConfig)
@@ -139,6 +170,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
 
         return fallback
+    }
+
+    private static func initializeDefaultBookmarksIfNeeded(configManager: ConfigManager) {
+        let existingConfig = configManager.loadBookmarksConfig()
+        guard existingConfig.groups.isEmpty else {
+            return
+        }
+
+        let defaultConfig = BookmarksConfig.withDefaults()
+        try? configManager.saveBookmarksConfig(defaultConfig)
     }
 
     private static func sortColumn(from column: DirectoryContents.SortDescriptor.Column) -> AppConfig.SortColumn {

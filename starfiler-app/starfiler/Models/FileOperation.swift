@@ -6,6 +6,7 @@ enum FileOperationType: String, Sendable {
     case trash
     case rename
     case createDirectory
+    case batchRename
 
     var undoActionName: String {
         switch self {
@@ -19,6 +20,8 @@ enum FileOperationType: String, Sendable {
             return "Undo Rename"
         case .createDirectory:
             return "Undo Create Folder"
+        case .batchRename:
+            return "Undo Batch Rename"
         }
     }
 }
@@ -34,6 +37,7 @@ enum FileOperation: Hashable, Sendable {
     case trash(items: [URL])
     case rename(item: URL, newName: String)
     case createDirectory(parentDirectory: URL, name: String)
+    case batchRename(items: [FileLocationChange])
 
     var type: FileOperationType {
         switch self {
@@ -47,6 +51,8 @@ enum FileOperation: Hashable, Sendable {
             return .rename
         case .createDirectory:
             return .createDirectory
+        case .batchRename:
+            return .batchRename
         }
     }
 
@@ -62,6 +68,8 @@ enum FileOperation: Hashable, Sendable {
             return 1
         case .createDirectory:
             return 1
+        case .batchRename(let items):
+            return items.count
         }
     }
 }
@@ -72,6 +80,7 @@ enum FileOperationResult: Hashable, Sendable {
     case trashed([FileLocationChange])
     case renamed(FileLocationChange)
     case createdDirectory(URL)
+    case batchRenamed([FileLocationChange])
 
     var affectedURLs: [URL] {
         switch self {
@@ -85,6 +94,8 @@ enum FileOperationResult: Hashable, Sendable {
             return [change.destination]
         case .createdDirectory(let url):
             return [url]
+        case .batchRenamed(let changes):
+            return changes.map(\.destination)
         }
     }
 }

@@ -5,6 +5,9 @@ final class ConfigManager {
         static let appConfig = "AppConfig.json"
         static let keybindingsConfig = "Keybindings.json"
         static let bookmarksConfig = "Bookmarks.json"
+        static let batchRenamePresetsConfig = "BatchRenamePresets.json"
+        static let syncletsConfig = "Synclets.json"
+        static let visitHistoryConfig = "VisitHistory.json"
     }
 
     let configDirectory: URL
@@ -66,6 +69,42 @@ final class ConfigManager {
 
     var bookmarksConfigURL: URL {
         configDirectory.appendingPathComponent(FileName.bookmarksConfig, isDirectory: false)
+    }
+
+    func loadBatchRenamePresetsConfig() -> BatchRenamePresetsConfig {
+        load(BatchRenamePresetsConfig.self, from: batchRenamePresetsConfigURL) ?? BatchRenamePresetsConfig()
+    }
+
+    func saveBatchRenamePresetsConfig(_ config: BatchRenamePresetsConfig) throws {
+        try save(config, to: batchRenamePresetsConfigURL)
+    }
+
+    var batchRenamePresetsConfigURL: URL {
+        configDirectory.appendingPathComponent(FileName.batchRenamePresetsConfig, isDirectory: false)
+    }
+
+    func loadSyncletsConfig() -> SyncletsConfig {
+        load(SyncletsConfig.self, from: syncletsConfigURL) ?? SyncletsConfig()
+    }
+
+    func saveSyncletsConfig(_ config: SyncletsConfig) throws {
+        try save(config, to: syncletsConfigURL)
+    }
+
+    var syncletsConfigURL: URL {
+        configDirectory.appendingPathComponent(FileName.syncletsConfig, isDirectory: false)
+    }
+
+    func loadVisitHistoryConfig() -> VisitHistoryConfig {
+        load(VisitHistoryConfig.self, from: visitHistoryConfigURL) ?? VisitHistoryConfig()
+    }
+
+    func saveVisitHistoryConfig(_ config: VisitHistoryConfig) throws {
+        try save(config, to: visitHistoryConfigURL)
+    }
+
+    var visitHistoryConfigURL: URL {
+        configDirectory.appendingPathComponent(FileName.visitHistoryConfig, isDirectory: false)
     }
 
     private static func defaultConfigDirectory(fileManager: FileManager, bundleIdentifier: String) -> URL {

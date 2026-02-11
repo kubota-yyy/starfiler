@@ -10,8 +10,11 @@ final class FileTableView: NSTableView {
     var dragSourceHandler: FileDragSource?
     var dropTargetHandler: FileDropTarget?
     var dragURLsProvider: (() -> [URL])?
+    var onBookmarkJump: ((String) -> Void)?
+    var onBookmarkJumpPending: ((String) -> Void)?
 
     private var keyInterpreter = KeyInterpreter()
+    private var bookmarkJumpInterpreter: BookmarkJumpInterpreter?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -26,6 +29,7 @@ final class FileTableView: NSTableView {
     override func keyDown(with event: NSEvent) {
         if event.modifierFlags.contains(.command) {
             keyInterpreter.clearPendingSequence()
+            bookmarkJumpInterpreter?.reset()
             super.keyDown(with: event)
             return
         }
@@ -33,6 +37,19 @@ final class FileTableView: NSTableView {
         guard let keyEvent = event.keyEvent else {
             super.keyDown(with: event)
             return
+        }
+
+        if bookmarkJumpInterpreter != nil {
+            switch bookmarkJumpInterpreter!.interpret(keyEvent, now: Date()) {
+            case .jumpTo(let path):
+                onBookmarkJump?(path)
+                return
+            case .pending(let hint):
+                onBookmarkJumpPending?(hint)
+                return
+            case .unhandled:
+                break
+            }
         }
 
         switch keyInterpreter.interpret(keyEvent) {
@@ -99,6 +116,10 @@ final class FileTableView: NSTableView {
 
     func setSequenceTimeout(_ timeout: TimeInterval) {
         keyInterpreter.setTimeout(timeout)
+    }
+
+    func setBookmarkJumpConfig(_ config: BookmarksConfig) {
+        bookmarkJumpInterpreter = BookmarkJumpInterpreter(bookmarksConfig: config)
     }
 
     private func configureTableBehavior() {

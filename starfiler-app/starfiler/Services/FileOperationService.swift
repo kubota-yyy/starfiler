@@ -50,6 +50,8 @@ struct FileOperationService: FileOperationExecuting {
             return try executeRename(item: item, newName: newName, progress: progress)
         case .createDirectory(let parentDirectory, let name):
             return try executeCreateDirectory(parentDirectory: parentDirectory, name: name, progress: progress)
+        case .batchRename(let items):
+            return try executeBatchRename(items: items, progress: progress)
         }
     }
 
@@ -225,6 +227,68 @@ struct FileOperationService: FileOperationExecuting {
             result: .createdDirectory(directoryURL),
             timestamp: Date(),
             undoOperation: .trash(items: [directoryURL])
+        )
+    }
+
+    private func executeBatchRename(
+        items: [FileLocationChange],
+        progress: @escaping @Sendable (_ completed: Int, _ total: Int, _ currentFile: URL) -> Void
+    ) throws -> FileOperationRecord {
+        guard !items.isEmpty else {
+            throw FileOperationServiceError.noItems
+        }
+
+        var completedChanges: [FileLocationChange] = []
+        completedChanges.reserveCapacity(items.count)
+
+        // Detect rename chains/cycles and use temp names to avoid conflicts.
+        // Build a set of destinations that are also sources in this batch.
+        let sourceSet = Set(items.map { $0.source.standardizedFileURL })
+        let destSet = Set(items.map { $0.destination.standardizedFileURL })
+        let conflicting = sourceSet.intersection(destSet)
+
+        // Phase 1: Move conflicting sources to temp names
+        var tempMappings: [URL: URL] = [:]
+        if !conflicting.isEmpty {
+            for item in items {
+                let source = item.source.standardizedFileURL
+                if conflicting.contains(source) && source != item.destination.standardizedFileURL {
+                    let tempName = ".starfiler_tmp_\(UUID().uuidString)_\(source.lastPathComponent)"
+                    let tempURL = source.deletingLastPathComponent()
+                        .appendingPathComponent(tempName)
+                        .standardizedFileURL
+                    try fileManager.moveItem(at: source, to: tempURL)
+                    tempMappings[source] = tempURL
+                }
+            }
+        }
+
+        // Phase 2: Execute renames (using temp paths where needed)
+        for (index, item) in items.enumerated() {
+            let source = item.source.standardizedFileURL
+            let destination = item.destination.standardizedFileURL
+
+            guard source != destination else {
+                progress(index + 1, items.count, source)
+                continue
+            }
+
+            let actualSource = tempMappings[source] ?? source
+
+            try fileManager.moveItem(at: actualSource, to: destination)
+            completedChanges.append(FileLocationChange(source: source, destination: destination))
+            progress(index + 1, items.count, source)
+        }
+
+        let undoItems = completedChanges.map {
+            FileLocationChange(source: $0.destination, destination: $0.source)
+        }
+
+        return FileOperationRecord(
+            operation: .batchRename(items: items),
+            result: .batchRenamed(completedChanges),
+            timestamp: Date(),
+            undoOperation: .batchRename(items: undoItems)
         )
     }
 

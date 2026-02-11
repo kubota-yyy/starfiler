@@ -268,3 +268,90 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
         return words.prefix(1).uppercased() + words.dropFirst()
     }
 }
+
+final class ThemeSettingsViewController: NSViewController {
+    var onThemeChanged: ((FilerTheme) -> Void)?
+
+    private let titleLabel = NSTextField(labelWithString: "Filer Theme")
+    private let themePopUpButton = NSPopUpButton()
+    private let descriptionLabel = NSTextField(wrappingLabelWithString: "")
+    private var selectedTheme: FilerTheme
+
+    init(selectedTheme: FilerTheme) {
+        self.selectedTheme = selectedTheme
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func loadView() {
+        view = NSView()
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        configureUI()
+        configureLayout()
+        applyThemeSelection(selectedTheme, notify: false)
+    }
+
+    private func configureUI() {
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.font = .systemFont(ofSize: 14, weight: .semibold)
+
+        themePopUpButton.translatesAutoresizingMaskIntoConstraints = false
+        themePopUpButton.target = self
+        themePopUpButton.action = #selector(themeChanged(_:))
+        themePopUpButton.removeAllItems()
+        themePopUpButton.addItems(withTitles: FilerTheme.allCases.map(\.displayName))
+
+        descriptionLabel.translatesAutoresizingMaskIntoConstraints = false
+        descriptionLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        descriptionLabel.textColor = .secondaryLabelColor
+        descriptionLabel.maximumNumberOfLines = 2
+        descriptionLabel.lineBreakMode = .byWordWrapping
+    }
+
+    private func configureLayout() {
+        view.addSubview(titleLabel)
+        view.addSubview(themePopUpButton)
+        view.addSubview(descriptionLabel)
+
+        NSLayoutConstraint.activate([
+            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            titleLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: 20),
+
+            themePopUpButton.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            themePopUpButton.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 10),
+            themePopUpButton.widthAnchor.constraint(equalToConstant: 220),
+
+            descriptionLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            descriptionLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            descriptionLabel.topAnchor.constraint(equalTo: themePopUpButton.bottomAnchor, constant: 10),
+        ])
+    }
+
+    @objc
+    private func themeChanged(_ sender: NSPopUpButton) {
+        let index = sender.indexOfSelectedItem
+        guard FilerTheme.allCases.indices.contains(index) else {
+            return
+        }
+        applyThemeSelection(FilerTheme.allCases[index], notify: true)
+    }
+
+    private func applyThemeSelection(_ theme: FilerTheme, notify: Bool) {
+        selectedTheme = theme
+        descriptionLabel.stringValue = theme.descriptionText
+
+        if let index = FilerTheme.allCases.firstIndex(of: theme) {
+            themePopUpButton.selectItem(at: index)
+        }
+
+        if notify {
+            onThemeChanged?(theme)
+        }
+    }
+}

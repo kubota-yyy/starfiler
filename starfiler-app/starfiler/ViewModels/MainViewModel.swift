@@ -19,6 +19,7 @@ final class MainViewModel {
     let rightPane: FilePaneViewModel
     let previewPane: PreviewViewModel
     let securityScopedBookmarkService: any SecurityScopedBookmarkProviding
+    let visitHistoryService: VisitHistoryService
 
     private let fileOperationQueue: FileOperationQueue
 
@@ -35,6 +36,7 @@ final class MainViewModel {
         fileSystemService: FileSystemProviding = FileSystemService(),
         securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared,
         fileOperationQueue: FileOperationQueue = FileOperationQueue(),
+        visitHistoryService: VisitHistoryService,
         initialShowHiddenFiles: Bool = false,
         initialSortColumn: AppConfig.SortColumn = .name,
         initialSortAscending: Bool = true,
@@ -45,6 +47,7 @@ final class MainViewModel {
     ) {
         self.securityScopedBookmarkService = securityScopedBookmarkService
         self.fileOperationQueue = fileOperationQueue
+        self.visitHistoryService = visitHistoryService
 
         let normalizedLeftDirectory = initialLeftDirectory.standardizedFileURL
         let normalizedRightDirectory = (initialRightDirectory ?? normalizedLeftDirectory).standardizedFileURL
@@ -230,6 +233,15 @@ final class MainViewModel {
 
         execute(
             operation: .createDirectory(parentDirectory: activePane.paneState.currentDirectory, name: name),
+            registerUndoWithManager: true,
+            clearCutClipboardOnSuccess: false
+        )
+    }
+
+    func executeBatchRename(renames: [FileLocationChange]) {
+        guard !renames.isEmpty else { return }
+        execute(
+            operation: .batchRename(items: renames),
             registerUndoWithManager: true,
             clearCutClipboardOnSuccess: false
         )

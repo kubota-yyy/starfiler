@@ -41,7 +41,6 @@
 		CC0000000000000000000020 /* BookmarkGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000023 /* BookmarkGroup.swift */; };
 		CC0000000000000000000021 /* PreviewViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000024 /* PreviewViewModel.swift */; };
 		CC0000000000000000000022 /* PreviewPaneViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000025 /* PreviewPaneViewController.swift */; };
-		CC0000000000000000000023 /* BookmarkPopoverViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000026 /* BookmarkPopoverViewController.swift */; };
 		CC0000000000000000000024 /* FileDragSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000027 /* FileDragSource.swift */; };
 		CC0000000000000000000025 /* FileDropTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000028 /* FileDropTarget.swift */; };
 		CC0000000000000000000026 /* SpotlightSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000029 /* SpotlightSearchService.swift */; };
@@ -50,6 +49,25 @@
 		CC0000000000000000000029 /* SidebarViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000002C /* SidebarViewModel.swift */; };
 		CC000000000000000000002A /* SidebarViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000002D /* SidebarViewController.swift */; };
 		CC000000000000000000002B /* KeybindingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000002E /* KeybindingsViewController.swift */; };
+		CC000000000000000000002C /* BatchRenameRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000002F /* BatchRenameRule.swift */; };
+		CC000000000000000000002D /* BatchRenamePreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000030 /* BatchRenamePreset.swift */; };
+		CC000000000000000000002E /* BatchRenameResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000031 /* BatchRenameResult.swift */; };
+		CC000000000000000000002F /* SyncModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000032 /* SyncModels.swift */; };
+		CC0000000000000000000030 /* BatchRenamePresetsConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000033 /* BatchRenamePresetsConfig.swift */; };
+		CC0000000000000000000031 /* SyncletsConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000034 /* SyncletsConfig.swift */; };
+		CC0000000000000000000032 /* BatchRenameService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000035 /* BatchRenameService.swift */; };
+		CC0000000000000000000033 /* DirectoryComparisonService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000036 /* DirectoryComparisonService.swift */; };
+		CC0000000000000000000034 /* SyncExecutionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000037 /* SyncExecutionService.swift */; };
+		CC0000000000000000000035 /* BatchRenameViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000038 /* BatchRenameViewModel.swift */; };
+		CC0000000000000000000036 /* SyncViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000039 /* SyncViewModel.swift */; };
+		CC0000000000000000000037 /* BatchRenameViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000003A /* BatchRenameViewController.swift */; };
+		CC0000000000000000000038 /* SyncViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000003B /* SyncViewController.swift */; };
+		CC0000000000000000000039 /* VisitHistoryEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000003C /* VisitHistoryEntry.swift */; };
+		CC000000000000000000003A /* VisitHistoryConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000003D /* VisitHistoryConfig.swift */; };
+		CC000000000000000000003B /* VisitHistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000003E /* VisitHistoryService.swift */; };
+		CC000000000000000000003C /* BookmarkJumpInterpreter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000003F /* BookmarkJumpInterpreter.swift */; };
+		CC000000000000000000003D /* BookmarkSearchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000040 /* BookmarkSearchViewModel.swift */; };
+		CC000000000000000000003E /* BookmarkSearchPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000041 /* BookmarkSearchPanelController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -90,7 +108,6 @@
 		BB0000000000000000000023 /* BookmarkGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkGroup.swift; sourceTree = "<group>"; };
 		BB0000000000000000000024 /* PreviewViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewViewModel.swift; sourceTree = "<group>"; };
 		BB0000000000000000000025 /* PreviewPaneViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewPaneViewController.swift; sourceTree = "<group>"; };
-		BB0000000000000000000026 /* BookmarkPopoverViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkPopoverViewController.swift; sourceTree = "<group>"; };
 		BB0000000000000000000027 /* FileDragSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileDragSource.swift; sourceTree = "<group>"; };
 		BB0000000000000000000028 /* FileDropTarget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileDropTarget.swift; sourceTree = "<group>"; };
 		BB0000000000000000000029 /* SpotlightSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightSearchService.swift; sourceTree = "<group>"; };
@@ -99,6 +116,25 @@
 		BB000000000000000000002C /* SidebarViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarViewModel.swift; sourceTree = "<group>"; };
 		BB000000000000000000002D /* SidebarViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarViewController.swift; sourceTree = "<group>"; };
 		BB000000000000000000002E /* KeybindingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeybindingsViewController.swift; sourceTree = "<group>"; };
+		BB000000000000000000002F /* BatchRenameRule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchRenameRule.swift; sourceTree = "<group>"; };
+		BB0000000000000000000030 /* BatchRenamePreset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchRenamePreset.swift; sourceTree = "<group>"; };
+		BB0000000000000000000031 /* BatchRenameResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchRenameResult.swift; sourceTree = "<group>"; };
+		BB0000000000000000000032 /* SyncModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncModels.swift; sourceTree = "<group>"; };
+		BB0000000000000000000033 /* BatchRenamePresetsConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchRenamePresetsConfig.swift; sourceTree = "<group>"; };
+		BB0000000000000000000034 /* SyncletsConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncletsConfig.swift; sourceTree = "<group>"; };
+		BB0000000000000000000035 /* BatchRenameService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchRenameService.swift; sourceTree = "<group>"; };
+		BB0000000000000000000036 /* DirectoryComparisonService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectoryComparisonService.swift; sourceTree = "<group>"; };
+		BB0000000000000000000037 /* SyncExecutionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncExecutionService.swift; sourceTree = "<group>"; };
+		BB0000000000000000000038 /* BatchRenameViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchRenameViewModel.swift; sourceTree = "<group>"; };
+		BB0000000000000000000039 /* SyncViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncViewModel.swift; sourceTree = "<group>"; };
+		BB000000000000000000003A /* BatchRenameViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchRenameViewController.swift; sourceTree = "<group>"; };
+		BB000000000000000000003B /* SyncViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncViewController.swift; sourceTree = "<group>"; };
+		BB000000000000000000003C /* VisitHistoryEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitHistoryEntry.swift; sourceTree = "<group>"; };
+		BB000000000000000000003D /* VisitHistoryConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitHistoryConfig.swift; sourceTree = "<group>"; };
+		BB000000000000000000003E /* VisitHistoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitHistoryService.swift; sourceTree = "<group>"; };
+		BB000000000000000000003F /* BookmarkJumpInterpreter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkJumpInterpreter.swift; sourceTree = "<group>"; };
+		BB0000000000000000000040 /* BookmarkSearchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkSearchViewModel.swift; sourceTree = "<group>"; };
+		BB0000000000000000000041 /* BookmarkSearchPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkSearchPanelController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -178,6 +214,8 @@
 				AA0000000000000000000023 /* FilterBar */,
 				AA0000000000000000000008 /* StatusBar */,
 				AA0000000000000000000031 /* Settings */,
+				AA0000000000000000000032 /* BatchRename */,
+				AA0000000000000000000033 /* Sync */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -196,6 +234,22 @@
 				BB000000000000000000002E /* KeybindingsViewController.swift */,
 			);
 			path = Settings;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000032 /* BatchRename */ = {
+			isa = PBXGroup;
+			children = (
+				BB000000000000000000003A /* BatchRenameViewController.swift */,
+			);
+			path = BatchRename;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000033 /* Sync */ = {
+			isa = PBXGroup;
+			children = (
+				BB000000000000000000003B /* SyncViewController.swift */,
+			);
+			path = Sync;
 			sourceTree = "<group>";
 		};
 		AA000000000000000000000D /* SplitView */ = {
@@ -242,7 +296,7 @@
 		AA0000000000000000000025 /* Bookmarks */ = {
 			isa = PBXGroup;
 			children = (
-				BB0000000000000000000026 /* BookmarkPopoverViewController.swift */,
+				BB0000000000000000000041 /* BookmarkSearchPanelController.swift */,
 			);
 			path = Bookmarks;
 			sourceTree = "<group>";
@@ -254,6 +308,9 @@
 				BB0000000000000000000011 /* MainViewModel.swift */,
 				BB0000000000000000000024 /* PreviewViewModel.swift */,
 				BB000000000000000000002C /* SidebarViewModel.swift */,
+				BB0000000000000000000038 /* BatchRenameViewModel.swift */,
+				BB0000000000000000000039 /* SyncViewModel.swift */,
+				BB0000000000000000000040 /* BookmarkSearchViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -267,6 +324,10 @@
 				BB000000000000000000001C /* FileOperationService.swift */,
 				BB000000000000000000001D /* FileOperationQueue.swift */,
 				BB0000000000000000000029 /* SpotlightSearchService.swift */,
+				BB0000000000000000000035 /* BatchRenameService.swift */,
+				BB0000000000000000000036 /* DirectoryComparisonService.swift */,
+				BB0000000000000000000037 /* SyncExecutionService.swift */,
+				BB000000000000000000003E /* VisitHistoryService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -280,6 +341,11 @@
 				BB000000000000000000000B /* NavigationHistory.swift */,
 				BB000000000000000000001B /* FileOperation.swift */,
 				BB0000000000000000000023 /* BookmarkGroup.swift */,
+				BB000000000000000000002F /* BatchRenameRule.swift */,
+				BB0000000000000000000030 /* BatchRenamePreset.swift */,
+				BB0000000000000000000031 /* BatchRenameResult.swift */,
+				BB0000000000000000000032 /* SyncModels.swift */,
+				BB000000000000000000003C /* VisitHistoryEntry.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -301,6 +367,7 @@
 				BB0000000000000000000015 /* KeyInterpreter.swift */,
 				BB0000000000000000000016 /* KeybindingManager.swift */,
 				BB0000000000000000000017 /* VimModeState.swift */,
+				BB000000000000000000003F /* BookmarkJumpInterpreter.swift */,
 			);
 			path = Keyboard;
 			sourceTree = "<group>";
@@ -312,6 +379,9 @@
 				BB0000000000000000000021 /* BookmarksConfig.swift */,
 				BB0000000000000000000022 /* ConfigManager.swift */,
 				BB0000000000000000000018 /* KeybindingsConfig.swift */,
+				BB0000000000000000000033 /* BatchRenamePresetsConfig.swift */,
+				BB0000000000000000000034 /* SyncletsConfig.swift */,
+				BB000000000000000000003D /* VisitHistoryConfig.swift */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -436,13 +506,31 @@
 				CC0000000000000000000020 /* BookmarkGroup.swift in Sources */,
 				CC0000000000000000000021 /* PreviewViewModel.swift in Sources */,
 				CC0000000000000000000022 /* PreviewPaneViewController.swift in Sources */,
-				CC0000000000000000000023 /* BookmarkPopoverViewController.swift in Sources */,
 				CC0000000000000000000024 /* FileDragSource.swift in Sources */,
 				CC0000000000000000000025 /* FileDropTarget.swift in Sources */,
 				CC0000000000000000000026 /* SpotlightSearchService.swift in Sources */,
 				CC0000000000000000000029 /* SidebarViewModel.swift in Sources */,
 				CC000000000000000000002A /* SidebarViewController.swift in Sources */,
 				CC000000000000000000002B /* KeybindingsViewController.swift in Sources */,
+				CC000000000000000000002C /* BatchRenameRule.swift in Sources */,
+				CC000000000000000000002D /* BatchRenamePreset.swift in Sources */,
+				CC000000000000000000002E /* BatchRenameResult.swift in Sources */,
+				CC000000000000000000002F /* SyncModels.swift in Sources */,
+				CC0000000000000000000030 /* BatchRenamePresetsConfig.swift in Sources */,
+				CC0000000000000000000031 /* SyncletsConfig.swift in Sources */,
+				CC0000000000000000000032 /* BatchRenameService.swift in Sources */,
+				CC0000000000000000000033 /* DirectoryComparisonService.swift in Sources */,
+				CC0000000000000000000034 /* SyncExecutionService.swift in Sources */,
+				CC0000000000000000000035 /* BatchRenameViewModel.swift in Sources */,
+				CC0000000000000000000036 /* SyncViewModel.swift in Sources */,
+				CC0000000000000000000037 /* BatchRenameViewController.swift in Sources */,
+				CC0000000000000000000038 /* SyncViewController.swift in Sources */,
+				CC0000000000000000000039 /* VisitHistoryEntry.swift in Sources */,
+				CC000000000000000000003A /* VisitHistoryConfig.swift in Sources */,
+				CC000000000000000000003B /* VisitHistoryService.swift in Sources */,
+				CC000000000000000000003C /* BookmarkJumpInterpreter.swift in Sources */,
+				CC000000000000000000003D /* BookmarkSearchViewModel.swift in Sources */,
+				CC000000000000000000003E /* BookmarkSearchPanelController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

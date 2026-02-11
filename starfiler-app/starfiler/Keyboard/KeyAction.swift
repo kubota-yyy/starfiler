@@ -35,11 +35,14 @@ enum KeyAction: String, Codable, CaseIterable, Sendable {
     case sortByDate
     case reverseSortOrder
     case refresh
-    case openBookmarks
+    case openBookmarkSearch
     case addBookmark
+    case openHistory
     case undo
     case openFile
     case openFileInFinder
     case toggleSidebar
+    case batchRename
+    case syncPanes
     case quit
 }

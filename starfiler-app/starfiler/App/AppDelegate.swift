@@ -14,7 +14,9 @@ enum StarfilerMain {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var mainWindowController: MainWindowController?
     private var keybindingsWindowController: NSWindowController?
+    private var themeWindowController: NSWindowController?
     private var launchTask: Task<Void, Never>?
+    private var pendingOpenDirectories: [URL] = []
     private let securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -27,6 +29,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        enqueueOpenDirectories(from: urls)
+    }
+
+    func application(_ sender: NSApplication, openFiles filenames: [String]) {
+        let urls = filenames.map { URL(fileURLWithPath: $0) }
+        enqueueOpenDirectories(from: urls)
+        sender.reply(toOpenOrPrint: .success)
     }
 
     @MainActor
@@ -46,6 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let controller = MainWindowController(securityScopedBookmarkService: securityScopedBookmarkService)
             mainWindowController = controller
             controller.showWindow(self)
+            processPendingOpenDirectories()
 
             NSApp.activate(ignoringOtherApps: true)
         } catch {
@@ -81,6 +94,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.addButton(withTitle: "Quit")
         alert.runModal()
         NSApp.terminate(nil)
+    }
+
+    private func enqueueOpenDirectories(from urls: [URL]) {
+        let directories = urls.compactMap(resolveDirectoryToOpen(from:))
+        guard !directories.isEmpty else {
+            return
+        }
+
+        pendingOpenDirectories.append(contentsOf: directories)
+        Task { @MainActor in
+            processPendingOpenDirectories()
+        }
+    }
+
+    private func resolveDirectoryToOpen(from url: URL) -> URL? {
+        let fileURL = url.standardizedFileURL
+
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: fileURL.path, isDirectory: &isDirectory) else {
+            return nil
+        }
+
+        if isDirectory.boolValue {
+            return fileURL
+        }
+
+        return fileURL.deletingLastPathComponent().standardizedFileURL
+    }
+
+    @MainActor
+    private func processPendingOpenDirectories() {
+        guard let mainWindowController, !pendingOpenDirectories.isEmpty else {
+            return
+        }
+
+        let targetDirectory = pendingOpenDirectories.removeLast()
+        pendingOpenDirectories.removeAll(keepingCapacity: true)
+
+        mainWindowController.performAction {
+            $0.activePane.navigate(to: targetDirectory)
+        }
     }
 
     private func buildMainMenu() {
@@ -124,6 +178,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editMenu.addItem(NSMenuItem.separator())
         editMenu.addItem(withTitle: "Move to Trash", action: #selector(menuDelete(_:)), keyEquivalent: "\u{08}")
         editMenu.addItem(withTitle: "Rename...", action: #selector(menuRename(_:)), keyEquivalent: "")
+        editMenu.addItem(withTitle: "Batch Rename...", action: #selector(menuBatchRename(_:)), keyEquivalent: "")
+        editMenu.addItem(NSMenuItem.separator())
+        editMenu.addItem(withTitle: "Sync Panes...", action: #selector(menuSyncPanes(_:)), keyEquivalent: "")
         editMenu.addItem(NSMenuItem.separator())
         editMenu.addItem(withTitle: "Select All", action: #selector(menuSelectAll(_:)), keyEquivalent: "a")
         editMenuItem.submenu = editMenu
@@ -149,6 +206,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainMenu.addItem(settingsMenuItem)
         let settingsMenu = NSMenu(title: "Settings")
         settingsMenu.addItem(withTitle: "Keybindings...", action: #selector(menuShowKeybindings(_:)), keyEquivalent: ",")
+        settingsMenu.addItem(withTitle: "Theme...", action: #selector(menuShowTheme(_:)), keyEquivalent: "")
         settingsMenuItem.submenu = settingsMenu
 
         // Go menu
@@ -215,6 +273,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func menuRename(_ sender: Any?) {
         mainWindowController?.performAction { $0.rename() }
+    }
+
+    @objc private func menuBatchRename(_ sender: Any?) {
+        mainWindowController?.presentBatchRename()
+    }
+
+    @objc private func menuSyncPanes(_ sender: Any?) {
+        mainWindowController?.presentSyncWindow()
     }
 
     @objc private func menuSelectAll(_ sender: Any?) {
@@ -297,6 +363,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         presentKeybindingsWindow()
     }
 
+    @objc private func menuShowTheme(_ sender: Any?) {
+        presentThemeWindow()
+    }
+
     private func presentKeybindingsWindow() {
         let keybindingsVC = KeybindingsViewController()
         let window = NSWindow(contentViewController: keybindingsVC)
@@ -309,5 +379,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let windowController = NSWindowController(window: window)
         windowController.showWindow(self)
         keybindingsWindowController = windowController
+    }
+
+    private func presentThemeWindow() {
+        guard let mainWindowController else {
+            return
+        }
+
+        let themeSettingsVC = ThemeSettingsViewController(selectedTheme: mainWindowController.currentFilerTheme)
+        themeSettingsVC.onThemeChanged = { [weak self] theme in
+            self?.mainWindowController?.updateFilerTheme(theme)
+        }
+
+        let window = NSWindow(contentViewController: themeSettingsVC)
+        window.title = "Theme"
+        window.setContentSize(NSSize(width: 420, height: 170))
+        window.styleMask = [.titled, .closable]
+        window.minSize = NSSize(width: 380, height: 150)
+        window.center()
+
+        let windowController = NSWindowController(window: window)
+        windowController.showWindow(self)
+        themeWindowController = windowController
     }
 }

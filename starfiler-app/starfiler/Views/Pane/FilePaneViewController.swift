@@ -9,9 +9,95 @@ private final class AppearanceTrackingView: NSView {
     }
 }
 
+private struct FilerThemePalette {
+    let activeBorderColor: NSColor
+    let inactiveBorderColor: NSColor
+    let dropTargetBorderColor: NSColor
+    let activeHeaderColor: NSColor
+    let inactiveHeaderColor: NSColor
+    let activePathTextColor: NSColor
+    let inactivePathTextColor: NSColor
+    let markedColor: NSColor
+    let visualMarkedColor: NSColor
+    let activePaneAlpha: CGFloat
+    let inactivePaneAlpha: CGFloat
+}
+
+private extension FilerTheme {
+    static func dynamicColor(light: NSColor, dark: NSColor) -> NSColor {
+        NSColor(name: nil) { appearance in
+            let bestMatch = appearance.bestMatch(from: [.aqua, .darkAqua])
+            return bestMatch == .darkAqua ? dark : light
+        }
+    }
+
+    var palette: FilerThemePalette {
+        switch self {
+        case .system:
+            return FilerThemePalette(
+                activeBorderColor: .controlAccentColor,
+                inactiveBorderColor: .separatorColor,
+                dropTargetBorderColor: .systemBlue,
+                activeHeaderColor: NSColor.controlAccentColor.withAlphaComponent(0.16),
+                inactiveHeaderColor: NSColor.quaternaryLabelColor.withAlphaComponent(0.1),
+                activePathTextColor: .labelColor,
+                inactivePathTextColor: .secondaryLabelColor,
+                markedColor: NSColor.systemOrange.withAlphaComponent(0.14),
+                visualMarkedColor: NSColor.controlAccentColor.withAlphaComponent(0.22),
+                activePaneAlpha: 1.0,
+                inactivePaneAlpha: 0.86
+            )
+        case .ocean:
+            return FilerThemePalette(
+                activeBorderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.12, green: 0.44, blue: 0.78, alpha: 1.0), dark: NSColor(calibratedRed: 0.22, green: 0.62, blue: 0.98, alpha: 1.0)),
+                inactiveBorderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.58, green: 0.68, blue: 0.76, alpha: 1.0), dark: NSColor(calibratedRed: 0.36, green: 0.46, blue: 0.56, alpha: 1.0)),
+                dropTargetBorderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.08, green: 0.52, blue: 0.86, alpha: 1.0), dark: NSColor(calibratedRed: 0.34, green: 0.7, blue: 1.0, alpha: 1.0)),
+                activeHeaderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.12, green: 0.44, blue: 0.78, alpha: 0.18), dark: NSColor(calibratedRed: 0.2, green: 0.56, blue: 0.92, alpha: 0.3)),
+                inactiveHeaderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.44, green: 0.6, blue: 0.74, alpha: 0.12), dark: NSColor(calibratedRed: 0.22, green: 0.3, blue: 0.42, alpha: 0.22)),
+                activePathTextColor: .labelColor,
+                inactivePathTextColor: .secondaryLabelColor,
+                markedColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.22, green: 0.62, blue: 0.94, alpha: 0.16), dark: NSColor(calibratedRed: 0.16, green: 0.52, blue: 0.86, alpha: 0.34)),
+                visualMarkedColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.04, green: 0.48, blue: 0.88, alpha: 0.24), dark: NSColor(calibratedRed: 0.24, green: 0.62, blue: 1.0, alpha: 0.4)),
+                activePaneAlpha: 1.0,
+                inactivePaneAlpha: 0.9
+            )
+        case .forest:
+            return FilerThemePalette(
+                activeBorderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.16, green: 0.5, blue: 0.34, alpha: 1.0), dark: NSColor(calibratedRed: 0.3, green: 0.72, blue: 0.48, alpha: 1.0)),
+                inactiveBorderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.56, green: 0.68, blue: 0.58, alpha: 1.0), dark: NSColor(calibratedRed: 0.34, green: 0.46, blue: 0.36, alpha: 1.0)),
+                dropTargetBorderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.08, green: 0.62, blue: 0.38, alpha: 1.0), dark: NSColor(calibratedRed: 0.24, green: 0.82, blue: 0.54, alpha: 1.0)),
+                activeHeaderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.16, green: 0.5, blue: 0.34, alpha: 0.18), dark: NSColor(calibratedRed: 0.2, green: 0.56, blue: 0.36, alpha: 0.32)),
+                inactiveHeaderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.46, green: 0.6, blue: 0.5, alpha: 0.12), dark: NSColor(calibratedRed: 0.22, green: 0.32, blue: 0.26, alpha: 0.24)),
+                activePathTextColor: .labelColor,
+                inactivePathTextColor: .secondaryLabelColor,
+                markedColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.26, green: 0.64, blue: 0.34, alpha: 0.18), dark: NSColor(calibratedRed: 0.18, green: 0.52, blue: 0.28, alpha: 0.34)),
+                visualMarkedColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.16, green: 0.56, blue: 0.3, alpha: 0.26), dark: NSColor(calibratedRed: 0.24, green: 0.7, blue: 0.4, alpha: 0.42)),
+                activePaneAlpha: 1.0,
+                inactivePaneAlpha: 0.9
+            )
+        case .sunset:
+            return FilerThemePalette(
+                activeBorderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.82, green: 0.36, blue: 0.18, alpha: 1.0), dark: NSColor(calibratedRed: 0.98, green: 0.54, blue: 0.24, alpha: 1.0)),
+                inactiveBorderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.76, green: 0.62, blue: 0.52, alpha: 1.0), dark: NSColor(calibratedRed: 0.52, green: 0.42, blue: 0.36, alpha: 1.0)),
+                dropTargetBorderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.94, green: 0.44, blue: 0.16, alpha: 1.0), dark: NSColor(calibratedRed: 1.0, green: 0.62, blue: 0.28, alpha: 1.0)),
+                activeHeaderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.86, green: 0.44, blue: 0.2, alpha: 0.18), dark: NSColor(calibratedRed: 0.92, green: 0.5, blue: 0.24, alpha: 0.32)),
+                inactiveHeaderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.78, green: 0.62, blue: 0.54, alpha: 0.12), dark: NSColor(calibratedRed: 0.42, green: 0.32, blue: 0.28, alpha: 0.24)),
+                activePathTextColor: .labelColor,
+                inactivePathTextColor: .secondaryLabelColor,
+                markedColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.92, green: 0.5, blue: 0.2, alpha: 0.18), dark: NSColor(calibratedRed: 0.74, green: 0.34, blue: 0.16, alpha: 0.34)),
+                visualMarkedColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.94, green: 0.42, blue: 0.18, alpha: 0.28), dark: NSColor(calibratedRed: 0.92, green: 0.48, blue: 0.22, alpha: 0.44)),
+                activePaneAlpha: 1.0,
+                inactivePaneAlpha: 0.9
+            )
+        }
+    }
+}
+
 private final class MarkedRowView: NSTableRowView {
     var isMarkedRow = false
     var isVisualMode = false
+    var markedColor = NSColor.systemOrange.withAlphaComponent(0.14)
+    var visualMarkedColor = NSColor.controlAccentColor.withAlphaComponent(0.22)
 
     override func drawBackground(in dirtyRect: NSRect) {
         guard isMarkedRow else {
@@ -19,9 +105,7 @@ private final class MarkedRowView: NSTableRowView {
             return
         }
 
-        let color = isVisualMode
-            ? NSColor.controlAccentColor.withAlphaComponent(0.22)
-            : NSColor.systemOrange.withAlphaComponent(0.14)
+        let color = isVisualMode ? visualMarkedColor : markedColor
 
         color.setFill()
         dirtyRect.fill()
@@ -68,12 +152,14 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private var isPaneActive = false
     private var isDropTargetHighlighted = false
     private var vimModeState = VimModeState()
+    private var filerTheme: FilerTheme = .system
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
     var onSelectionChanged: ((FileItem?) -> Void)?
     var onTabPressed: (() -> Bool)?
     var onDidRequestActivate: (() -> Void)?
     var onFileOperationRequested: ((KeyAction) -> Bool)?
+    var onBookmarkJump: ((String) -> Void)?
 
     init(viewModel: FilePaneViewModel) {
         self.viewModel = viewModel
@@ -114,6 +200,26 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         updateActiveAppearance()
     }
 
+    func updateBookmarksConfig(_ config: BookmarksConfig) {
+        tableView.setBookmarkJumpConfig(config)
+        tableView.onBookmarkJump = { [weak self] path in
+            self?.onBookmarkJump?(path)
+        }
+        tableView.onBookmarkJumpPending = { [weak self] hint in
+            self?.showBookmarkJumpHint(hint)
+        }
+    }
+
+    private func showBookmarkJumpHint(_ hint: String) {
+        onStatusChanged?(hint, viewModel.directoryContents.displayedItems.count, viewModel.markedCount)
+    }
+
+    func applyTheme(_ theme: FilerTheme) {
+        filerTheme = theme
+        tableView.reloadData()
+        updateActiveAppearance()
+    }
+
     func numberOfRows(in tableView: NSTableView) -> Int {
         viewModel.directoryContents.displayedItems.count
     }
@@ -138,9 +244,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+        let palette = filerTheme.palette
         let rowView = MarkedRowView()
         rowView.isMarkedRow = viewModel.paneState.markedIndices.contains(row)
         rowView.isVisualMode = vimModeState.mode == .visual
+        rowView.markedColor = palette.markedColor
+        rowView.visualMarkedColor = palette.visualMarkedColor
         return rowView
     }
 
@@ -180,6 +289,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         tableView.setVimMode(vimModeState.mode)
         tableView.target = self
         tableView.doubleAction = #selector(handleDoubleClick(_:))
+        tableView.backgroundColor = .textBackgroundColor
 
         let nameColumn = NSTableColumn(identifier: Column.name)
         nameColumn.title = "Name"
@@ -382,21 +492,20 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private func updateActiveAppearance() {
+        let palette = filerTheme.palette
         let borderColor: NSColor
         if isDropTargetHighlighted {
-            borderColor = .systemBlue
+            borderColor = palette.dropTargetBorderColor
         } else {
-            borderColor = isPaneActive ? .controlAccentColor : .separatorColor
+            borderColor = isPaneActive ? palette.activeBorderColor : palette.inactiveBorderColor
         }
 
-        let headerColor = isPaneActive
-            ? NSColor.controlAccentColor.withAlphaComponent(0.16)
-            : NSColor.quaternaryLabelColor.withAlphaComponent(0.1)
+        let headerColor = isPaneActive ? palette.activeHeaderColor : palette.inactiveHeaderColor
 
         view.layer?.borderColor = borderColor.cgColor
         headerView.layer?.backgroundColor = headerColor.cgColor
-        pathLabel.textColor = isPaneActive ? .labelColor : .secondaryLabelColor
-        scrollView.alphaValue = isPaneActive ? 1.0 : 0.86
+        pathLabel.textColor = isPaneActive ? palette.activePathTextColor : palette.inactivePathTextColor
+        scrollView.alphaValue = isPaneActive ? palette.activePaneAlpha : palette.inactivePaneAlpha
     }
 
     private func makeNameCell(for item: FileItem, row: Int) -> NSTableCellView {
@@ -587,7 +696,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         case .openFileInFinder:
             revealSelectedInFinder()
             handled = true
-        case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo, .togglePreview, .toggleSidebar, .openBookmarks, .addBookmark:
+        case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo, .togglePreview, .toggleSidebar, .openBookmarkSearch, .openHistory, .addBookmark, .batchRename, .syncPanes:
             handled = onFileOperationRequested?(action) ?? false
         case .enterFilterMode:
             showFilterBar()

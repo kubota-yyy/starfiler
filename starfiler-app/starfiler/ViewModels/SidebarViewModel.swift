@@ -6,6 +6,7 @@ import Observation
 final class SidebarViewModel {
     enum SectionKind: Hashable, Sendable {
         case favorites
+        case recent
         case bookmarkGroup(name: String)
     }
 
@@ -19,6 +20,14 @@ final class SidebarViewModel {
         let displayName: String
         let path: String
         let iconName: String
+        let shortcutHint: String?
+
+        init(displayName: String, path: String, iconName: String, shortcutHint: String? = nil) {
+            self.displayName = displayName
+            self.path = path
+            self.iconName = iconName
+            self.shortcutHint = shortcutHint
+        }
     }
 
     private(set) var sections: [SidebarSection] = []
@@ -26,29 +35,71 @@ final class SidebarViewModel {
     var onSectionsChanged: (([SidebarSection]) -> Void)?
 
     private let configManager: ConfigManager
+    private let visitHistoryService: VisitHistoryService?
 
-    init(configManager: ConfigManager) {
+    init(configManager: ConfigManager, visitHistoryService: VisitHistoryService? = nil) {
         self.configManager = configManager
+        self.visitHistoryService = visitHistoryService
         reloadSections()
     }
 
     func reloadSections() {
         var result: [SidebarSection] = []
 
-        let homePath = UserPaths.homeDirectoryPath
-        let favorites: [SidebarEntry] = [
-            SidebarEntry(displayName: "Home", path: homePath, iconName: "house"),
-            SidebarEntry(displayName: "Desktop", path: homePath + "/Desktop", iconName: "menubar.dock.rectangle"),
-            SidebarEntry(displayName: "Documents", path: homePath + "/Documents", iconName: "doc"),
-            SidebarEntry(displayName: "Downloads", path: homePath + "/Downloads", iconName: "arrow.down.circle"),
-            SidebarEntry(displayName: "Applications", path: "/Applications", iconName: "app"),
-        ]
+        let bookmarksConfig = configManager.loadBookmarksConfig()
+
+        let defaultGroup = bookmarksConfig.groups.first(where: { $0.isDefault })
+        let favorites: [SidebarEntry]
+        if let defaultGroup {
+            favorites = defaultGroup.entries.map { entry in
+                let hint = entry.shortcutKey.map { "' \($0)" }
+                return SidebarEntry(
+                    displayName: entry.displayName,
+                    path: entry.path,
+                    iconName: iconName(for: entry.displayName),
+                    shortcutHint: hint
+                )
+            }
+        } else {
+            let homePath = UserPaths.homeDirectoryPath
+            favorites = [
+                SidebarEntry(displayName: "Home", path: homePath, iconName: "house"),
+                SidebarEntry(displayName: "Desktop", path: homePath + "/Desktop", iconName: "menubar.dock.rectangle"),
+                SidebarEntry(displayName: "Documents", path: homePath + "/Documents", iconName: "doc"),
+                SidebarEntry(displayName: "Downloads", path: homePath + "/Downloads", iconName: "arrow.down.circle"),
+                SidebarEntry(displayName: "Applications", path: "/Applications", iconName: "app"),
+            ]
+        }
         result.append(SidebarSection(kind: .favorites, title: "Favorites", items: favorites))
 
-        let bookmarksConfig = configManager.loadBookmarksConfig()
-        for group in bookmarksConfig.groups {
+        if let visitHistoryService {
+            let recentEntries = visitHistoryService.recentEntries(limit: 10)
+            if !recentEntries.isEmpty {
+                let recentItems = recentEntries.map { entry in
+                    SidebarEntry(
+                        displayName: entry.displayName,
+                        path: entry.path,
+                        iconName: "clock"
+                    )
+                }
+                result.append(SidebarSection(kind: .recent, title: "Recent", items: recentItems))
+            }
+        }
+
+        for group in bookmarksConfig.groups where !group.isDefault {
             let entries = group.entries.map { entry in
-                SidebarEntry(displayName: entry.displayName, path: entry.path, iconName: "folder")
+                let hint: String?
+                if let groupKey = group.shortcutKey, let entryKey = entry.shortcutKey {
+                    hint = "' \(groupKey) \(entryKey)"
+                } else {
+                    hint = nil
+                }
+                return SidebarEntry(
+                    displayName: entry.displayName,
+                    path: entry.path,
+                    iconName: "folder",
+                    shortcutHint: hint
+                )
             }
             result.append(SidebarSection(kind: .bookmarkGroup(name: group.name), title: group.name, items: entries))
         }
@@ -77,5 +128,22 @@ final class SidebarViewModel {
         }
         try? configManager.saveBookmarksConfig(bookmarksConfig)
         reloadSections()
+    }
+
+    private func iconName(for displayName: String) -> String {
+        switch displayName.lowercased() {
+        case "home":
+            return "house"
+        case "desktop":
+            return "menubar.dock.rectangle"
+        case "documents":
+            return "doc"
+        case "downloads":
+            return "arrow.down.circle"
+        case "applications":
+            return "app"
+        default:
+            return "folder"
+        }
     }
 }

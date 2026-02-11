@@ -33,6 +33,7 @@ final class FilePaneViewModel {
     var onItemsChanged: (([FileItem]) -> Void)?
     var onCursorChanged: ((Int) -> Void)?
     var onMarkedIndicesChanged: ((IndexSet) -> Void)?
+    var onDirectoryChanged: ((URL) -> Void)?
 
     private let fileSystemService: FileSystemProviding
     private let securityScopedBookmarkService: any SecurityScopedBookmarkProviding
@@ -498,6 +499,7 @@ final class FilePaneViewModel {
                 }
 
                 self.startMonitoringCurrentDirectory(directory)
+                self.onDirectoryChanged?(directory)
             } catch {
                 if didAcquireDestinationScope {
                     await self.securityScopedBookmarkService.stopAccessing(directory)

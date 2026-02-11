@@ -26,11 +26,14 @@
       "Ctrl-f": "enterSpotlightSearch",
       ".": "toggleHiddenFiles",
       "u": "undo",
-      "b": "openBookmarks",
+      "b": "openBookmarkSearch",
+      "Ctrl-r": "openHistory",
       "B": "addBookmark",
       "r": "refresh",
       "o": "openFile",
       "O": "openFileInFinder",
+      "R": "batchRename",
+      "S": "syncPanes",
       "q": "quit"
     },
     "visual": {

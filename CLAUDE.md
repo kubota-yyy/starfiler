@@ -38,8 +38,48 @@ starfiler/              # モノレポルート
 - `docs/implementation-plan.md` - 実装プラン
 - `docs/plan-review.md` - アーキテクチャレビュー結果
 
+## 前提
+- macOS
+- Xcode（`xcodebuild` が使えること）
+
 ## ビルド・テスト
 ```bash
 cd starfiler-app && xcodebuild -scheme starfiler -configuration Debug build
 cd starfiler-app && xcodebuild test -scheme starfiler
 ```
+
+## /Applications へビルドして使う
+```bash
+cd /Users/workspace/NilOne/starfiler
+./scripts/build_and_install.sh --launch
+```
+上記で Debug ビルド → `/Applications/Starfiler.app` へ配置 → アプリ起動を自動実行。
+
+## 開発ループ
+
+### 単発で反映
+```bash
+./scripts/build_and_install.sh --launch
+```
+
+### 監視して自動反映
+```bash
+./scripts/watch_and_install.sh
+```
+`starfiler-app` 配下のソース変更を監視し、変更検知ごとに自動で再ビルド・再配置。
+
+オプション例:
+```bash
+./scripts/watch_and_install.sh --no-launch    # 起動なしで反映
+./scripts/watch_and_install.sh --interval 2   # 2秒間隔で監視
+```
+
+## 主要スクリプト
+- `scripts/build_and_install.sh`
+- `scripts/watch_and_install.sh`
+
+## 環境変数での上書き
+- `SCHEME`（既定: `starfiler`）
+- `CONFIGURATION`（既定: `Debug`）
+- `DERIVED_DATA_PATH`（既定: `starfiler-app/.derivedData`）
+- `APP_DEST`（既定: `/Applications/Starfiler.app`）

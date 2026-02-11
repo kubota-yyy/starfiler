@@ -27,4 +27,21 @@ struct BookmarksConfig: Codable, Sendable {
         let data = try encoder.encode(self)
         try data.write(to: url, options: [.atomic])
     }
+
+    static func withDefaults() -> BookmarksConfig {
+        let homePath = UserPaths.homeDirectoryPath
+        let defaultGroup = BookmarkGroup(
+            name: "Default",
+            entries: [
+                BookmarkEntry(displayName: "Home", path: homePath, shortcutKey: "h"),
+                BookmarkEntry(displayName: "Desktop", path: homePath + "/Desktop", shortcutKey: "d"),
+                BookmarkEntry(displayName: "Documents", path: homePath + "/Documents", shortcutKey: "o"),
+                BookmarkEntry(displayName: "Downloads", path: homePath + "/Downloads", shortcutKey: "w"),
+                BookmarkEntry(displayName: "Applications", path: "/Applications", shortcutKey: "a"),
+            ],
+            shortcutKey: nil,
+            isDefault: true
+        )
+        return BookmarksConfig(groups: [defaultGroup])
+    }
 }

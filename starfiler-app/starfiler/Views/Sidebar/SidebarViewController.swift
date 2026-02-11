@@ -197,9 +197,12 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     private func makeEntryView(entry: SidebarViewModel.SidebarEntry) -> NSView {
         let cellIdentifier = NSUserInterfaceItemIdentifier("entryCell")
         let cell: NSTableCellView
+        let shortcutLabel: NSTextField
 
-        if let existing = outlineView.makeView(withIdentifier: cellIdentifier, owner: self) as? NSTableCellView {
+        if let existing = outlineView.makeView(withIdentifier: cellIdentifier, owner: self) as? NSTableCellView,
+           let existingShortcut = existing.viewWithTag(100) as? NSTextField {
             cell = existing
+            shortcutLabel = existingShortcut
         } else {
             cell = NSTableCellView()
             cell.identifier = cellIdentifier
@@ -213,10 +216,20 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
             textField.lineBreakMode = .byTruncatingTail
             textField.font = .systemFont(ofSize: 13)
 
+            shortcutLabel = NSTextField(labelWithString: "")
+            shortcutLabel.translatesAutoresizingMaskIntoConstraints = false
+            shortcutLabel.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
+            shortcutLabel.textColor = .tertiaryLabelColor
+            shortcutLabel.alignment = .right
+            shortcutLabel.tag = 100
+            shortcutLabel.setContentHuggingPriority(.required, for: .horizontal)
+            shortcutLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+
             cell.imageView = imageView
             cell.textField = textField
             cell.addSubview(imageView)
             cell.addSubview(textField)
+            cell.addSubview(shortcutLabel)
 
             NSLayoutConstraint.activate([
                 imageView.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
@@ -225,8 +238,11 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
                 imageView.heightAnchor.constraint(equalToConstant: 16),
 
                 textField.leadingAnchor.constraint(equalTo: imageView.trailingAnchor, constant: 6),
-                textField.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
                 textField.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+
+                shortcutLabel.leadingAnchor.constraint(greaterThanOrEqualTo: textField.trailingAnchor, constant: 4),
+                shortcutLabel.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
+                shortcutLabel.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
             ])
         }
 
@@ -234,6 +250,9 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         cell.imageView?.image = NSImage(systemSymbolName: entry.iconName, accessibilityDescription: nil)
             ?? NSImage(systemSymbolName: "folder", accessibilityDescription: nil)
         cell.imageView?.contentTintColor = .controlAccentColor
+
+        shortcutLabel.stringValue = entry.shortcutHint ?? ""
+        shortcutLabel.isHidden = entry.shortcutHint == nil
 
         return cell
     }

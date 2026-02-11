@@ -166,42 +166,64 @@ actor SecurityScopedBookmarkService: SecurityScopedBookmarkProviding {
             return
         }
 
-        if let activeScopePath = activeScopePath(containing: requestedResolvedPath) {
+        let parentActiveScopePath = activeScopePath(containing: requestedResolvedPath)
+
+        if let bookmarkIndex = bestBookmarkIndex(forResolvedPath: requestedResolvedPath) {
+            let resolvedBookmark = try resolveBookmarkRecord(at: bookmarkIndex)
+
+            guard isSameOrDescendant(requestedResolvedPath, of: resolvedBookmark.resolvedPath) else {
+                throw SecurityScopedBookmarkError.symlinkEscapesAuthorizedScope(
+                    requestedPath: requestedResolvedPath,
+                    authorizedPath: resolvedBookmark.resolvedPath
+                )
+            }
+
+            if let activeScopePath = parentActiveScopePath,
+               pathDepth(activeScopePath) >= pathDepth(resolvedBookmark.resolvedPath)
+            {
+                activeLeases[requestedResolvedPath] = ActiveLease(scopeResolvedPath: activeScopePath, count: 1)
+                incrementScopeCount(for: activeScopePath)
+                return
+            }
+
+            if let existingScope = activeScopes[resolvedBookmark.resolvedPath] {
+                activeScopes[resolvedBookmark.resolvedPath] = ActiveScope(
+                    url: existingScope.url,
+                    refCount: existingScope.refCount + 1,
+                    startedSecurityScope: existingScope.startedSecurityScope
+                )
+                activeLeases[requestedResolvedPath] = ActiveLease(scopeResolvedPath: resolvedBookmark.resolvedPath, count: 1)
+                return
+            }
+
+            guard resolvedBookmark.url.startAccessingSecurityScopedResource() else {
+                throw SecurityScopedBookmarkError.cannotStartAccess(scopePath: resolvedBookmark.selectedPath)
+            }
+
+            activeScopes[resolvedBookmark.resolvedPath] = ActiveScope(
+                url: resolvedBookmark.url,
+                refCount: 1,
+                startedSecurityScope: true
+            )
+            activeLeases[requestedResolvedPath] = ActiveLease(scopeResolvedPath: resolvedBookmark.resolvedPath, count: 1)
+            return
+        }
+
+        if let activeScopePath = parentActiveScopePath {
             activeLeases[requestedResolvedPath] = ActiveLease(scopeResolvedPath: activeScopePath, count: 1)
             incrementScopeCount(for: activeScopePath)
             return
         }
 
-        guard let bookmarkIndex = bestBookmarkIndex(forResolvedPath: requestedResolvedPath) else {
-            if let apparentIndex = bestBookmarkIndex(forSelectedPath: requestedPath) {
-                let record = store.bookmarks[apparentIndex]
-                throw SecurityScopedBookmarkError.symlinkEscapesAuthorizedScope(
-                    requestedPath: requestedResolvedPath,
-                    authorizedPath: record.resolvedPath
-                )
-            }
-            throw SecurityScopedBookmarkError.bookmarkNotFound(requestedPath: requestedResolvedPath)
-        }
-
-        let resolvedBookmark = try resolveBookmarkRecord(at: bookmarkIndex)
-
-        guard isSameOrDescendant(requestedResolvedPath, of: resolvedBookmark.resolvedPath) else {
+        if let apparentIndex = bestBookmarkIndex(forSelectedPath: requestedPath) {
+            let record = store.bookmarks[apparentIndex]
             throw SecurityScopedBookmarkError.symlinkEscapesAuthorizedScope(
                 requestedPath: requestedResolvedPath,
-                authorizedPath: resolvedBookmark.resolvedPath
+                authorizedPath: record.resolvedPath
             )
         }
 
-        guard resolvedBookmark.url.startAccessingSecurityScopedResource() else {
-            throw SecurityScopedBookmarkError.cannotStartAccess(scopePath: resolvedBookmark.selectedPath)
-        }
-
-        activeScopes[resolvedBookmark.resolvedPath] = ActiveScope(
-            url: resolvedBookmark.url,
-            refCount: 1,
-            startedSecurityScope: true
-        )
-        activeLeases[requestedResolvedPath] = ActiveLease(scopeResolvedPath: resolvedBookmark.resolvedPath, count: 1)
+        throw SecurityScopedBookmarkError.bookmarkNotFound(requestedPath: requestedResolvedPath)
     }
 
     func stopAccessing(_ url: URL) async {
