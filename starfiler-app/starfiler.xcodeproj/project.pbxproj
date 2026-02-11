@@ -30,6 +30,9 @@
 		CC0000000000000000000015 /* KeybindingsConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000018 /* KeybindingsConfig.swift */; };
 		CC0000000000000000000016 /* NSEvent+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000019 /* NSEvent+Extensions.swift */; };
 		CC0000000000000000000017 /* DefaultKeybindings.json in Resources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000001A /* DefaultKeybindings.json */; };
+		CC0000000000000000000018 /* FileOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000001B /* FileOperation.swift */; };
+		CC0000000000000000000019 /* FileOperationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000001C /* FileOperationService.swift */; };
+		CC000000000000000000001A /* FileOperationQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000001D /* FileOperationQueue.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -59,6 +62,9 @@
 		BB0000000000000000000018 /* KeybindingsConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeybindingsConfig.swift; sourceTree = "<group>"; };
 		BB0000000000000000000019 /* NSEvent+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSEvent+Extensions.swift"; sourceTree = "<group>"; };
 		BB000000000000000000001A /* DefaultKeybindings.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = DefaultKeybindings.json; sourceTree = "<group>"; };
+		BB000000000000000000001B /* FileOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileOperation.swift; sourceTree = "<group>"; };
+		BB000000000000000000001C /* FileOperationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileOperationService.swift; sourceTree = "<group>"; };
+		BB000000000000000000001D /* FileOperationQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileOperationQueue.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -172,6 +178,8 @@
 			children = (
 				BB0000000000000000000007 /* FileSystemService.swift */,
 				BB0000000000000000000010 /* SecurityScopedBookmarkService.swift */,
+				BB000000000000000000001C /* FileOperationService.swift */,
+				BB000000000000000000001D /* FileOperationQueue.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -183,6 +191,7 @@
 				BB0000000000000000000009 /* DirectoryContents.swift */,
 				BB000000000000000000000A /* PaneState.swift */,
 				BB000000000000000000000B /* NavigationHistory.swift */,
+				BB000000000000000000001B /* FileOperation.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -315,6 +324,9 @@
 				CC0000000000000000000014 /* VimModeState.swift in Sources */,
 				CC0000000000000000000015 /* KeybindingsConfig.swift in Sources */,
 				CC0000000000000000000016 /* NSEvent+Extensions.swift in Sources */,
+				CC0000000000000000000018 /* FileOperation.swift in Sources */,
+				CC0000000000000000000019 /* FileOperationService.swift in Sources */,
+				CC000000000000000000001A /* FileOperationQueue.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

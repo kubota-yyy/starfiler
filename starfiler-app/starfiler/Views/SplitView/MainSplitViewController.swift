@@ -4,6 +4,7 @@ final class MainSplitViewController: NSSplitViewController {
     private struct PaneStatus {
         var path: String
         var itemCount: Int
+        var markedCount: Int
     }
 
     private let viewModel: MainViewModel
@@ -14,7 +15,7 @@ final class MainSplitViewController: NSSplitViewController {
     private var leftPaneStatus: PaneStatus
     private var rightPaneStatus: PaneStatus
 
-    var onStatusChanged: ((String, Int) -> Void)?
+    var onStatusChanged: ((String, Int, Int) -> Void)?
 
     init(viewModel: MainViewModel) {
         self.viewModel = viewModel
@@ -23,14 +24,20 @@ final class MainSplitViewController: NSSplitViewController {
 
         self.leftPaneStatus = PaneStatus(
             path: viewModel.leftPane.paneState.currentDirectory.path,
-            itemCount: viewModel.leftPane.directoryContents.displayedItems.count
+            itemCount: viewModel.leftPane.directoryContents.displayedItems.count,
+            markedCount: viewModel.leftPane.markedCount
         )
         self.rightPaneStatus = PaneStatus(
             path: viewModel.rightPane.paneState.currentDirectory.path,
-            itemCount: viewModel.rightPane.directoryContents.displayedItems.count
+            itemCount: viewModel.rightPane.directoryContents.displayedItems.count,
+            markedCount: viewModel.rightPane.markedCount
         )
 
         super.init(nibName: nil, bundle: nil)
+
+        viewModel.requestTextInput = { [weak self] prompt in
+            self?.presentTextPrompt(prompt)
+        }
 
         configureSplitView()
         bindPaneControllers()
@@ -93,11 +100,18 @@ final class MainSplitViewController: NSSplitViewController {
             self?.setActivePane(.right)
         }
 
-        leftPaneViewController.onStatusChanged = { [weak self] path, itemCount in
-            self?.updatePaneStatus(side: .left, path: path, itemCount: itemCount)
+        leftPaneViewController.onStatusChanged = { [weak self] path, itemCount, markedCount in
+            self?.updatePaneStatus(side: .left, path: path, itemCount: itemCount, markedCount: markedCount)
         }
-        rightPaneViewController.onStatusChanged = { [weak self] path, itemCount in
-            self?.updatePaneStatus(side: .right, path: path, itemCount: itemCount)
+        rightPaneViewController.onStatusChanged = { [weak self] path, itemCount, markedCount in
+            self?.updatePaneStatus(side: .right, path: path, itemCount: itemCount, markedCount: markedCount)
+        }
+
+        leftPaneViewController.onFileOperationRequested = { [weak self] action in
+            self?.handleGlobalAction(action) ?? false
+        }
+        rightPaneViewController.onFileOperationRequested = { [weak self] action in
+            self?.handleGlobalAction(action) ?? false
         }
     }
 
@@ -116,6 +130,34 @@ final class MainSplitViewController: NSSplitViewController {
         refreshActivePaneUI(focusActivePane: false)
     }
 
+    private func handleGlobalAction(_ action: KeyAction) -> Bool {
+        switch action {
+        case .copy:
+            viewModel.copyMarked()
+            return true
+        case .paste:
+            viewModel.paste()
+            return true
+        case .move:
+            viewModel.cutMarked()
+            return true
+        case .delete:
+            viewModel.deleteMarked()
+            return true
+        case .rename:
+            viewModel.rename()
+            return true
+        case .createDirectory:
+            viewModel.createDirectory()
+            return true
+        case .undo:
+            viewModel.undo()
+            return true
+        default:
+            return false
+        }
+    }
+
     private func refreshActivePaneUI(focusActivePane shouldFocus: Bool) {
         leftPaneViewController.setActive(viewModel.activePaneSide == .left)
         rightPaneViewController.setActive(viewModel.activePaneSide == .right)
@@ -127,8 +169,8 @@ final class MainSplitViewController: NSSplitViewController {
         publishActivePaneStatus()
     }
 
-    private func updatePaneStatus(side: PaneSide, path: String, itemCount: Int) {
-        let status = PaneStatus(path: path, itemCount: itemCount)
+    private func updatePaneStatus(side: PaneSide, path: String, itemCount: Int, markedCount: Int) {
+        let status = PaneStatus(path: path, itemCount: itemCount, markedCount: markedCount)
 
         switch side {
         case .left:
@@ -152,7 +194,7 @@ final class MainSplitViewController: NSSplitViewController {
             status = rightPaneStatus
         }
 
-        onStatusChanged?(status.path, status.itemCount)
+        onStatusChanged?(status.path, status.itemCount, status.markedCount)
     }
 
     private func paneViewController(for side: PaneSide) -> FilePaneViewController {
@@ -162,5 +204,24 @@ final class MainSplitViewController: NSSplitViewController {
         case .right:
             return rightPaneViewController
         }
+    }
+
+    private func presentTextPrompt(_ prompt: TextInputPrompt) -> String? {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = prompt.title
+        alert.informativeText = prompt.message
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+
+        let inputField = NSTextField(string: prompt.defaultValue ?? "")
+        inputField.frame = NSRect(x: 0, y: 0, width: 300, height: 24)
+        alert.accessoryView = inputField
+
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            return nil
+        }
+
+        return inputField.stringValue
     }
 }

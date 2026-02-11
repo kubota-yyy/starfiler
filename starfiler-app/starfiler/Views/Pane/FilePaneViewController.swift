@@ -1,5 +1,24 @@
 import AppKit
 
+private final class MarkedRowView: NSTableRowView {
+    var isMarkedRow = false
+    var isVisualMode = false
+
+    override func drawBackground(in dirtyRect: NSRect) {
+        guard isMarkedRow else {
+            super.drawBackground(in: dirtyRect)
+            return
+        }
+
+        let color = isVisualMode
+            ? NSColor.controlAccentColor.withAlphaComponent(0.22)
+            : NSColor.systemOrange.withAlphaComponent(0.14)
+
+        color.setFill()
+        dirtyRect.fill()
+    }
+}
+
 final class FilePaneViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, KeyActionDelegate {
     private enum Column {
         static let name = NSUserInterfaceItemIdentifier("name")
@@ -33,9 +52,10 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private var isPaneActive = false
     private var vimModeState = VimModeState()
 
-    var onStatusChanged: ((String, Int) -> Void)?
+    var onStatusChanged: ((String, Int, Int) -> Void)?
     var onTabPressed: (() -> Bool)?
     var onDidRequestActivate: (() -> Void)?
+    var onFileOperationRequested: ((KeyAction) -> Bool)?
 
     init(viewModel: FilePaneViewModel) {
         self.viewModel = viewModel
@@ -91,13 +111,19 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
     }
 
+    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+        let rowView = MarkedRowView()
+        rowView.isMarkedRow = viewModel.paneState.markedIndices.contains(row)
+        rowView.isVisualMode = vimModeState.mode == .visual
+        return rowView
+    }
+
     func tableViewSelectionDidChange(_ notification: Notification) {
         let selectedRow = tableView.selectedRow
         guard selectedRow >= 0 else {
             return
         }
         viewModel.setCursor(index: selectedRow)
-        applyVisualSelectionIfNeeded()
     }
 
     func fileTableView(_ tableView: FileTableView, didTrigger action: KeyAction) -> Bool {
@@ -188,13 +214,20 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
             self.tableView.reloadData()
             self.syncSelectionFromViewModel()
-            self.applyVisualSelectionIfNeeded()
             self.publishStatus()
         }
 
         viewModel.onCursorChanged = { [weak self] _ in
             self?.syncSelectionFromViewModel()
-            self?.applyVisualSelectionIfNeeded()
+        }
+
+        viewModel.onMarkedIndicesChanged = { [weak self] _ in
+            guard let self else {
+                return
+            }
+
+            self.tableView.reloadData()
+            self.publishStatus()
         }
 
         publishStatus()
@@ -217,7 +250,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private func publishStatus() {
         let path = viewModel.paneState.currentDirectory.path
         pathLabel.stringValue = path
-        onStatusChanged?(path, viewModel.directoryContents.displayedItems.count)
+        onStatusChanged?(path, viewModel.directoryContents.displayedItems.count, viewModel.markedCount)
     }
 
     private func updateActiveAppearance() {
@@ -234,7 +267,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         let cell = tableView.makeView(withIdentifier: Cell.name, owner: self) as? NSTableCellView ?? createNameCellView()
 
         let isMarked = viewModel.paneState.markedIndices.contains(row)
-        cell.textField?.stringValue = isMarked ? "• \(item.name)" : item.name
+        cell.textField?.stringValue = isMarked ? "* \(item.name)" : item.name
 
         let icon = NSWorkspace.shared.icon(forFile: item.url.path)
         icon.size = NSSize(width: 16, height: 16)
@@ -363,49 +396,28 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         case .switchPane:
             handled = handleTabPressed()
         case .toggleMark:
-            viewModel.toggleMarkAtCursor()
-            tableView.reloadData()
+            viewModel.toggleMark()
             handled = true
         case .markAll:
-            viewModel.markAllDisplayedItems()
-            tableView.reloadData()
+            viewModel.markAll()
             handled = true
         case .clearMarks:
-            viewModel.clearAllMarks()
-            tableView.reloadData()
+            viewModel.clearMarks()
             handled = true
         case .enterVisualMode:
             if vimModeState.mode != .visual {
                 vimModeState.enterVisualMode(anchorIndex: viewModel.paneState.cursorIndex)
                 tableView.setVimMode(vimModeState.mode)
+                viewModel.enterVisualMode()
             }
-            applyVisualSelectionIfNeeded()
-            tableView.reloadData()
             handled = true
         case .exitVisualMode:
             vimModeState.exitVisualMode()
             tableView.setVimMode(vimModeState.mode)
-            viewModel.clearAllMarks()
-            tableView.reloadData()
+            viewModel.exitVisualMode()
             handled = true
-        case .copy:
-            viewModel.copySelection()
-            handled = true
-        case .paste:
-            viewModel.pasteClipboard()
-            handled = true
-        case .move:
-            viewModel.moveSelection()
-            handled = true
-        case .delete:
-            viewModel.deleteSelection()
-            handled = true
-        case .rename:
-            viewModel.renameSelection()
-            handled = true
-        case .createDirectory:
-            viewModel.createDirectory()
-            handled = true
+        case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo:
+            handled = onFileOperationRequested?(action) ?? false
         case .enterFilterMode:
             vimModeState.enterFilterMode()
             tableView.setVimMode(vimModeState.mode)
@@ -442,30 +454,11 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         case .addBookmark:
             viewModel.addBookmark()
             handled = true
-        case .undo:
-            viewModel.undoLastAction()
-            handled = true
         case .quit:
             NSApp.terminate(nil)
             handled = true
         }
 
-        if handled {
-            applyVisualSelectionIfNeeded()
-        }
-
         return handled
-    }
-
-    private func applyVisualSelectionIfNeeded() {
-        guard
-            vimModeState.mode == .visual,
-            let anchorIndex = vimModeState.visualAnchorIndex
-        else {
-            return
-        }
-
-        viewModel.setVisualSelection(anchorIndex: anchorIndex, currentIndex: viewModel.paneState.cursorIndex)
-        tableView.reloadData()
     }
 }

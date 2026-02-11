@@ -14,9 +14,9 @@ final class StatusBarView: NSView {
         setupView()
     }
 
-    func update(path: String, itemCount: Int) {
+    func update(path: String, itemCount: Int, markedCount: Int) {
         pathLabel.stringValue = path
-        countLabel.stringValue = "\(itemCount) items"
+        countLabel.stringValue = "\(itemCount) items | \(markedCount) marked"
     }
 
     private func setupView() {

@@ -8,11 +8,18 @@ enum PaneSide: Sendable {
 struct PaneState: Hashable, Sendable {
     var currentDirectory: URL
     var cursorIndex: Int
-    var markedIndices: Set<Int>
+    var markedIndices: IndexSet
+    var visualAnchorIndex: Int?
 
-    init(currentDirectory: URL, cursorIndex: Int = 0, markedIndices: Set<Int> = []) {
+    init(
+        currentDirectory: URL,
+        cursorIndex: Int = 0,
+        markedIndices: IndexSet = [],
+        visualAnchorIndex: Int? = nil
+    ) {
         self.currentDirectory = currentDirectory
         self.cursorIndex = cursorIndex
         self.markedIndices = markedIndices
+        self.visualAnchorIndex = visualAnchorIndex
     }
 }

@@ -4,6 +4,7 @@ final class MainWindowController: NSWindowController {
     private let mainViewModel: MainViewModel
     private lazy var mainSplitViewController = MainSplitViewController(viewModel: mainViewModel)
     private let statusBarView = StatusBarView()
+    private let appUndoManager = UndoManager()
 
     init(
         fileSystemService: FileSystemProviding = FileSystemService(),
@@ -25,6 +26,7 @@ final class MainWindowController: NSWindowController {
         )
 
         super.init(window: window)
+        mainViewModel.undoManager = appUndoManager
         configureWindow()
     }
 
@@ -69,12 +71,13 @@ final class MainWindowController: NSWindowController {
             statusBarView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
         ])
 
-        mainSplitViewController.onStatusChanged = { [weak self] path, itemCount in
-            self?.statusBarView.update(path: path, itemCount: itemCount)
+        mainSplitViewController.onStatusChanged = { [weak self] path, itemCount, markedCount in
+            self?.statusBarView.update(path: path, itemCount: itemCount, markedCount: markedCount)
         }
         statusBarView.update(
             path: mainViewModel.activePane.paneState.currentDirectory.path,
-            itemCount: mainViewModel.activePane.directoryContents.displayedItems.count
+            itemCount: mainViewModel.activePane.directoryContents.displayedItems.count,
+            markedCount: mainViewModel.activePane.markedCount
         )
 
         window.contentViewController = containerViewController
