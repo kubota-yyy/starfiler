@@ -19,6 +19,7 @@
 		CC000000000000000000000A /* PaneState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000000A /* PaneState.swift */; };
 		CC000000000000000000000B /* NavigationHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000000B /* NavigationHistory.swift */; };
 		CC000000000000000000000C /* URL+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000000C /* URL+Extensions.swift */; };
+		CC000000000000000000000D /* SecurityScopedBookmarkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* SecurityScopedBookmarkService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,6 +38,7 @@
 		BB000000000000000000000D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		BB000000000000000000000E /* starfiler.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = starfiler.entitlements; sourceTree = "<group>"; };
 		BB000000000000000000000F /* starfiler.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; path = starfiler.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BB0000000000000000000010 /* SecurityScopedBookmarkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityScopedBookmarkService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -136,6 +138,7 @@
 			isa = PBXGroup;
 			children = (
 				BB0000000000000000000007 /* FileSystemService.swift */,
+				BB0000000000000000000010 /* SecurityScopedBookmarkService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -239,6 +242,7 @@
 				CC000000000000000000000A /* PaneState.swift in Sources */,
 				CC000000000000000000000B /* NavigationHistory.swift in Sources */,
 				CC000000000000000000000C /* URL+Extensions.swift in Sources */,
+				CC000000000000000000000D /* SecurityScopedBookmarkService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

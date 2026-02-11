@@ -1,11 +1,21 @@
 import AppKit
 
 final class MainWindowController: NSWindowController {
-    private let filePaneViewModel = FilePaneViewModel()
+    private let filePaneViewModel: FilePaneViewModel
     private lazy var filePaneViewController = FilePaneViewController(viewModel: filePaneViewModel)
     private let statusBarView = StatusBarView()
 
-    init() {
+    init(
+        fileSystemService: FileSystemProviding = FileSystemService(),
+        securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared,
+        initialDirectory: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+    ) {
+        self.filePaneViewModel = FilePaneViewModel(
+            fileSystemService: fileSystemService,
+            securityScopedBookmarkService: securityScopedBookmarkService,
+            initialDirectory: initialDirectory
+        )
+
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1100, height: 720),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],

@@ -24,17 +24,20 @@ final class FilePaneViewModel {
     var onCursorChanged: ((Int) -> Void)?
 
     private let fileSystemService: FileSystemProviding
+    private let securityScopedBookmarkService: any SecurityScopedBookmarkProviding
     private nonisolated(unsafe) var loadTask: Task<Void, Never>?
 
     init(
         fileSystemService: FileSystemProviding = FileSystemService(),
+        securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared,
         initialDirectory: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
     ) {
         self.fileSystemService = fileSystemService
+        self.securityScopedBookmarkService = securityScopedBookmarkService
         let normalizedDirectory = initialDirectory.standardizedFileURL
         self.paneState = PaneState(currentDirectory: normalizedDirectory)
         self.directoryContents = DirectoryContents()
-        loadDirectory(at: normalizedDirectory, recordHistory: false)
+        loadDirectory(at: normalizedDirectory, previousDirectory: nil)
     }
 
     deinit {
@@ -62,22 +65,25 @@ final class FilePaneViewModel {
             return
         }
 
-        navigationHistory.push(paneState.currentDirectory)
-        loadDirectory(at: destination, recordHistory: false)
+        let currentDirectory = paneState.currentDirectory
+        navigationHistory.push(currentDirectory)
+        loadDirectory(at: destination, previousDirectory: currentDirectory)
     }
 
     func goBack() {
-        guard let destination = navigationHistory.goBack(from: paneState.currentDirectory) else {
+        let currentDirectory = paneState.currentDirectory
+        guard let destination = navigationHistory.goBack(from: currentDirectory) else {
             return
         }
-        loadDirectory(at: destination, recordHistory: false)
+        loadDirectory(at: destination, previousDirectory: currentDirectory)
     }
 
     func goForward() {
-        guard let destination = navigationHistory.goForward(from: paneState.currentDirectory) else {
+        let currentDirectory = paneState.currentDirectory
+        guard let destination = navigationHistory.goForward(from: currentDirectory) else {
             return
         }
-        loadDirectory(at: destination, recordHistory: false)
+        loadDirectory(at: destination, previousDirectory: currentDirectory)
     }
 
     func goToParent() {
@@ -132,24 +138,33 @@ final class FilePaneViewModel {
         clampCursorIndex()
     }
 
-    private func loadDirectory(at directory: URL, recordHistory: Bool) {
-        if recordHistory {
-            navigationHistory.push(paneState.currentDirectory)
-        }
-
+    private func loadDirectory(at directory: URL, previousDirectory: URL?) {
         loadTask?.cancel()
-        paneState.currentDirectory = directory
 
         loadTask = Task { [weak self] in
             guard let self else {
                 return
             }
 
+            var didAcquireDestinationScope = false
+
             do {
+                try await self.securityScopedBookmarkService.startAccessing(directory)
+                didAcquireDestinationScope = true
+
                 let items = try await self.fileSystemService.contentsOfDirectory(at: directory)
                 guard !Task.isCancelled else {
+                    if didAcquireDestinationScope {
+                        await self.securityScopedBookmarkService.stopAccessing(directory)
+                    }
                     return
                 }
+
+                if let previousDirectory, previousDirectory != directory {
+                    await self.securityScopedBookmarkService.stopAccessing(previousDirectory)
+                }
+
+                self.paneState.currentDirectory = directory
 
                 var updatedContents = self.directoryContents
                 updatedContents.allItems = items
@@ -157,15 +172,9 @@ final class FilePaneViewModel {
                 self.directoryContents = updatedContents
                 self.clampCursorIndex()
             } catch {
-                guard !Task.isCancelled else {
-                    return
+                if didAcquireDestinationScope {
+                    await self.securityScopedBookmarkService.stopAccessing(directory)
                 }
-
-                var updatedContents = self.directoryContents
-                updatedContents.allItems = []
-                updatedContents.displayedItems = []
-                self.directoryContents = updatedContents
-                self.paneState.cursorIndex = 0
             }
         }
     }
