@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "AA0000000000000000000010"
-               BuildableName = "starfiler.app"
+               BuildableName = "Starfiler.app"
                BlueprintName = "starfiler"
                ReferencedContainer = "container:starfiler.xcodeproj">
             </BuildableReference>
@@ -45,7 +45,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "AA0000000000000000000010"
-            BuildableName = "starfiler.app"
+            BuildableName = "Starfiler.app"
             BlueprintName = "starfiler"
             ReferencedContainer = "container:starfiler.xcodeproj">
          </BuildableReference>
@@ -62,7 +62,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "AA0000000000000000000010"
-            BuildableName = "starfiler.app"
+            BuildableName = "Starfiler.app"
             BlueprintName = "starfiler"
             ReferencedContainer = "container:starfiler.xcodeproj">
          </BuildableReference>

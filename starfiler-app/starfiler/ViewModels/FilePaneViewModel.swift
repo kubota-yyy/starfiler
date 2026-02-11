@@ -48,7 +48,7 @@ final class FilePaneViewModel {
         securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared,
         directoryMonitor: any DirectoryMonitoring = DirectoryMonitor(),
         spotlightSearchService: (any SpotlightSearching)? = nil,
-        initialDirectory: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+        initialDirectory: URL = UserPaths.homeDirectoryURL
     ) {
         self.fileSystemService = fileSystemService
         self.securityScopedBookmarkService = securityScopedBookmarkService

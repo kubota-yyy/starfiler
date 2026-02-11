@@ -20,8 +20,8 @@ struct AppConfig: Codable, Sendable {
         defaultSortColumn: SortColumn = .name,
         defaultSortAscending: Bool = true,
         previewPaneVisible: Bool = true,
-        lastLeftPanePath: String = NSHomeDirectory(),
-        lastRightPanePath: String = NSHomeDirectory(),
+        lastLeftPanePath: String = UserPaths.homeDirectoryPath,
+        lastRightPanePath: String = UserPaths.homeDirectoryPath,
         lastActivePane: String = "left"
     ) {
         self.showHiddenFiles = showHiddenFiles

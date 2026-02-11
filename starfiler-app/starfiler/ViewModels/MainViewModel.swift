@@ -38,7 +38,7 @@ final class MainViewModel {
         initialSortColumn: AppConfig.SortColumn = .name,
         initialSortAscending: Bool = true,
         initialPreviewVisible: Bool = true,
-        initialLeftDirectory: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
+        initialLeftDirectory: URL = UserPaths.homeDirectoryURL,
         initialRightDirectory: URL? = nil
     ) {
         self.securityScopedBookmarkService = securityScopedBookmarkService

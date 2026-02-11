@@ -1,14 +1,26 @@
 import AppKit
 
 @main
+enum StarfilerMain {
+    private static let delegate = AppDelegate()
+
+    static func main() {
+        let app = NSApplication.shared
+        app.delegate = delegate
+        _ = NSApplicationMain(CommandLine.argc, CommandLine.unsafeArgv)
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var mainWindowController: MainWindowController?
+    private var launchTask: Task<Void, Never>?
     private let securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMainMenu()
-        Task { @MainActor [weak self] in
-            await self?.launchMainWindow()
+        launchTask = Task { @MainActor in
+            await launchMainWindow()
+            launchTask = nil
         }
     }
 
@@ -42,37 +54,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func requestHomeDirectoryAccess() -> URL? {
-        let homeURL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true).standardizedFileURL
-        let homeResolvedURL = homeURL.resolvingSymlinksInPath().standardizedFileURL
+        let homeURL = UserPaths.homeDirectoryURL
+        let panel = NSOpenPanel()
+        panel.directoryURL = homeURL
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.prompt = "Grant Access"
+        panel.message = "starfiler requires directory access. Select your home directory (\(homeURL.path)) or another working directory."
 
-        while true {
-            let panel = NSOpenPanel()
-            panel.directoryURL = homeURL
-            panel.canChooseDirectories = true
-            panel.canChooseFiles = false
-            panel.allowsMultipleSelection = false
-            panel.canCreateDirectories = false
-            panel.prompt = "Grant Access"
-            panel.message = "starfiler requires access to your home directory."
-
-            guard panel.runModal() == .OK, let selectedURL = panel.url?.standardizedFileURL else {
-                return nil
-            }
-
-            if selectedURL.resolvingSymlinksInPath().standardizedFileURL == homeResolvedURL {
-                return selectedURL
-            }
-
-            let retryAlert = NSAlert()
-            retryAlert.alertStyle = .warning
-            retryAlert.messageText = "Select your home directory"
-            retryAlert.informativeText = "Please choose \(homeURL.path) to continue."
-            retryAlert.addButton(withTitle: "Retry")
-            retryAlert.addButton(withTitle: "Quit")
-            if retryAlert.runModal() == .alertSecondButtonReturn {
-                return nil
-            }
+        guard panel.runModal() == .OK, let selectedURL = panel.url?.standardizedFileURL else {
+            return nil
         }
+
+        return selectedURL
     }
 
     @MainActor
@@ -234,7 +230,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func menuGoHome(_ sender: Any?) {
         mainWindowController?.performAction {
-            $0.activePane.navigate(to: URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true))
+            $0.activePane.navigate(to: UserPaths.homeDirectoryURL)
         }
     }
 

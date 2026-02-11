@@ -10,7 +10,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     init(
         fileSystemService: FileSystemProviding = FileSystemService(),
         securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared,
-        initialDirectory: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+        initialDirectory: URL = UserPaths.homeDirectoryURL
     ) {
         let configManager = ConfigManager()
         self.configManager = configManager

@@ -4,6 +4,7 @@
 *.xcworkspace/xcuserdata/
 xcuserdata/
 DerivedData/
+starfiler-app/.derivedData/
 build/
 *.pbxuser
 *.mode1v3

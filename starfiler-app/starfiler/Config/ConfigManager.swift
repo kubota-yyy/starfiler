@@ -74,7 +74,7 @@ final class ConfigManager {
             in: .userDomainMask,
             appropriateFor: nil,
             create: true
-        )) ?? URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+        )) ?? UserPaths.homeDirectoryURL
 
         return baseURL
             .appendingPathComponent(bundleIdentifier, isDirectory: true)

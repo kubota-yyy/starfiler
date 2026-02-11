@@ -62,7 +62,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private let fileDragSource = FileDragSource()
 
     private lazy var fileDropTarget = FileDropTarget { [weak self] in
-        self?.viewModel.paneState.currentDirectory ?? URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+        self?.viewModel.paneState.currentDirectory ?? UserPaths.homeDirectoryURL
     }
 
     private var isPaneActive = false
