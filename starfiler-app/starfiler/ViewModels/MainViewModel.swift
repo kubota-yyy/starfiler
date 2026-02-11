@@ -12,6 +12,11 @@ struct TextInputPrompt {
     let defaultValue: String?
 }
 
+enum FileOperationCompletionContext: Sendable {
+    case normal
+    case undo
+}
+
 @MainActor
 @Observable
 final class MainViewModel {
@@ -31,6 +36,7 @@ final class MainViewModel {
     var undoManager: UndoManager?
     var requestTextInput: ((TextInputPrompt) -> String?)?
     var lastOperationError: String?
+    var onFileOperationCompleted: ((FileOperationRecord, FileOperationCompletionContext) -> Void)?
 
     init(
         fileSystemService: FileSystemProviding = FileSystemService(),
@@ -42,6 +48,8 @@ final class MainViewModel {
         initialSortAscending: Bool = true,
         initialPreviewVisible: Bool = false,
         initialSidebarVisible: Bool = true,
+        initialSpotlightSearchScope: SpotlightSearchScope = .currentDirectory,
+        initialImagePreviewRecursiveEnabled: Bool = false,
         initialLeftDirectory: URL = UserPaths.homeDirectoryURL,
         initialRightDirectory: URL? = nil
     ) {
@@ -55,12 +63,14 @@ final class MainViewModel {
         self.leftPane = FilePaneViewModel(
             fileSystemService: fileSystemService,
             securityScopedBookmarkService: securityScopedBookmarkService,
+            initialSpotlightSearchScope: initialSpotlightSearchScope,
             initialDirectory: normalizedLeftDirectory
         )
 
         self.rightPane = FilePaneViewModel(
             fileSystemService: fileSystemService,
             securityScopedBookmarkService: securityScopedBookmarkService,
+            initialSpotlightSearchScope: initialSpotlightSearchScope,
             initialDirectory: normalizedRightDirectory
         )
 
@@ -73,6 +83,7 @@ final class MainViewModel {
         self.undoManager = nil
         self.requestTextInput = nil
         self.lastOperationError = nil
+        self.onFileOperationCompleted = nil
 
         leftPane.setShowHiddenFiles(initialShowHiddenFiles)
         rightPane.setShowHiddenFiles(initialShowHiddenFiles)
@@ -80,6 +91,7 @@ final class MainViewModel {
         let sortDescriptor = Self.sortDescriptor(for: initialSortColumn, ascending: initialSortAscending)
         leftPane.setSortDescriptor(sortDescriptor)
         rightPane.setSortDescriptor(sortDescriptor)
+        previewPane.setRecursiveEnabled(initialImagePreviewRecursiveEnabled)
         refreshPreviewForActivePane()
     }
 
@@ -109,26 +121,26 @@ final class MainViewModel {
         sidebarVisible.toggle()
     }
 
-    func refreshPreviewForActivePane() {
-        previewPane.currentURL = previewableURL(for: activePane.selectedItem)
+    func setSpotlightSearchScope(_ scope: SpotlightSearchScope) {
+        leftPane.setSpotlightSearchScope(scope)
+        rightPane.setSpotlightSearchScope(scope)
     }
 
-    func updatePreviewSelection(for side: PaneSide, selectedItem: FileItem?) {
+    func refreshPreviewForActivePane() {
+        let pane = activePane
+        previewPane.updateContext(
+            selectedItem: pane.selectedItem,
+            currentDirectoryURL: pane.paneState.currentDirectory,
+            displayedItems: pane.directoryContents.displayedItems,
+            showHiddenFiles: pane.directoryContents.showHiddenFiles
+        )
+    }
+
+    func updatePreviewSelection(for side: PaneSide) {
         guard activePaneSide == side else {
             return
         }
-
-        previewPane.currentURL = previewableURL(for: selectedItem)
-    }
-
-    private func previewableURL(for item: FileItem?) -> URL? {
-        guard let item else {
-            return nil
-        }
-        if item.isDirectory && !item.isPackage {
-            return nil
-        }
-        return item.url
+        refreshPreviewForActivePane()
     }
 
     func copyMarked() {
@@ -137,8 +149,16 @@ final class MainViewModel {
             return
         }
 
-        clipboard = urls.map(\.standardizedFileURL)
+        let normalizedURLs = urls.map(\.standardizedFileURL)
+        clipboard = normalizedURLs
         clipboardOperation = .copy
+
+        let destinationDirectory = inactivePane.paneState.currentDirectory.standardizedFileURL
+        execute(
+            operation: .copy(items: normalizedURLs, destinationDirectory: destinationDirectory),
+            registerUndoWithManager: true,
+            clearCutClipboardOnSuccess: false
+        )
     }
 
     func cutMarked() {
@@ -277,7 +297,8 @@ final class MainViewModel {
             await self.consume(
                 stream: stream,
                 registerUndoWithManager: registerUndoWithManager,
-                clearCutClipboardOnSuccess: clearCutClipboardOnSuccess
+                clearCutClipboardOnSuccess: clearCutClipboardOnSuccess,
+                completionContext: .normal
             )
         }
     }
@@ -295,14 +316,16 @@ final class MainViewModel {
         await consume(
             stream: stream,
             registerUndoWithManager: registerUndoWithManager,
-            clearCutClipboardOnSuccess: false
+            clearCutClipboardOnSuccess: false,
+            completionContext: .undo
         )
     }
 
     private func consume(
         stream: AsyncStream<OperationProgress>,
         registerUndoWithManager: Bool,
-        clearCutClipboardOnSuccess: Bool
+        clearCutClipboardOnSuccess: Bool,
+        completionContext: FileOperationCompletionContext
     ) async {
         for await progress in stream {
             switch progress {
@@ -321,6 +344,7 @@ final class MainViewModel {
                 }
 
                 refreshPanesAfterFileOperation()
+                onFileOperationCompleted?(record, completionContext)
             case .failed(let error):
                 lastOperationError = error.message
             }
@@ -370,6 +394,8 @@ final class MainViewModel {
             return .size(ascending: ascending)
         case .date:
             return .date(ascending: ascending)
+        case .selection:
+            return .selection(ascending: ascending)
         }
     }
 }

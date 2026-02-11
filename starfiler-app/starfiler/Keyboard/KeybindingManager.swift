@@ -5,6 +5,7 @@ struct KeybindingManager: Sendable {
 
     private let bindingsByMode: [VimMode: [Sequence: KeyAction]]
     private let prefixesByMode: [VimMode: Set<Sequence>]
+    private let shortcutsByMode: [VimMode: [KeyAction: [String]]]
 
     init(
         bundle: Bundle = .main,
@@ -19,6 +20,7 @@ struct KeybindingManager: Sendable {
 
         self.bindingsByMode = Self.buildBindings(from: mergedConfig)
         self.prefixesByMode = Self.buildPrefixes(from: bindingsByMode)
+        self.shortcutsByMode = Self.buildShortcuts(from: mergedConfig)
     }
 
     func lookup(sequence: [KeyEvent], mode: VimMode) -> KeyAction? {
@@ -27,6 +29,10 @@ struct KeybindingManager: Sendable {
 
     func hasPrefix(sequence: [KeyEvent], mode: VimMode) -> Bool {
         prefixesByMode[mode]?.contains(sequence) ?? false
+    }
+
+    func shortcuts(for action: KeyAction, mode: VimMode = .normal) -> [String] {
+        shortcutsByMode[mode]?[action] ?? []
     }
 
     static func defaultUserConfigURL(
@@ -97,7 +103,7 @@ struct KeybindingManager: Sendable {
             for (rawSequence, rawActionName) in rawBindings {
                 guard
                     let sequence = parseSequence(rawSequence),
-                    let action = KeyAction(rawValue: rawActionName)
+                    let action = KeyAction.fromConfigName(rawActionName)
                 else {
                     continue
                 }
@@ -124,6 +130,37 @@ struct KeybindingManager: Sendable {
             }
 
             result[mode] = prefixes
+        }
+
+        return result
+    }
+
+    private static func buildShortcuts(from config: KeybindingsConfig) -> [VimMode: [KeyAction: [String]]] {
+        var result: [VimMode: [KeyAction: [String]]] = [:]
+
+        for (modeName, rawBindings) in config.bindings {
+            guard let mode = VimMode(rawValue: modeName.lowercased()) else {
+                continue
+            }
+
+            var modeShortcuts = result[mode] ?? [:]
+
+            for (rawSequence, rawActionName) in rawBindings.sorted(by: { $0.key < $1.key }) {
+                guard
+                    parseSequence(rawSequence) != nil,
+                    let action = KeyAction.fromConfigName(rawActionName)
+                else {
+                    continue
+                }
+
+                var actionShortcuts = modeShortcuts[action] ?? []
+                if !actionShortcuts.contains(rawSequence) {
+                    actionShortcuts.append(rawSequence)
+                }
+                modeShortcuts[action] = actionShortcuts
+            }
+
+            result[mode] = modeShortcuts
         }
 
         return result

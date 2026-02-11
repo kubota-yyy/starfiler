@@ -5,7 +5,7 @@ final class FileDropTarget: NSObject {
     private let destinationDirectoryProvider: () -> URL
 
     var onHighlightChanged: ((Bool) -> Void)?
-    var onDropCompleted: (() -> Void)?
+    var onDropCompleted: ((NSDragOperation, Int) -> Void)?
     var onDropFailed: ((String) -> Void)?
 
     init(
@@ -68,6 +68,16 @@ final class FileDropTarget: NSObject {
             }
 
             let destinationDirectory = await MainActor.run { destinationDirectoryProvider().standardizedFileURL }
+
+            // Skip when all files are already in the destination directory
+            let allAlreadyInDestination = uniqueURLs.allSatisfy {
+                $0.deletingLastPathComponent().standardizedFileURL == destinationDirectory
+            }
+            if allAlreadyInDestination {
+                await MainActor.run { self.onHighlightChanged?(false) }
+                return
+            }
+
             let fileOperation: FileOperation
 
             if resolvedOperation == .move {
@@ -89,7 +99,7 @@ final class FileDropTarget: NSObject {
 
                 await MainActor.run {
                     self.onHighlightChanged?(false)
-                    self.onDropCompleted?()
+                    self.onDropCompleted?(resolvedOperation, uniqueURLs.count)
                 }
             } catch {
                 await MainActor.run {

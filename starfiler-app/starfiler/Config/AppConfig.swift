@@ -2,20 +2,24 @@ import Foundation
 
 enum FilerTheme: String, Codable, CaseIterable, Sendable {
     case system
-    case ocean
-    case forest
-    case sunset
+    case nord
+    case dracula
+    case solarized
+    case tokyoNight
+    case gruvbox
+    case catppuccinLatte
+    case mintLight
 
     var displayName: String {
         switch self {
-        case .system:
-            return "System"
-        case .ocean:
-            return "Ocean"
-        case .forest:
-            return "Forest"
-        case .sunset:
-            return "Sunset"
+        case .system: return "System"
+        case .nord: return "Nord"
+        case .dracula: return "Dracula"
+        case .solarized: return "Solarized"
+        case .tokyoNight: return "Tokyo Night"
+        case .gruvbox: return "Gruvbox"
+        case .catppuccinLatte: return "Catppuccin Latte"
+        case .mintLight: return "Mint Light"
         }
     }
 
@@ -23,12 +27,54 @@ enum FilerTheme: String, Codable, CaseIterable, Sendable {
         switch self {
         case .system:
             return "Use macOS-native accents and neutral highlights."
-        case .ocean:
-            return "Cool blue accents with crisp selection highlights."
-        case .forest:
-            return "Green-toned accents for a calm workspace."
-        case .sunset:
-            return "Warm orange accents with strong visual focus."
+        case .nord:
+            return "Cool blue-grey tones with low contrast for a calm workspace."
+        case .dracula:
+            return "Dark purple and magenta accents with a modern feel."
+        case .solarized:
+            return "Precision-crafted palette with light/dark mode support."
+        case .tokyoNight:
+            return "Neon blue and purple accents inspired by Tokyo city lights."
+        case .gruvbox:
+            return "Warm retro tones with strong amber and olive accents."
+        case .catppuccinLatte:
+            return "Soft pastel light palette with crisp blue accents."
+        case .mintLight:
+            return "Bright mint and teal colors for a clean daytime workspace."
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+        self = FilerTheme(rawValue: rawValue) ?? .system
+    }
+}
+
+enum SpotlightSearchScope: String, Codable, CaseIterable, Sendable {
+    case currentDirectory
+    case userHome
+    case localComputer
+
+    var displayName: String {
+        switch self {
+        case .currentDirectory:
+            return "Current Folder"
+        case .userHome:
+            return "Home Folder"
+        case .localComputer:
+            return "Entire Mac"
+        }
+    }
+
+    var descriptionText: String {
+        switch self {
+        case .currentDirectory:
+            return "Search only within the current folder and its subfolders."
+        case .userHome:
+            return "Search within your home directory."
+        case .localComputer:
+            return "Search across all locally indexed volumes."
         }
     }
 }
@@ -38,6 +84,13 @@ struct AppConfig: Codable, Sendable {
         case name
         case size
         case date
+        case selection
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            let rawValue = try container.decode(String.self)
+            self = SortColumn(rawValue: rawValue) ?? .name
+        }
     }
 
     var showHiddenFiles: Bool
@@ -49,6 +102,12 @@ struct AppConfig: Codable, Sendable {
     var lastRightPanePath: String
     var lastActivePane: String
     var filerTheme: FilerTheme
+    var transparentBackground: Bool
+    var transparentBackgroundOpacity: Double
+    var actionFeedbackEnabled: Bool
+    var spotlightSearchScope: SpotlightSearchScope
+    var fileIconSize: Double
+    var imagePreviewRecursiveMode: Bool
 
     init(
         showHiddenFiles: Bool = true,
@@ -59,7 +118,13 @@ struct AppConfig: Codable, Sendable {
         lastLeftPanePath: String = UserPaths.homeDirectoryPath,
         lastRightPanePath: String = UserPaths.homeDirectoryPath,
         lastActivePane: String = "left",
-        filerTheme: FilerTheme = .system
+        filerTheme: FilerTheme = .system,
+        transparentBackground: Bool = false,
+        transparentBackgroundOpacity: Double = 0.7,
+        actionFeedbackEnabled: Bool = true,
+        spotlightSearchScope: SpotlightSearchScope = .currentDirectory,
+        fileIconSize: Double = 16,
+        imagePreviewRecursiveMode: Bool = false
     ) {
         self.showHiddenFiles = showHiddenFiles
         self.defaultSortColumn = defaultSortColumn
@@ -70,6 +135,12 @@ struct AppConfig: Codable, Sendable {
         self.lastRightPanePath = lastRightPanePath
         self.lastActivePane = lastActivePane
         self.filerTheme = filerTheme
+        self.transparentBackground = transparentBackground
+        self.transparentBackgroundOpacity = transparentBackgroundOpacity
+        self.actionFeedbackEnabled = actionFeedbackEnabled
+        self.spotlightSearchScope = spotlightSearchScope
+        self.fileIconSize = fileIconSize
+        self.imagePreviewRecursiveMode = imagePreviewRecursiveMode
     }
 
     enum CodingKeys: String, CodingKey {
@@ -82,6 +153,12 @@ struct AppConfig: Codable, Sendable {
         case lastRightPanePath
         case lastActivePane
         case filerTheme
+        case transparentBackground
+        case transparentBackgroundOpacity
+        case actionFeedbackEnabled
+        case spotlightSearchScope
+        case fileIconSize
+        case imagePreviewRecursiveMode
     }
 
     init(from decoder: Decoder) throws {
@@ -95,5 +172,11 @@ struct AppConfig: Codable, Sendable {
         lastRightPanePath = try container.decodeIfPresent(String.self, forKey: .lastRightPanePath) ?? UserPaths.homeDirectoryPath
         lastActivePane = try container.decodeIfPresent(String.self, forKey: .lastActivePane) ?? "left"
         filerTheme = try container.decodeIfPresent(FilerTheme.self, forKey: .filerTheme) ?? .system
+        transparentBackground = try container.decodeIfPresent(Bool.self, forKey: .transparentBackground) ?? false
+        transparentBackgroundOpacity = try container.decodeIfPresent(Double.self, forKey: .transparentBackgroundOpacity) ?? 0.7
+        actionFeedbackEnabled = try container.decodeIfPresent(Bool.self, forKey: .actionFeedbackEnabled) ?? true
+        spotlightSearchScope = try container.decodeIfPresent(SpotlightSearchScope.self, forKey: .spotlightSearchScope) ?? .currentDirectory
+        fileIconSize = try container.decodeIfPresent(Double.self, forKey: .fileIconSize) ?? 16
+        imagePreviewRecursiveMode = try container.decodeIfPresent(Bool.self, forKey: .imagePreviewRecursiveMode) ?? false
     }
 }

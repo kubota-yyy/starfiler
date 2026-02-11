@@ -27,10 +27,22 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         bindViewModel()
     }
 
+    private var currentTheme: FilerTheme = .system
+
     func reloadData() {
         viewModel.reloadSections()
         outlineView.reloadData()
         expandAllSections()
+    }
+
+    func applyTheme(_ theme: FilerTheme, backgroundOpacity: CGFloat = 1.0) {
+        currentTheme = theme
+        let palette = theme.palette
+        view.wantsLayer = true
+        view.layer?.backgroundColor = palette.sidebarBackgroundColor.applyingBackgroundOpacity(backgroundOpacity).cgColor
+        outlineView.backgroundColor = palette.sidebarBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
+        scrollView.backgroundColor = palette.sidebarBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
+        outlineView.reloadData()
     }
 
     private func configureOutlineView() {
@@ -42,6 +54,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         outlineView.indentationPerLevel = 14
         outlineView.selectionHighlightStyle = .sourceList
         outlineView.allowsTypeSelect = false
+        outlineView.usesAlternatingRowBackgroundColors = false
         outlineView.target = self
         outlineView.action = #selector(handleSingleClick(_:))
 
@@ -55,7 +68,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
-        scrollView.drawsBackground = false
+        scrollView.drawsBackground = true
     }
 
     private func configureLayout() {
@@ -169,8 +182,11 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
     private func makeSectionHeaderView(title: String) -> NSView {
         let cellIdentifier = NSUserInterfaceItemIdentifier("sectionHeader")
+        let palette = currentTheme.palette
+
         if let existing = outlineView.makeView(withIdentifier: cellIdentifier, owner: self) as? NSTableCellView {
             existing.textField?.stringValue = title
+            existing.textField?.textColor = palette.sidebarSectionHeaderColor
             return existing
         }
 
@@ -180,7 +196,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         let textField = NSTextField(labelWithString: title)
         textField.translatesAutoresizingMaskIntoConstraints = false
         textField.font = .systemFont(ofSize: 11, weight: .bold)
-        textField.textColor = .secondaryLabelColor
+        textField.textColor = palette.sidebarSectionHeaderColor
 
         cell.textField = textField
         cell.addSubview(textField)
@@ -246,13 +262,16 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
             ])
         }
 
+        let palette = currentTheme.palette
         cell.textField?.stringValue = entry.displayName
+        cell.textField?.textColor = palette.sidebarEntryTextColor
         cell.imageView?.image = NSImage(systemSymbolName: entry.iconName, accessibilityDescription: nil)
             ?? NSImage(systemSymbolName: "folder", accessibilityDescription: nil)
-        cell.imageView?.contentTintColor = .controlAccentColor
+        cell.imageView?.contentTintColor = palette.sidebarIconTintColor
 
         shortcutLabel.stringValue = entry.shortcutHint ?? ""
         shortcutLabel.isHidden = entry.shortcutHint == nil
+        shortcutLabel.textColor = palette.sidebarShortcutHintColor
 
         return cell
     }

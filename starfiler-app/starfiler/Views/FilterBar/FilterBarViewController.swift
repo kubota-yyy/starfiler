@@ -62,6 +62,15 @@ final class FilterBarViewController: NSViewController, NSTextFieldDelegate {
         onDidClose?(reason)
     }
 
+    func applyTheme(_ theme: FilerTheme, backgroundOpacity: CGFloat = 1.0) {
+        let palette = theme.palette
+        promptLabel.textColor = palette.filterBarPromptColor
+        textField.textColor = palette.filterBarTextColor
+        backgroundView.layer?.backgroundColor = palette.filterBarBackgroundColor.applyingBackgroundOpacity(backgroundOpacity).cgColor
+        backgroundView.layer?.borderColor = palette.filterBarBorderColor.applyingBackgroundOpacity(backgroundOpacity).cgColor
+        backgroundView.layer?.borderWidth = 1
+    }
+
     private func configureView() {
         view.translatesAutoresizingMaskIntoConstraints = false
         view.isHidden = true

@@ -15,6 +15,9 @@ APP_DEST="${APP_DEST:-/Applications/$APP_NAME}"
 PROCESS_NAME="${APP_NAME%.app}"
 LEGACY_APP_DEST="/Applications/starfiler.app"
 LEGACY_PROCESS_NAME="starfiler"
+EXECUTABLE_NAME="${EXECUTABLE_NAME:-${APP_NAME%.app}}"
+SOURCE_EXECUTABLE="$APP_SOURCE/Contents/MacOS/$EXECUTABLE_NAME"
+DEST_EXECUTABLE="$APP_DEST/Contents/MacOS/$EXECUTABLE_NAME"
 NORMALIZED_APP_DEST="$(printf '%s' "$APP_DEST" | /usr/bin/tr '[:upper:]' '[:lower:]')"
 NORMALIZED_LEGACY_APP_DEST="$(printf '%s' "$LEGACY_APP_DEST" | /usr/bin/tr '[:upper:]' '[:lower:]')"
 
@@ -110,6 +113,26 @@ fi
 
 /usr/bin/xattr -dr com.apple.quarantine "$APP_DEST" >/dev/null 2>&1 || true
 /usr/bin/codesign --verify --deep --strict "$APP_DEST"
+
+if [[ ! -f "$SOURCE_EXECUTABLE" ]]; then
+  echo "Source executable not found: $SOURCE_EXECUTABLE" >&2
+  exit 1
+fi
+
+if [[ ! -f "$DEST_EXECUTABLE" ]]; then
+  echo "Installed executable not found: $DEST_EXECUTABLE" >&2
+  exit 1
+fi
+
+SOURCE_HASH="$(/usr/bin/shasum -a 256 "$SOURCE_EXECUTABLE" | /usr/bin/awk '{print $1}')"
+DEST_HASH="$(/usr/bin/shasum -a 256 "$DEST_EXECUTABLE" | /usr/bin/awk '{print $1}')"
+if [[ "$SOURCE_HASH" != "$DEST_HASH" ]]; then
+  echo "Install verification failed: source and destination binaries differ." >&2
+  echo "source: $SOURCE_EXECUTABLE" >&2
+  echo "dest:   $DEST_EXECUTABLE" >&2
+  exit 1
+fi
+echo "[verify] installed binary hash matches build output ($DEST_HASH)"
 
 if [[ "$LAUNCH_AFTER_INSTALL" == true ]]; then
   echo "[launch] opening $APP_DEST"

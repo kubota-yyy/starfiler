@@ -33,6 +33,7 @@ enum KeyAction: String, Codable, CaseIterable, Sendable {
     case sortByName
     case sortBySize
     case sortByDate
+    case sortBySelectionOrder
     case reverseSortOrder
     case refresh
     case openBookmarkSearch
@@ -45,4 +46,26 @@ enum KeyAction: String, Codable, CaseIterable, Sendable {
     case batchRename
     case syncPanes
     case quit
+}
+
+extension KeyAction {
+    static func fromConfigName(_ rawName: String) -> KeyAction? {
+        if let exact = KeyAction(rawValue: rawName) {
+            return exact
+        }
+
+        return normalizedLookup[normalizedConfigKey(rawName)]
+    }
+
+    private static let normalizedLookup: [String: KeyAction] = {
+        Dictionary(uniqueKeysWithValues: allCases.map { (normalizedConfigKey($0.rawValue), $0) })
+    }()
+
+    private static func normalizedConfigKey(_ value: String) -> String {
+        value
+            .unicodeScalars
+            .filter { CharacterSet.alphanumerics.contains($0) }
+            .map { Character($0).lowercased() }
+            .joined()
+    }
 }

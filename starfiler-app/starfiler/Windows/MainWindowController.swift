@@ -4,9 +4,21 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let mainViewModel: MainViewModel
     private let configManager: ConfigManager
     private var filerTheme: FilerTheme
-    private lazy var mainSplitViewController = MainSplitViewController(viewModel: mainViewModel, configManager: configManager)
+    private var transparentBackground: Bool
+    private var transparentBackgroundOpacity: CGFloat
+    private var actionFeedbackEnabled: Bool
+    private var spotlightSearchScope: SpotlightSearchScope
+    private var fileIconSize: CGFloat
+    private var imagePreviewRecursiveMode: Bool
+    private lazy var mainSplitViewController = MainSplitViewController(
+        viewModel: mainViewModel,
+        configManager: configManager,
+        actionFeedbackEnabled: actionFeedbackEnabled,
+        fileIconSize: fileIconSize
+    )
     private let statusBarView = StatusBarView()
     private let appUndoManager = UndoManager()
+    private weak var containerView: NSView?
 
     init(
         fileSystemService: FileSystemProviding = FileSystemService(),
@@ -20,6 +32,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
         let appConfig = configManager.loadAppConfig()
         self.filerTheme = appConfig.filerTheme
+        self.transparentBackground = appConfig.transparentBackground
+        self.transparentBackgroundOpacity = min(max(CGFloat(appConfig.transparentBackgroundOpacity), 0.15), 1.0)
+        self.actionFeedbackEnabled = appConfig.actionFeedbackEnabled
+        self.spotlightSearchScope = appConfig.spotlightSearchScope
+        self.fileIconSize = CGFloat(appConfig.fileIconSize)
+        self.imagePreviewRecursiveMode = appConfig.imagePreviewRecursiveMode
         let fallbackDirectory = initialDirectory.standardizedFileURL
         let leftDirectory = Self.resolveDirectory(path: appConfig.lastLeftPanePath, fallback: fallbackDirectory)
         let rightDirectory = Self.resolveDirectory(path: appConfig.lastRightPanePath, fallback: leftDirectory)
@@ -35,6 +53,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             initialSortAscending: appConfig.defaultSortAscending,
             initialPreviewVisible: appConfig.previewPaneVisible,
             initialSidebarVisible: appConfig.sidebarVisible,
+            initialSpotlightSearchScope: appConfig.spotlightSearchScope,
+            initialImagePreviewRecursiveEnabled: appConfig.imagePreviewRecursiveMode,
             initialLeftDirectory: leftDirectory,
             initialRightDirectory: rightDirectory
         )
@@ -42,7 +62,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         if appConfig.lastActivePane == "right" {
             self.mainViewModel.setActivePane(.right)
         }
-
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1100, height: 720),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
@@ -76,13 +95,86 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         filerTheme
     }
 
+    var isTransparentBackgroundEnabled: Bool {
+        transparentBackground
+    }
+
+    var currentTransparentBackgroundOpacity: CGFloat {
+        transparentBackgroundOpacity
+    }
+
+    var isActionFeedbackEnabled: Bool {
+        actionFeedbackEnabled
+    }
+
+    var currentSpotlightSearchScope: SpotlightSearchScope {
+        spotlightSearchScope
+    }
+
+    var currentFileIconSize: CGFloat {
+        fileIconSize
+    }
+
     func updateFilerTheme(_ theme: FilerTheme) {
         guard filerTheme != theme else {
             return
         }
 
         filerTheme = theme
-        mainSplitViewController.setFilerTheme(theme)
+        applyCurrentAppearance()
+        persistAppConfig()
+    }
+
+    func updateTransparentBackground(_ enabled: Bool) {
+        guard transparentBackground != enabled else {
+            return
+        }
+
+        transparentBackground = enabled
+        applyCurrentAppearance()
+        persistAppConfig()
+    }
+
+    func updateTransparentBackgroundOpacity(_ opacity: CGFloat) {
+        let clampedOpacity = min(max(opacity, 0.15), 1.0)
+        guard abs(transparentBackgroundOpacity - clampedOpacity) > 0.001 else {
+            return
+        }
+
+        transparentBackgroundOpacity = clampedOpacity
+        applyCurrentAppearance()
+        persistAppConfig()
+    }
+
+    func updateActionFeedbackEnabled(_ enabled: Bool) {
+        guard actionFeedbackEnabled != enabled else {
+            return
+        }
+
+        actionFeedbackEnabled = enabled
+        mainSplitViewController.setActionFeedbackEnabled(enabled)
+        persistAppConfig()
+    }
+
+    func updateSpotlightSearchScope(_ scope: SpotlightSearchScope) {
+        guard spotlightSearchScope != scope else {
+            return
+        }
+
+        spotlightSearchScope = scope
+        mainViewModel.setSpotlightSearchScope(scope)
+        mainSplitViewController.setSpotlightSearchScope(scope)
+        persistAppConfig()
+    }
+
+    func updateFileIconSize(_ size: CGFloat) {
+        let clamped = min(max(size, 12), 40)
+        guard abs(fileIconSize - clamped) > .ulpOfOne else {
+            return
+        }
+
+        fileIconSize = clamped
+        mainSplitViewController.setFileIconSize(clamped)
         persistAppConfig()
     }
 
@@ -94,12 +186,32 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         mainSplitViewController.presentSyncWindow()
     }
 
+    func togglePreviewPane() {
+        mainSplitViewController.togglePreviewPane()
+    }
+
+    func toggleSidebarPane() {
+        mainSplitViewController.toggleSidebarPane()
+    }
+
+    func reloadBookmarksConfig() {
+        mainSplitViewController.reloadBookmarksConfig()
+    }
+
+    func reloadKeybindings() {
+        mainSplitViewController.reloadKeybindings()
+    }
+
     private func configureWindow() {
         guard let window else {
             return
         }
 
-        window.title = "starfiler"
+        window.title = ""
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.styleMask.insert(.fullSizeContentView)
+        window.isMovableByWindowBackground = true
         window.minSize = NSSize(width: 800, height: 600)
         window.setFrameAutosaveName("MainWindow")
         window.delegate = self
@@ -111,10 +223,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         let containerViewController = NSViewController()
         let containerView = NSView()
         containerView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.wantsLayer = true
         containerViewController.view = containerView
+        self.containerView = containerView
 
         containerViewController.addChild(mainSplitViewController)
-        mainSplitViewController.setFilerTheme(filerTheme)
         let splitView = mainSplitViewController.view
         splitView.translatesAutoresizingMaskIntoConstraints = false
 
@@ -124,7 +237,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         NSLayoutConstraint.activate([
             splitView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
             splitView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
-            splitView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            splitView.topAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.topAnchor),
             splitView.bottomAnchor.constraint(equalTo: statusBarView.topAnchor),
 
             statusBarView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
@@ -135,13 +248,45 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         mainSplitViewController.onStatusChanged = { [weak self] path, itemCount, markedCount in
             self?.statusBarView.update(path: path, itemCount: itemCount, markedCount: markedCount)
         }
+        mainSplitViewController.onSpotlightSearchScopeChanged = { [weak self] scope in
+            self?.updateSpotlightSearchScope(scope)
+        }
+        mainSplitViewController.onImagePreviewRecursiveModeChanged = { [weak self] enabled in
+            self?.imagePreviewRecursiveMode = enabled
+            self?.persistAppConfig()
+        }
         statusBarView.update(
             path: mainViewModel.activePane.paneState.currentDirectory.path,
             itemCount: mainViewModel.activePane.directoryContents.displayedItems.count,
             markedCount: mainViewModel.activePane.markedCount
         )
 
+        applyCurrentAppearance()
         window.contentViewController = containerViewController
+    }
+
+    private var backgroundOpacity: CGFloat {
+        transparentBackground ? transparentBackgroundOpacity : 1.0
+    }
+
+    private func applyCurrentAppearance() {
+        let palette = filerTheme.palette
+        let opacity = backgroundOpacity
+
+        mainSplitViewController.setFilerTheme(filerTheme, backgroundOpacity: opacity)
+        statusBarView.applyTheme(filerTheme, backgroundOpacity: opacity)
+
+        containerView?.layer?.backgroundColor = palette.windowBackgroundColor.applyingBackgroundOpacity(opacity).cgColor
+
+        if let window {
+            window.isOpaque = !transparentBackground
+            if transparentBackground {
+                window.backgroundColor = .clear
+            } else {
+                window.backgroundColor = palette.windowBackgroundColor
+            }
+            window.hasShadow = true
+        }
     }
 
     private func persistAppConfig() {
@@ -155,7 +300,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             lastLeftPanePath: mainViewModel.leftPane.paneState.currentDirectory.path,
             lastRightPanePath: mainViewModel.rightPane.paneState.currentDirectory.path,
             lastActivePane: mainViewModel.activePaneSide == .left ? "left" : "right",
-            filerTheme: filerTheme
+            filerTheme: filerTheme,
+            transparentBackground: transparentBackground,
+            transparentBackgroundOpacity: Double(transparentBackgroundOpacity),
+            actionFeedbackEnabled: actionFeedbackEnabled,
+            spotlightSearchScope: spotlightSearchScope,
+            fileIconSize: Double(fileIconSize),
+            imagePreviewRecursiveMode: imagePreviewRecursiveMode
         )
 
         try? configManager.saveAppConfig(appConfig)
@@ -190,6 +341,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             return .size
         case .date:
             return .date
+        case .selection:
+            return .selection
         }
     }
 }

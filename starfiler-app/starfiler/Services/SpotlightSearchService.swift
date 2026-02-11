@@ -1,7 +1,11 @@
 import Foundation
 
 protocol SpotlightSearching: AnyObject {
-    @MainActor func search(query: String, scope: URL?) -> AsyncStream<[FileItem]>
+    @MainActor func search(
+        query: String,
+        scope: SpotlightSearchScope,
+        currentDirectory: URL
+    ) -> AsyncStream<[FileItem]>
     func cancel()
 }
 
@@ -11,7 +15,11 @@ final class SpotlightSearchService: NSObject, SpotlightSearching {
     private var continuation: AsyncStream<[FileItem]>.Continuation?
     private var observers: [NSObjectProtocol] = []
 
-    func search(query: String, scope: URL?) -> AsyncStream<[FileItem]> {
+    func search(
+        query: String,
+        scope: SpotlightSearchScope,
+        currentDirectory: URL
+    ) -> AsyncStream<[FileItem]> {
         cancel()
 
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -37,7 +45,7 @@ final class SpotlightSearchService: NSObject, SpotlightSearching {
             }
 
             let queryObject = NSMetadataQuery()
-            queryObject.searchScopes = [scope?.path ?? NSMetadataQueryUserHomeScope]
+            queryObject.searchScopes = Self.metadataSearchScopes(for: scope, currentDirectory: currentDirectory)
             queryObject.valueListAttributes = [
                 NSMetadataItemURLKey,
                 NSMetadataItemContentModificationDateKey,
@@ -141,5 +149,19 @@ final class SpotlightSearchService: NSObject, SpotlightSearching {
         }
 
         continuation?.yield(items)
+    }
+
+    private static func metadataSearchScopes(
+        for scope: SpotlightSearchScope,
+        currentDirectory: URL
+    ) -> [Any] {
+        switch scope {
+        case .currentDirectory:
+            return [currentDirectory.standardizedFileURL.path]
+        case .userHome:
+            return [NSMetadataQueryUserHomeScope]
+        case .localComputer:
+            return [NSMetadataQueryIndexedLocalComputerScope]
+        }
     }
 }

@@ -6,11 +6,13 @@ struct DirectoryContents: Sendable {
             case name
             case size
             case date
+            case selection
         }
 
         case name(ascending: Bool)
         case size(ascending: Bool)
         case date(ascending: Bool)
+        case selection(ascending: Bool)
 
         init(column: Column, ascending: Bool) {
             switch column {
@@ -20,6 +22,8 @@ struct DirectoryContents: Sendable {
                 self = .size(ascending: ascending)
             case .date:
                 self = .date(ascending: ascending)
+            case .selection:
+                self = .selection(ascending: ascending)
             }
         }
 
@@ -31,12 +35,14 @@ struct DirectoryContents: Sendable {
                 return .size
             case .date:
                 return .date
+            case .selection:
+                return .selection
             }
         }
 
         var ascending: Bool {
             switch self {
-            case .name(let ascending), .size(let ascending), .date(let ascending):
+            case .name(let ascending), .size(let ascending), .date(let ascending), .selection(let ascending):
                 return ascending
             }
         }
@@ -75,6 +81,14 @@ struct DirectoryContents: Sendable {
             items = items.filter { $0.name.localizedCaseInsensitiveContains(trimmedFilter) }
         }
 
+        if sortDescriptor.column == .selection {
+            if !sortDescriptor.ascending {
+                items.reverse()
+            }
+            displayedItems = items
+            return
+        }
+
         items.sort(by: compare(_:_:))
         displayedItems = items
     }
@@ -109,6 +123,8 @@ struct DirectoryContents: Sendable {
                 return ascending ? lhsDate < rhsDate : lhsDate > rhsDate
             }
             return compareNames(lhs.name, rhs.name, ascending: true)
+        case .selection:
+            return false
         }
     }
 

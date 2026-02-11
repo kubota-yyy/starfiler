@@ -1,5 +1,6 @@
 import Foundation
 import Darwin
+import UniformTypeIdentifiers
 
 enum UserPaths {
     static var homeDirectoryURL: URL {
@@ -65,5 +66,29 @@ extension URL {
 
     var displayName: String {
         FileManager.default.displayName(atPath: path)
+    }
+
+    var isImageFile: Bool {
+        if hasDirectoryPath {
+            return false
+        }
+
+        if let type = (try? resourceValues(forKeys: [.contentTypeKey]))?.contentType {
+            return type.conforms(to: .image)
+        }
+
+        let lowercasedExtension = pathExtension.lowercased()
+        guard !lowercasedExtension.isEmpty else {
+            return false
+        }
+
+        if let type = UTType(filenameExtension: lowercasedExtension) {
+            return type.conforms(to: .image)
+        }
+
+        let commonImageExtensions: Set<String> = [
+            "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "heic", "webp", "avif", "svg", "ico"
+        ]
+        return commonImageExtensions.contains(lowercasedExtension)
     }
 }

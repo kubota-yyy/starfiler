@@ -2,8 +2,26 @@ import Foundation
 
 enum BookmarkJumpResult: Equatable, Sendable {
     case jumpTo(path: String)
-    case pending(hint: String)
+    case pending(hint: BookmarkJumpHint)
     case unhandled
+}
+
+struct BookmarkJumpHint: Equatable, Sendable {
+    let title: String
+    let candidates: [BookmarkJumpHintCandidate]
+
+    var statusText: String {
+        let pairs = candidates.map { "\($0.key):\($0.label)" }.joined(separator: "  ")
+        guard !pairs.isEmpty else {
+            return title
+        }
+        return "\(title) \(pairs)"
+    }
+}
+
+struct BookmarkJumpHintCandidate: Equatable, Sendable {
+    let key: String
+    let label: String
 }
 
 struct BookmarkJumpInterpreter: Sendable {
@@ -34,27 +52,39 @@ struct BookmarkJumpInterpreter: Sendable {
         switch state {
         case .idle:
             if event.key == leaderKey {
+                let projectCandidates = keyedProjectCandidates()
+                guard !projectCandidates.isEmpty else {
+                    reset()
+                    return .unhandled
+                }
+
                 state = .awaitingTarget
                 lastInputDate = now
-                return .pending(hint: "' ...")
+                return .pending(
+                    hint: BookmarkJumpHint(title: "Project key", candidates: projectCandidates)
+                )
             }
             return .unhandled
 
         case .awaitingTarget:
             let key = event.key
 
-            if let defaultGroup = bookmarksConfig.groups.first(where: { $0.isDefault }) {
-                if let entry = defaultGroup.entries.first(where: { $0.shortcutKey == key }) {
-                    reset()
-                    return .jumpTo(path: entry.path)
-                }
-            }
-
             for (index, group) in bookmarksConfig.groups.enumerated() where !group.isDefault {
-                if group.shortcutKey == key {
+                if normalizeShortcut(group.shortcutKey) == key {
+                    let entryCandidates = keyedEntryCandidates(in: group)
+                    guard !entryCandidates.isEmpty else {
+                        reset()
+                        return .unhandled
+                    }
+
                     state = .awaitingProjectEntry(groupIndex: index)
                     lastInputDate = now
-                    return .pending(hint: "' \(key) ...")
+                    return .pending(
+                        hint: BookmarkJumpHint(
+                            title: "Folder key (\(group.name))",
+                            candidates: entryCandidates
+                        )
+                    )
                 }
             }
 
@@ -70,7 +100,7 @@ struct BookmarkJumpInterpreter: Sendable {
             let group = bookmarksConfig.groups[groupIndex]
             let key = event.key
 
-            if let entry = group.entries.first(where: { $0.shortcutKey == key }) {
+            if let entry = group.entries.first(where: { normalizeShortcut($0.shortcutKey) == key }) {
                 reset()
                 return .jumpTo(path: entry.path)
             }
@@ -95,5 +125,35 @@ struct BookmarkJumpInterpreter: Sendable {
             return
         }
         reset()
+    }
+
+    private func keyedProjectCandidates() -> [BookmarkJumpHintCandidate] {
+        bookmarksConfig.groups.compactMap { group in
+            guard !group.isDefault, let key = normalizeShortcut(group.shortcutKey) else {
+                return nil
+            }
+            return BookmarkJumpHintCandidate(key: key, label: group.name)
+        }
+    }
+
+    private func keyedEntryCandidates(in group: BookmarkGroup) -> [BookmarkJumpHintCandidate] {
+        group.entries.compactMap { entry in
+            guard let key = normalizeShortcut(entry.shortcutKey) else {
+                return nil
+            }
+            let label = entry.displayName.isEmpty ? entry.path : entry.displayName
+            return BookmarkJumpHintCandidate(key: key, label: label)
+        }
+    }
+
+    private func normalizeShortcut(_ shortcut: String?) -> String? {
+        guard let shortcut else {
+            return nil
+        }
+        let trimmed = shortcut.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return nil
+        }
+        return String(trimmed.prefix(1)).lowercased()
     }
 }

@@ -68,6 +68,12 @@
 		CC000000000000000000003C /* BookmarkJumpInterpreter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000003F /* BookmarkJumpInterpreter.swift */; };
 		CC000000000000000000003D /* BookmarkSearchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000040 /* BookmarkSearchViewModel.swift */; };
 		CC000000000000000000003E /* BookmarkSearchPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000041 /* BookmarkSearchPanelController.swift */; };
+		CC000000000000000000003F /* FilerThemePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000042 /* FilerThemePalette.swift */; };
+		CC0000000000000000000040 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000043 /* SettingsWindowController.swift */; };
+		CC0000000000000000000041 /* AppearanceSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000044 /* AppearanceSettingsViewController.swift */; };
+		CC0000000000000000000042 /* KeyRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000045 /* KeyRecorderView.swift */; };
+		CC0000000000000000000043 /* BookmarksSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000046 /* BookmarksSettingsViewController.swift */; };
+		CC0000000000000000000044 /* AdvancedSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000047 /* AdvancedSettingsViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -135,6 +141,12 @@
 		BB000000000000000000003F /* BookmarkJumpInterpreter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkJumpInterpreter.swift; sourceTree = "<group>"; };
 		BB0000000000000000000040 /* BookmarkSearchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkSearchViewModel.swift; sourceTree = "<group>"; };
 		BB0000000000000000000041 /* BookmarkSearchPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkSearchPanelController.swift; sourceTree = "<group>"; };
+		BB0000000000000000000042 /* FilerThemePalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilerThemePalette.swift; sourceTree = "<group>"; };
+		BB0000000000000000000043 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
+		BB0000000000000000000044 /* AppearanceSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsViewController.swift; sourceTree = "<group>"; };
+		BB0000000000000000000045 /* KeyRecorderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyRecorderView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000046 /* BookmarksSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarksSettingsViewController.swift; sourceTree = "<group>"; };
+		BB0000000000000000000047 /* AdvancedSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedSettingsViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -170,6 +182,7 @@
 				AA0000000000000000000026 /* DragDrop */,
 				AA0000000000000000000020 /* Keyboard */,
 				AA000000000000000000000C /* Extensions */,
+				AA0000000000000000000034 /* Theme */,
 				AA0000000000000000000022 /* Resources */,
 				BB000000000000000000002B /* Assets.xcassets */,
 				BB000000000000000000002A /* QuickLookUI.framework */,
@@ -232,6 +245,11 @@
 			isa = PBXGroup;
 			children = (
 				BB000000000000000000002E /* KeybindingsViewController.swift */,
+				BB0000000000000000000043 /* SettingsWindowController.swift */,
+				BB0000000000000000000044 /* AppearanceSettingsViewController.swift */,
+				BB0000000000000000000045 /* KeyRecorderView.swift */,
+				BB0000000000000000000046 /* BookmarksSettingsViewController.swift */,
+				BB0000000000000000000047 /* AdvancedSettingsViewController.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -403,6 +421,14 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
+		AA0000000000000000000034 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				BB0000000000000000000042 /* FilerThemePalette.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -531,6 +557,12 @@
 				CC000000000000000000003C /* BookmarkJumpInterpreter.swift in Sources */,
 				CC000000000000000000003D /* BookmarkSearchViewModel.swift in Sources */,
 				CC000000000000000000003E /* BookmarkSearchPanelController.swift in Sources */,
+				CC000000000000000000003F /* FilerThemePalette.swift in Sources */,
+				CC0000000000000000000040 /* SettingsWindowController.swift in Sources */,
+				CC0000000000000000000041 /* AppearanceSettingsViewController.swift in Sources */,
+				CC0000000000000000000042 /* KeyRecorderView.swift in Sources */,
+				CC0000000000000000000043 /* BookmarksSettingsViewController.swift in Sources */,
+				CC0000000000000000000044 /* AdvancedSettingsViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

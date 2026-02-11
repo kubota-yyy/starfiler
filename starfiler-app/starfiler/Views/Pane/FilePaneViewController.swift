@@ -1,4 +1,5 @@
 import AppKit
+import ImageIO
 
 private final class AppearanceTrackingView: NSView {
     var onAppearanceChanged: (() -> Void)?
@@ -6,90 +7,6 @@ private final class AppearanceTrackingView: NSView {
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         onAppearanceChanged?()
-    }
-}
-
-private struct FilerThemePalette {
-    let activeBorderColor: NSColor
-    let inactiveBorderColor: NSColor
-    let dropTargetBorderColor: NSColor
-    let activeHeaderColor: NSColor
-    let inactiveHeaderColor: NSColor
-    let activePathTextColor: NSColor
-    let inactivePathTextColor: NSColor
-    let markedColor: NSColor
-    let visualMarkedColor: NSColor
-    let activePaneAlpha: CGFloat
-    let inactivePaneAlpha: CGFloat
-}
-
-private extension FilerTheme {
-    static func dynamicColor(light: NSColor, dark: NSColor) -> NSColor {
-        NSColor(name: nil) { appearance in
-            let bestMatch = appearance.bestMatch(from: [.aqua, .darkAqua])
-            return bestMatch == .darkAqua ? dark : light
-        }
-    }
-
-    var palette: FilerThemePalette {
-        switch self {
-        case .system:
-            return FilerThemePalette(
-                activeBorderColor: .controlAccentColor,
-                inactiveBorderColor: .separatorColor,
-                dropTargetBorderColor: .systemBlue,
-                activeHeaderColor: NSColor.controlAccentColor.withAlphaComponent(0.16),
-                inactiveHeaderColor: NSColor.quaternaryLabelColor.withAlphaComponent(0.1),
-                activePathTextColor: .labelColor,
-                inactivePathTextColor: .secondaryLabelColor,
-                markedColor: NSColor.systemOrange.withAlphaComponent(0.14),
-                visualMarkedColor: NSColor.controlAccentColor.withAlphaComponent(0.22),
-                activePaneAlpha: 1.0,
-                inactivePaneAlpha: 0.86
-            )
-        case .ocean:
-            return FilerThemePalette(
-                activeBorderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.12, green: 0.44, blue: 0.78, alpha: 1.0), dark: NSColor(calibratedRed: 0.22, green: 0.62, blue: 0.98, alpha: 1.0)),
-                inactiveBorderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.58, green: 0.68, blue: 0.76, alpha: 1.0), dark: NSColor(calibratedRed: 0.36, green: 0.46, blue: 0.56, alpha: 1.0)),
-                dropTargetBorderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.08, green: 0.52, blue: 0.86, alpha: 1.0), dark: NSColor(calibratedRed: 0.34, green: 0.7, blue: 1.0, alpha: 1.0)),
-                activeHeaderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.12, green: 0.44, blue: 0.78, alpha: 0.18), dark: NSColor(calibratedRed: 0.2, green: 0.56, blue: 0.92, alpha: 0.3)),
-                inactiveHeaderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.44, green: 0.6, blue: 0.74, alpha: 0.12), dark: NSColor(calibratedRed: 0.22, green: 0.3, blue: 0.42, alpha: 0.22)),
-                activePathTextColor: .labelColor,
-                inactivePathTextColor: .secondaryLabelColor,
-                markedColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.22, green: 0.62, blue: 0.94, alpha: 0.16), dark: NSColor(calibratedRed: 0.16, green: 0.52, blue: 0.86, alpha: 0.34)),
-                visualMarkedColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.04, green: 0.48, blue: 0.88, alpha: 0.24), dark: NSColor(calibratedRed: 0.24, green: 0.62, blue: 1.0, alpha: 0.4)),
-                activePaneAlpha: 1.0,
-                inactivePaneAlpha: 0.9
-            )
-        case .forest:
-            return FilerThemePalette(
-                activeBorderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.16, green: 0.5, blue: 0.34, alpha: 1.0), dark: NSColor(calibratedRed: 0.3, green: 0.72, blue: 0.48, alpha: 1.0)),
-                inactiveBorderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.56, green: 0.68, blue: 0.58, alpha: 1.0), dark: NSColor(calibratedRed: 0.34, green: 0.46, blue: 0.36, alpha: 1.0)),
-                dropTargetBorderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.08, green: 0.62, blue: 0.38, alpha: 1.0), dark: NSColor(calibratedRed: 0.24, green: 0.82, blue: 0.54, alpha: 1.0)),
-                activeHeaderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.16, green: 0.5, blue: 0.34, alpha: 0.18), dark: NSColor(calibratedRed: 0.2, green: 0.56, blue: 0.36, alpha: 0.32)),
-                inactiveHeaderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.46, green: 0.6, blue: 0.5, alpha: 0.12), dark: NSColor(calibratedRed: 0.22, green: 0.32, blue: 0.26, alpha: 0.24)),
-                activePathTextColor: .labelColor,
-                inactivePathTextColor: .secondaryLabelColor,
-                markedColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.26, green: 0.64, blue: 0.34, alpha: 0.18), dark: NSColor(calibratedRed: 0.18, green: 0.52, blue: 0.28, alpha: 0.34)),
-                visualMarkedColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.16, green: 0.56, blue: 0.3, alpha: 0.26), dark: NSColor(calibratedRed: 0.24, green: 0.7, blue: 0.4, alpha: 0.42)),
-                activePaneAlpha: 1.0,
-                inactivePaneAlpha: 0.9
-            )
-        case .sunset:
-            return FilerThemePalette(
-                activeBorderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.82, green: 0.36, blue: 0.18, alpha: 1.0), dark: NSColor(calibratedRed: 0.98, green: 0.54, blue: 0.24, alpha: 1.0)),
-                inactiveBorderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.76, green: 0.62, blue: 0.52, alpha: 1.0), dark: NSColor(calibratedRed: 0.52, green: 0.42, blue: 0.36, alpha: 1.0)),
-                dropTargetBorderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.94, green: 0.44, blue: 0.16, alpha: 1.0), dark: NSColor(calibratedRed: 1.0, green: 0.62, blue: 0.28, alpha: 1.0)),
-                activeHeaderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.86, green: 0.44, blue: 0.2, alpha: 0.18), dark: NSColor(calibratedRed: 0.92, green: 0.5, blue: 0.24, alpha: 0.32)),
-                inactiveHeaderColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.78, green: 0.62, blue: 0.54, alpha: 0.12), dark: NSColor(calibratedRed: 0.42, green: 0.32, blue: 0.28, alpha: 0.24)),
-                activePathTextColor: .labelColor,
-                inactivePathTextColor: .secondaryLabelColor,
-                markedColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.92, green: 0.5, blue: 0.2, alpha: 0.18), dark: NSColor(calibratedRed: 0.74, green: 0.34, blue: 0.16, alpha: 0.34)),
-                visualMarkedColor: Self.dynamicColor(light: NSColor(calibratedRed: 0.94, green: 0.42, blue: 0.18, alpha: 0.28), dark: NSColor(calibratedRed: 0.92, green: 0.48, blue: 0.22, alpha: 0.44)),
-                activePaneAlpha: 1.0,
-                inactivePaneAlpha: 0.9
-            )
-        }
     }
 }
 
@@ -112,7 +29,83 @@ private final class MarkedRowView: NSTableRowView {
     }
 }
 
-final class FilePaneViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate, KeyActionDelegate {
+private final class FileNameCellView: NSTableCellView {
+    private let iconView = NSImageView()
+    private let nameLabel = NSTextField(labelWithString: "")
+    private var iconWidthConstraint: NSLayoutConstraint?
+    private var iconHeightConstraint: NSLayoutConstraint?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        configureView()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        configureView()
+    }
+
+    func setName(_ text: String, textColor: NSColor) {
+        nameLabel.stringValue = text
+        nameLabel.textColor = textColor
+    }
+
+    func setIcon(_ image: NSImage?, size: CGFloat) {
+        iconView.image = image
+
+        let clamped = min(max(size, 12), 40)
+        iconWidthConstraint?.constant = clamped
+        iconHeightConstraint?.constant = clamped
+    }
+
+    private func configureView() {
+        identifier = NSUserInterfaceItemIdentifier("nameCell")
+
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        iconView.imageScaling = .scaleProportionallyUpOrDown
+
+        nameLabel.translatesAutoresizingMaskIntoConstraints = false
+        nameLabel.lineBreakMode = .byTruncatingMiddle
+
+        textField = nameLabel
+        imageView = iconView
+
+        addSubview(iconView)
+        addSubview(nameLabel)
+
+        let iconWidthConstraint = iconView.widthAnchor.constraint(equalToConstant: 16)
+        let iconHeightConstraint = iconView.heightAnchor.constraint(equalToConstant: 16)
+        self.iconWidthConstraint = iconWidthConstraint
+        self.iconHeightConstraint = iconHeightConstraint
+
+        NSLayoutConstraint.activate([
+            iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            iconWidthConstraint,
+            iconHeightConstraint,
+
+            nameLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 8),
+            nameLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            nameLabel.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
+    }
+}
+
+final class FilePaneViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate, KeyActionDelegate, NSTextFieldDelegate, NSSearchFieldDelegate {
+    private enum SearchMode: Int {
+        case filter = 0
+        case spotlight = 1
+
+        var placeholder: String {
+            switch self {
+            case .filter:
+                return "Filter files in current folder..."
+            case .spotlight:
+                return "Search with Spotlight..."
+            }
+        }
+    }
+
     private enum Column {
         static let name = NSUserInterfaceItemIdentifier("name")
         static let size = NSUserInterfaceItemIdentifier("size")
@@ -137,12 +130,15 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }()
 
     private let viewModel: FilePaneViewModel
+    private var keybindingManager = KeybindingManager()
     private let headerView = NSView()
-    private let pathLabel = NSTextField(labelWithString: "")
+    private let pathControl = NSPathControl()
+    private let searchControlsStackView = NSStackView()
+    private let searchModeControl = NSSegmentedControl(labels: ["Filter", "Spotlight"], trackingMode: .selectOne, target: nil, action: nil)
+    private let searchField = NSSearchField()
+    private let spotlightScopePopUpButton = NSPopUpButton()
     private let scrollView = NSScrollView()
     private let tableView = FileTableView()
-    private let filterBarViewController = FilterBarViewController()
-    private let spotlightBarViewController = FilterBarViewController(prompt: "?", placeholder: "Search with Spotlight...")
     private let fileDragSource = FileDragSource()
 
     private lazy var fileDropTarget = FileDropTarget { [weak self] in
@@ -153,6 +149,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private var isDropTargetHighlighted = false
     private var vimModeState = VimModeState()
     private var filerTheme: FilerTheme = .system
+    private var backgroundOpacity: CGFloat = 1.0
+    private var fileIconSize: CGFloat = 16
+    private let iconCache = NSCache<NSString, NSImage>()
+    private let thumbnailCache = NSCache<NSString, NSImage>()
+    private var thumbnailTasks: [NSString: Task<Void, Never>] = [:]
+    private var isUpdatingSearchControls = false
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
     var onSelectionChanged: ((FileItem?) -> Void)?
@@ -160,6 +162,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     var onDidRequestActivate: (() -> Void)?
     var onFileOperationRequested: ((KeyAction) -> Bool)?
     var onBookmarkJump: ((String) -> Void)?
+    var onDropOperationCompleted: ((NSDragOperation, Int) -> Void)?
+    var onSpotlightSearchScopeChanged: ((SpotlightSearchScope) -> Void)?
 
     init(viewModel: FilePaneViewModel) {
         self.viewModel = viewModel
@@ -183,12 +187,16 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         configureContainerAppearance()
         configureTableView()
         configureLayout()
-        configureFilterBar()
-        configureSpotlightBar()
+        configureSearchControls()
         configureDragAndDrop()
         configureContextMenu()
         bindViewModel()
         setActive(false)
+    }
+
+    deinit {
+        thumbnailTasks.values.forEach { $0.cancel() }
+        thumbnailTasks.removeAll()
     }
 
     func focusTable() {
@@ -210,14 +218,48 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
     }
 
-    private func showBookmarkJumpHint(_ hint: String) {
-        onStatusChanged?(hint, viewModel.directoryContents.displayedItems.count, viewModel.markedCount)
+    func reloadKeybindings() {
+        keybindingManager = KeybindingManager()
+        tableView.reloadKeybindings()
     }
 
-    func applyTheme(_ theme: FilerTheme) {
+    func setSpotlightSearchScope(_ scope: SpotlightSearchScope) {
+        viewModel.setSpotlightSearchScope(scope)
+        guard isViewLoaded else {
+            return
+        }
+        selectSpotlightScope(scope)
+
+        let trimmed = searchField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if selectedSearchMode == .spotlight, !trimmed.isEmpty {
+            applySearchFromHeader()
+        }
+    }
+
+    private func showBookmarkJumpHint(_ hint: BookmarkJumpHint) {
+        onStatusChanged?(hint.statusText, viewModel.directoryContents.displayedItems.count, viewModel.markedCount)
+    }
+
+    func applyTheme(_ theme: FilerTheme, backgroundOpacity: CGFloat = 1.0) {
         filerTheme = theme
+        self.backgroundOpacity = backgroundOpacity
         tableView.reloadData()
         updateActiveAppearance()
+    }
+
+    func setFileIconSize(_ size: CGFloat) {
+        let clampedSize = min(max(size, 12), 40)
+        guard abs(fileIconSize - clampedSize) > 0.001 else {
+            return
+        }
+
+        fileIconSize = clampedSize
+        iconCache.removeAllObjects()
+        thumbnailCache.removeAllObjects()
+        thumbnailTasks.values.forEach { $0.cancel() }
+        thumbnailTasks.removeAll()
+        tableView.rowHeight = max(24, clampedSize + 8)
+        tableView.reloadData()
     }
 
     func numberOfRows(in tableView: NSTableView) -> Int {
@@ -261,6 +303,30 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         viewModel.setCursor(index: selectedRow)
     }
 
+    func tableView(_ tableView: NSTableView, didClick tableColumn: NSTableColumn) {
+        let targetSortColumn: DirectoryContents.SortDescriptor.Column
+        switch tableColumn.identifier {
+        case Column.name:
+            targetSortColumn = .name
+        case Column.size:
+            targetSortColumn = .size
+        case Column.modified:
+            targetSortColumn = .date
+        default:
+            return
+        }
+
+        let currentSortDescriptor = viewModel.directoryContents.sortDescriptor
+        let nextAscending: Bool
+        if currentSortDescriptor.column == targetSortColumn {
+            nextAscending = !currentSortDescriptor.ascending
+        } else {
+            nextAscending = true
+        }
+
+        viewModel.setSortDescriptor(.init(column: targetSortColumn, ascending: nextAscending))
+    }
+
     func fileTableView(_ tableView: FileTableView, didTrigger action: KeyAction) -> Bool {
         handleKeyAction(action)
     }
@@ -274,9 +340,43 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         headerView.translatesAutoresizingMaskIntoConstraints = false
         headerView.wantsLayer = true
 
-        pathLabel.translatesAutoresizingMaskIntoConstraints = false
-        pathLabel.lineBreakMode = .byTruncatingMiddle
-        pathLabel.font = .monospacedSystemFont(ofSize: 12, weight: .semibold)
+        pathControl.translatesAutoresizingMaskIntoConstraints = false
+        pathControl.pathStyle = .standard
+        pathControl.controlSize = .small
+        pathControl.target = self
+        pathControl.action = #selector(handlePathControlClick(_:))
+
+        searchControlsStackView.translatesAutoresizingMaskIntoConstraints = false
+        searchControlsStackView.orientation = .horizontal
+        searchControlsStackView.alignment = .centerY
+        searchControlsStackView.spacing = 6
+        searchControlsStackView.setContentHuggingPriority(.required, for: .horizontal)
+        searchControlsStackView.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        searchModeControl.translatesAutoresizingMaskIntoConstraints = false
+        searchModeControl.segmentStyle = .rounded
+        searchModeControl.selectedSegment = SearchMode.filter.rawValue
+        searchModeControl.target = self
+        searchModeControl.action = #selector(searchModeChanged(_:))
+        searchModeControl.setWidth(74, forSegment: 0)
+        searchModeControl.setWidth(94, forSegment: 1)
+
+        searchField.translatesAutoresizingMaskIntoConstraints = false
+        searchField.placeholderString = SearchMode.filter.placeholder
+        searchField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+        searchField.delegate = self
+        searchField.sendsSearchStringImmediately = true
+        searchField.sendsWholeSearchString = true
+        searchField.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        searchField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        spotlightScopePopUpButton.translatesAutoresizingMaskIntoConstraints = false
+        spotlightScopePopUpButton.target = self
+        spotlightScopePopUpButton.action = #selector(spotlightScopeChanged(_:))
+        spotlightScopePopUpButton.addItems(withTitles: SpotlightSearchScope.allCases.map(\.displayName))
+        spotlightScopePopUpButton.setContentHuggingPriority(.required, for: .horizontal)
+        spotlightScopePopUpButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+        spotlightScopePopUpButton.isHidden = true
     }
 
     private func configureTableView() {
@@ -289,7 +389,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         tableView.setVimMode(vimModeState.mode)
         tableView.target = self
         tableView.doubleAction = #selector(handleDoubleClick(_:))
-        tableView.backgroundColor = .textBackgroundColor
+        tableView.backgroundColor = filerTheme.palette.tableBackgroundColor
+        tableView.rowHeight = max(24, fileIconSize + 8)
 
         let nameColumn = NSTableColumn(identifier: Column.name)
         nameColumn.title = "Name"
@@ -309,12 +410,14 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         tableView.addTableColumn(nameColumn)
         tableView.addTableColumn(sizeColumn)
         tableView.addTableColumn(modifiedColumn)
+        updateColumnHeaderTitles()
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.documentView = tableView
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
+        scrollView.drawsBackground = true
 
         tableView.didBecomeFirstResponderHandler = { [weak self] in
             self?.onDidRequestActivate?()
@@ -325,17 +428,27 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         view.addSubview(headerView)
         view.addSubview(scrollView)
 
-        headerView.addSubview(pathLabel)
+        headerView.addSubview(pathControl)
+        headerView.addSubview(searchControlsStackView)
+        searchControlsStackView.addArrangedSubview(searchModeControl)
+        searchControlsStackView.addArrangedSubview(searchField)
+        searchControlsStackView.addArrangedSubview(spotlightScopePopUpButton)
 
         NSLayoutConstraint.activate([
             headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             headerView.topAnchor.constraint(equalTo: view.topAnchor),
-            headerView.heightAnchor.constraint(equalToConstant: 28),
+            headerView.heightAnchor.constraint(equalToConstant: 34),
 
-            pathLabel.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 10),
-            pathLabel.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -10),
-            pathLabel.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
+            pathControl.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 10),
+            pathControl.trailingAnchor.constraint(lessThanOrEqualTo: searchControlsStackView.leadingAnchor, constant: -10),
+            pathControl.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
+
+            searchControlsStackView.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -10),
+            searchControlsStackView.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
+            searchControlsStackView.leadingAnchor.constraint(greaterThanOrEqualTo: headerView.leadingAnchor, constant: 260),
+            searchField.widthAnchor.constraint(greaterThanOrEqualToConstant: 160),
+            searchField.widthAnchor.constraint(lessThanOrEqualToConstant: 340),
 
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -344,63 +457,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         ])
     }
 
-    private func configureFilterBar() {
-        addChild(filterBarViewController)
-
-        let filterView = filterBarViewController.view
-        view.addSubview(filterView)
-
-        NSLayoutConstraint.activate([
-            filterView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
-            filterView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
-            filterView.topAnchor.constraint(equalTo: headerView.bottomAnchor, constant: 8)
-        ])
-
-        filterBarViewController.onTextChanged = { [weak self] text in
-            self?.viewModel.setFilterText(text)
-        }
-
-        filterBarViewController.onDidClose = { [weak self] _ in
-            guard let self else {
-                return
-            }
-
-            self.vimModeState.enterNormalMode()
-            self.tableView.setVimMode(self.vimModeState.mode)
-            self.focusTable()
-        }
-    }
-
-    private func configureSpotlightBar() {
-        addChild(spotlightBarViewController)
-
-        let spotlightView = spotlightBarViewController.view
-        view.addSubview(spotlightView)
-
-        NSLayoutConstraint.activate([
-            spotlightView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
-            spotlightView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
-            spotlightView.topAnchor.constraint(equalTo: headerView.bottomAnchor, constant: 8)
-        ])
-
-        spotlightBarViewController.onTextChanged = { [weak self] text in
-            self?.viewModel.updateSpotlightSearchQuery(text)
-        }
-
-        spotlightBarViewController.onDidClose = { [weak self] reason in
-            guard let self else {
-                return
-            }
-
-            if reason == .submit {
-                self.viewModel.enterSelected()
-            }
-            self.viewModel.exitSpotlightSearchMode()
-
-            self.vimModeState.enterNormalMode()
-            self.tableView.setVimMode(self.vimModeState.mode)
-            self.focusTable()
-        }
+    private func configureSearchControls() {
+        selectSpotlightScope(viewModel.spotlightSearchScope)
+        updateSearchModeUI()
     }
 
     private func configureContextMenu() {
@@ -427,8 +486,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             self.updateActiveAppearance()
         }
 
-        fileDropTarget.onDropCompleted = { [weak self] in
+        fileDropTarget.onDropCompleted = { [weak self] operation, itemCount in
             self?.viewModel.refreshCurrentDirectory()
+            self?.onDropOperationCompleted?(operation, itemCount)
         }
 
         fileDropTarget.onDropFailed = { [weak self] message in
@@ -442,7 +502,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
                 return
             }
 
+            self.thumbnailTasks.values.forEach { $0.cancel() }
+            self.thumbnailTasks.removeAll()
+            self.thumbnailCache.removeAllObjects()
+
             self.tableView.reloadData()
+            self.updateColumnHeaderTitles()
             self.syncSelectionFromViewModel()
             self.publishStatus()
             self.publishSelection()
@@ -465,6 +530,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         publishStatus()
         publishSelection()
+        updateColumnHeaderTitles()
     }
 
     private func syncSelectionFromViewModel() {
@@ -482,9 +548,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private func publishStatus() {
-        let path = viewModel.paneState.currentDirectory.path
-        pathLabel.stringValue = path
-        onStatusChanged?(path, viewModel.directoryContents.displayedItems.count, viewModel.markedCount)
+        let directoryURL = viewModel.paneState.currentDirectory.standardizedFileURL
+        pathControl.url = directoryURL
+        onStatusChanged?(directoryURL.path, viewModel.directoryContents.displayedItems.count, viewModel.markedCount)
     }
 
     private func publishSelection() {
@@ -503,20 +569,37 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         let headerColor = isPaneActive ? palette.activeHeaderColor : palette.inactiveHeaderColor
 
         view.layer?.borderColor = borderColor.cgColor
+        view.layer?.backgroundColor = palette.paneBackgroundColor.applyingBackgroundOpacity(backgroundOpacity).cgColor
         headerView.layer?.backgroundColor = headerColor.cgColor
-        pathLabel.textColor = isPaneActive ? palette.activePathTextColor : palette.inactivePathTextColor
+        pathControl.alphaValue = isPaneActive ? 1.0 : 0.82
+        searchField.textColor = palette.primaryTextColor
+        searchField.backgroundColor = palette.filterBarBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
+        spotlightScopePopUpButton.contentTintColor = isPaneActive ? palette.activePathTextColor : palette.inactivePathTextColor
+        tableView.backgroundColor = palette.tableBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
+        scrollView.backgroundColor = palette.tableBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
         scrollView.alphaValue = isPaneActive ? palette.activePaneAlpha : palette.inactivePaneAlpha
     }
 
+    @objc
+    private func handlePathControlClick(_ sender: NSPathControl) {
+        guard let targetURL = sender.clickedPathItem?.url?.standardizedFileURL else {
+            return
+        }
+
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: targetURL.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            return
+        }
+
+        viewModel.navigate(to: targetURL)
+    }
+
     private func makeNameCell(for item: FileItem, row: Int) -> NSTableCellView {
-        let cell = tableView.makeView(withIdentifier: Cell.name, owner: self) as? NSTableCellView ?? createNameCellView()
+        let cell = tableView.makeView(withIdentifier: Cell.name, owner: self) as? FileNameCellView ?? createNameCellView()
 
         let isMarked = viewModel.paneState.markedIndices.contains(row)
-        cell.textField?.stringValue = isMarked ? "* \(item.name)" : item.name
-
-        let icon = NSWorkspace.shared.icon(forFile: item.url.path)
-        icon.size = NSSize(width: 16, height: 16)
-        cell.imageView?.image = icon
+        cell.setName(isMarked ? "* \(item.name)" : item.name, textColor: filerTheme.palette.primaryTextColor)
+        cell.setIcon(icon(for: item, row: row), size: fileIconSize)
 
         return cell
     }
@@ -525,37 +608,14 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         let cell = tableView.makeView(withIdentifier: Cell.text, owner: self) as? NSTableCellView ?? createTextCellView()
         cell.textField?.stringValue = text
         cell.textField?.alignment = alignment
+        cell.textField?.textColor = filerTheme.palette.primaryTextColor
         return cell
     }
 
-    private func createNameCellView() -> NSTableCellView {
-        let cell = NSTableCellView()
+    private func createNameCellView() -> FileNameCellView {
+        let cell = FileNameCellView()
         cell.identifier = Cell.name
-
-        let imageView = NSImageView()
-        imageView.translatesAutoresizingMaskIntoConstraints = false
-
-        let textField = NSTextField(labelWithString: "")
-        textField.translatesAutoresizingMaskIntoConstraints = false
-        textField.lineBreakMode = .byTruncatingMiddle
-
-        cell.imageView = imageView
-        cell.textField = textField
-
-        cell.addSubview(imageView)
-        cell.addSubview(textField)
-
-        NSLayoutConstraint.activate([
-            imageView.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 4),
-            imageView.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-            imageView.widthAnchor.constraint(equalToConstant: 16),
-            imageView.heightAnchor.constraint(equalToConstant: 16),
-
-            textField.leadingAnchor.constraint(equalTo: imageView.trailingAnchor, constant: 8),
-            textField.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
-            textField.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
-        ])
-
+        cell.setIcon(nil, size: fileIconSize)
         return cell
     }
 
@@ -579,6 +639,106 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         return cell
     }
 
+    private func icon(for item: FileItem, row: Int) -> NSImage {
+        if !item.isDirectory && item.url.isImageFile {
+            let thumbnailKey = thumbnailCacheKey(for: item)
+
+            if let thumbnail = thumbnailCache.object(forKey: thumbnailKey) {
+                return thumbnail
+            }
+
+            scheduleThumbnailLoadIfNeeded(for: item, row: row, key: thumbnailKey)
+        }
+
+        return fallbackIcon(for: item)
+    }
+
+    private func fallbackIcon(for item: FileItem) -> NSImage {
+        let pixelSize = Int(fileIconSize.rounded())
+        let cacheKey = "\(item.url.path)#\(pixelSize)" as NSString
+
+        if let cached = iconCache.object(forKey: cacheKey) {
+            return cached
+        }
+
+        let icon = NSWorkspace.shared.icon(forFile: item.url.path)
+        icon.isTemplate = false
+        icon.size = NSSize(width: CGFloat(pixelSize), height: CGFloat(pixelSize))
+        iconCache.setObject(icon, forKey: cacheKey)
+        return icon
+    }
+
+    private func thumbnailCacheKey(for item: FileItem) -> NSString {
+        let pixelSize = Int(fileIconSize.rounded())
+        return "thumb#\(item.url.path)#\(pixelSize)" as NSString
+    }
+
+    private func scheduleThumbnailLoadIfNeeded(for item: FileItem, row: Int, key: NSString) {
+        guard thumbnailTasks[key] == nil else {
+            return
+        }
+
+        let targetURL = item.url.standardizedFileURL
+        let size = max(16, Int((fileIconSize * 2).rounded()))
+
+        thumbnailTasks[key] = Task { [weak self] in
+            guard let self else {
+                return
+            }
+
+            let thumbnail = await Self.generateThumbnail(for: targetURL, maxPixelSize: size)
+            guard !Task.isCancelled else {
+                await MainActor.run {
+                    self.thumbnailTasks.removeValue(forKey: key)
+                }
+                return
+            }
+
+            await MainActor.run {
+                self.thumbnailTasks.removeValue(forKey: key)
+                guard let thumbnail else {
+                    return
+                }
+
+                self.thumbnailCache.setObject(thumbnail, forKey: key)
+
+                guard self.viewModel.directoryContents.displayedItems.indices.contains(row) else {
+                    return
+                }
+
+                if self.viewModel.directoryContents.displayedItems[row].url.standardizedFileURL != targetURL {
+                    return
+                }
+
+                let rowIndexes = IndexSet(integer: row)
+                let columnIndexes = IndexSet(integersIn: 0 ..< self.tableView.numberOfColumns)
+                self.tableView.reloadData(forRowIndexes: rowIndexes, columnIndexes: columnIndexes)
+            }
+        }
+    }
+
+    private static func generateThumbnail(for url: URL, maxPixelSize: Int) async -> NSImage? {
+        await Task.detached(priority: .utility) {
+            guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+                return nil
+            }
+
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceShouldCacheImmediately: false,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
+            ]
+
+            guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+                return nil
+            }
+
+            let size = NSSize(width: cgImage.width, height: cgImage.height)
+            return NSImage(cgImage: cgImage, size: size)
+        }.value
+    }
+
     private func sizeText(for item: FileItem) -> String {
         guard !item.isDirectory || item.isPackage, let size = item.size else {
             return ""
@@ -597,33 +757,97 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         onTabPressed?() ?? false
     }
 
-    private func showFilterBar() {
-        if spotlightBarViewController.isVisible {
-            spotlightBarViewController.close()
+    private var selectedSearchMode: SearchMode {
+        SearchMode(rawValue: searchModeControl.selectedSegment) ?? .filter
+    }
+
+    private func focusSearch(mode: SearchMode) {
+        if selectedSearchMode != mode {
+            searchModeControl.selectedSegment = mode.rawValue
+            updateSearchModeUI()
         }
 
         vimModeState.enterFilterMode()
         tableView.setVimMode(vimModeState.mode)
-        filterBarViewController.show(currentText: viewModel.directoryContents.filterText)
+
+        view.window?.makeFirstResponder(searchField)
+        if let editor = searchField.currentEditor() {
+            editor.selectAll(nil)
+        }
     }
 
-    private func closeFilterBar() {
-        filterBarViewController.close()
+    private func clearSearchAndReturnToTable() {
+        searchField.stringValue = ""
+        searchModeControl.selectedSegment = SearchMode.filter.rawValue
+        updateSearchModeUI()
+        viewModel.clearFilter()
+        viewModel.exitSpotlightSearchMode()
+
+        vimModeState.enterNormalMode()
+        tableView.setVimMode(vimModeState.mode)
+        focusTable()
     }
 
-    private func showSpotlightSearchBar() {
-        if filterBarViewController.isVisible {
-            filterBarViewController.close()
+    private func updateSearchModeUI() {
+        let mode = selectedSearchMode
+        searchField.placeholderString = mode.placeholder
+        spotlightScopePopUpButton.isHidden = mode != .spotlight
+    }
+
+    private func selectSpotlightScope(_ scope: SpotlightSearchScope) {
+        guard let index = SpotlightSearchScope.allCases.firstIndex(of: scope) else {
+            return
         }
 
-        viewModel.enterSpotlightSearchMode()
-        vimModeState.enterFilterMode()
-        tableView.setVimMode(vimModeState.mode)
-        spotlightBarViewController.show(currentText: "")
+        isUpdatingSearchControls = true
+        spotlightScopePopUpButton.selectItem(at: index)
+        isUpdatingSearchControls = false
     }
 
-    private func closeSpotlightSearchBar() {
-        spotlightBarViewController.close()
+    private func applySearchFromHeader() {
+        let query = searchField.stringValue
+
+        switch selectedSearchMode {
+        case .filter:
+            viewModel.exitSpotlightSearchMode()
+            viewModel.setFilterText(query)
+        case .spotlight:
+            viewModel.clearFilter()
+            let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty {
+                viewModel.exitSpotlightSearchMode()
+            } else {
+                viewModel.enterSpotlightSearchMode()
+                viewModel.updateSpotlightSearchQuery(trimmed)
+            }
+        }
+    }
+
+    @objc
+    private func searchModeChanged(_ sender: NSSegmentedControl) {
+        guard SearchMode(rawValue: sender.selectedSegment) != nil else {
+            return
+        }
+
+        updateSearchModeUI()
+        applySearchFromHeader()
+    }
+
+    @objc
+    private func spotlightScopeChanged(_ sender: NSPopUpButton) {
+        guard !isUpdatingSearchControls else {
+            return
+        }
+
+        let index = sender.indexOfSelectedItem
+        guard SpotlightSearchScope.allCases.indices.contains(index) else {
+            return
+        }
+
+        let scope = SpotlightSearchScope.allCases[index]
+        viewModel.setSpotlightSearchScope(scope)
+        onSpotlightSearchScopeChanged?(scope)
+        applySearchFromHeader()
     }
 
     @discardableResult
@@ -699,21 +923,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo, .togglePreview, .toggleSidebar, .openBookmarkSearch, .openHistory, .addBookmark, .batchRename, .syncPanes:
             handled = onFileOperationRequested?(action) ?? false
         case .enterFilterMode:
-            showFilterBar()
+            focusSearch(mode: .filter)
             handled = true
         case .enterSpotlightSearch:
-            showSpotlightSearchBar()
+            focusSearch(mode: .spotlight)
             handled = true
         case .clearFilter:
-            if filterBarViewController.isVisible {
-                closeFilterBar()
-            } else if spotlightBarViewController.isVisible {
-                closeSpotlightSearchBar()
-            } else {
-                viewModel.clearFilter()
-                vimModeState.enterNormalMode()
-                tableView.setVimMode(vimModeState.mode)
-            }
+            clearSearchAndReturnToTable()
             handled = true
         case .toggleHiddenFiles:
             viewModel.toggleHiddenFiles()
@@ -726,6 +942,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             handled = true
         case .sortByDate:
             viewModel.sortByDate()
+            handled = true
+        case .sortBySelectionOrder:
+            viewModel.sortBySelectionOrder()
             handled = true
         case .reverseSortOrder:
             viewModel.reverseSortOrder()
@@ -777,95 +996,297 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         alert.runModal()
     }
 
+    func controlTextDidBeginEditing(_ obj: Notification) {
+        guard (obj.object as? NSControl) === searchField else {
+            return
+        }
+
+        vimModeState.enterFilterMode()
+        tableView.setVimMode(vimModeState.mode)
+    }
+
+    func controlTextDidChange(_ obj: Notification) {
+        guard (obj.object as? NSControl) === searchField else {
+            return
+        }
+
+        applySearchFromHeader()
+    }
+
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        guard control === searchField else {
+            return false
+        }
+
+        if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+            clearSearchAndReturnToTable()
+            return true
+        }
+
+        if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+            if selectedSearchMode == .spotlight {
+                viewModel.enterSelected()
+                viewModel.exitSpotlightSearchMode()
+                searchField.stringValue = ""
+                searchModeControl.selectedSegment = SearchMode.filter.rawValue
+                updateSearchModeUI()
+            }
+
+            vimModeState.enterNormalMode()
+            tableView.setVimMode(vimModeState.mode)
+            focusTable()
+            return true
+        }
+
+        return false
+    }
+
     // MARK: - Context Menu
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
 
         let clickedRow = tableView.clickedRow
-        guard clickedRow >= 0, viewModel.directoryContents.displayedItems.indices.contains(clickedRow) else {
-            return
-        }
+        let hasClickedItem = viewModel.directoryContents.displayedItems.indices.contains(clickedRow)
+        let clickedItem = hasClickedItem ? viewModel.directoryContents.displayedItems[clickedRow] : nil
+        let contextItem = clickedItem ?? viewModel.selectedItem
+        let hasContextItem = contextItem != nil
 
-        let item = viewModel.directoryContents.displayedItems[clickedRow]
-
-        if item.isDirectory && !item.isPackage {
-            let openItem = NSMenuItem(title: "Open", action: #selector(contextMenuOpen(_:)), keyEquivalent: "")
-            openItem.target = self
-            menu.addItem(openItem)
+        let openTitle: String
+        if let contextItem, contextItem.isDirectory && !contextItem.isPackage {
+            openTitle = "Open"
         } else {
-            let openItem = NSMenuItem(title: "Open with Default App", action: #selector(contextMenuOpen(_:)), keyEquivalent: "")
-            openItem.target = self
-            menu.addItem(openItem)
+            openTitle = "Open with Default App"
         }
 
-        let revealItem = NSMenuItem(title: "Reveal in Finder", action: #selector(contextMenuRevealInFinder(_:)), keyEquivalent: "")
-        revealItem.target = self
-        menu.addItem(revealItem)
+        menu.addItem(makeContextMenuItem(
+            title: openTitle,
+            action: .openFile,
+            shortcutActions: [.enterDirectory, .openFile],
+            requiresContextItem: true,
+            enabled: hasContextItem
+        ))
+        menu.addItem(makeContextMenuItem(
+            title: "Reveal in Finder",
+            action: .openFileInFinder,
+            requiresContextItem: true,
+            enabled: hasContextItem
+        ))
 
         menu.addItem(NSMenuItem.separator())
 
-        let copyItem = NSMenuItem(title: "Copy", action: #selector(contextMenuCopy(_:)), keyEquivalent: "")
-        copyItem.target = self
-        menu.addItem(copyItem)
+        menu.addItem(makeContextMenuItem(
+            title: "Toggle Mark",
+            action: .toggleMark,
+            requiresContextItem: true,
+            enabled: hasContextItem
+        ))
+        menu.addItem(makeContextMenuItem(
+            title: "Mark All",
+            action: .markAll,
+            enabled: !viewModel.directoryContents.displayedItems.isEmpty
+        ))
+        menu.addItem(makeContextMenuItem(
+            title: "Clear Marks",
+            action: .clearMarks,
+            enabled: viewModel.markedCount > 0
+        ))
 
-        let moveItem = NSMenuItem(title: "Cut", action: #selector(contextMenuCut(_:)), keyEquivalent: "")
-        moveItem.target = self
-        menu.addItem(moveItem)
+        if vimModeState.mode == .visual {
+            menu.addItem(makeContextMenuItem(title: "End Visual Selection", action: .exitVisualMode))
+        } else {
+            menu.addItem(makeContextMenuItem(
+                title: "Start Visual Selection",
+                action: .enterVisualMode,
+                requiresContextItem: true,
+                enabled: hasContextItem
+            ))
+        }
 
         menu.addItem(NSMenuItem.separator())
 
-        let renameItem = NSMenuItem(title: "Rename...", action: #selector(contextMenuRename(_:)), keyEquivalent: "")
-        renameItem.target = self
-        menu.addItem(renameItem)
-
-        let deleteItem = NSMenuItem(title: "Move to Trash", action: #selector(contextMenuDelete(_:)), keyEquivalent: "")
-        deleteItem.target = self
-        menu.addItem(deleteItem)
+        menu.addItem(makeContextMenuItem(
+            title: "Copy",
+            action: .copy,
+            requiresContextItem: true,
+            enabled: hasContextItem
+        ))
+        menu.addItem(makeContextMenuItem(
+            title: "Cut",
+            action: .move,
+            requiresContextItem: true,
+            enabled: hasContextItem
+        ))
+        menu.addItem(makeContextMenuItem(title: "Paste", action: .paste))
 
         menu.addItem(NSMenuItem.separator())
 
-        let newFolderItem = NSMenuItem(title: "New Folder", action: #selector(contextMenuNewFolder(_:)), keyEquivalent: "")
-        newFolderItem.target = self
-        menu.addItem(newFolderItem)
+        menu.addItem(makeContextMenuItem(
+            title: "Rename...",
+            action: .rename,
+            requiresContextItem: true,
+            enabled: hasContextItem
+        ))
+        menu.addItem(makeContextMenuItem(
+            title: "Move to Trash",
+            action: .delete,
+            requiresContextItem: true,
+            enabled: hasContextItem
+        ))
+        menu.addItem(makeContextMenuItem(title: "New Folder", action: .createDirectory))
+        menu.addItem(makeContextMenuItem(
+            title: "Batch Rename...",
+            action: .batchRename,
+            requiresContextItem: true,
+            enabled: hasContextItem
+        ))
+        menu.addItem(makeContextMenuItem(title: "Sync Panes...", action: .syncPanes))
+
+        menu.addItem(NSMenuItem.separator())
+
+        menu.addItem(makeContextMenuItem(title: "Filter...", action: .enterFilterMode))
+        menu.addItem(makeContextMenuItem(title: "Spotlight Search...", action: .enterSpotlightSearch))
+        menu.addItem(makeContextMenuItem(title: "Clear Filter", action: .clearFilter))
+        menu.addItem(makeContextMenuItem(title: "Bookmark Search...", action: .openBookmarkSearch))
+        menu.addItem(makeContextMenuItem(title: "History...", action: .openHistory))
+        menu.addItem(makeContextMenuItem(title: "Add Bookmark...", action: .addBookmark))
+
+        menu.addItem(NSMenuItem.separator())
+
+        menu.addItem(makeContextMenuItem(title: "Back", action: .goBack))
+        menu.addItem(makeContextMenuItem(title: "Forward", action: .goForward))
+        menu.addItem(makeContextMenuItem(title: "Enclosing Folder", action: .goToParent))
+        menu.addItem(makeContextMenuItem(title: "Refresh", action: .refresh))
+        menu.addItem(makeContextMenuItem(title: "Toggle Hidden Files", action: .toggleHiddenFiles))
+        menu.addItem(makeSortMenuItem())
+
+        menu.addItem(NSMenuItem.separator())
+
+        menu.addItem(makeContextMenuItem(title: "Toggle Sidebar", action: .toggleSidebar))
+        menu.addItem(makeContextMenuItem(title: "Toggle Preview", action: .togglePreview))
+        menu.addItem(makeContextMenuItem(title: "Switch Pane", action: .switchPane))
     }
 
-    @objc private func contextMenuOpen(_ sender: Any?) {
-        let clickedRow = tableView.clickedRow
-        guard clickedRow >= 0 else {
+    private func makeSortMenuItem() -> NSMenuItem {
+        let item = NSMenuItem(title: "Sort", action: nil, keyEquivalent: "")
+        let submenu = NSMenu(title: "Sort")
+
+        submenu.addItem(makeContextMenuItem(title: "By Name", action: .sortByName))
+        submenu.addItem(makeContextMenuItem(title: "By Size", action: .sortBySize))
+        submenu.addItem(makeContextMenuItem(title: "By Date", action: .sortByDate))
+        submenu.addItem(makeContextMenuItem(title: "By Selection Order", action: .sortBySelectionOrder))
+        submenu.addItem(makeContextMenuItem(title: "Reverse Sort Order", action: .reverseSortOrder))
+
+        item.submenu = submenu
+        return item
+    }
+
+    private func updateColumnHeaderTitles() {
+        let currentSort = viewModel.directoryContents.sortDescriptor
+
+        for column in tableView.tableColumns {
+            let baseTitle: String
+            let mappedSortColumn: DirectoryContents.SortDescriptor.Column?
+
+            switch column.identifier {
+            case Column.name:
+                baseTitle = "Name"
+                mappedSortColumn = .name
+            case Column.size:
+                baseTitle = "Size"
+                mappedSortColumn = .size
+            case Column.modified:
+                baseTitle = "Modified"
+                mappedSortColumn = .date
+            default:
+                continue
+            }
+
+            if let mappedSortColumn, mappedSortColumn == currentSort.column {
+                column.title = "\(baseTitle) \(currentSort.ascending ? "↑" : "↓")"
+            } else {
+                column.title = baseTitle
+            }
+        }
+    }
+
+    private func makeContextMenuItem(
+        title: String,
+        action keyAction: KeyAction,
+        shortcutActions: [KeyAction]? = nil,
+        requiresContextItem: Bool = false,
+        enabled: Bool = true
+    ) -> NSMenuItem {
+        let actionsForShortcut = shortcutActions ?? [keyAction]
+        let item = NSMenuItem(
+            title: contextMenuTitle(title, actions: actionsForShortcut),
+            action: #selector(contextMenuPerformAction(_:)),
+            keyEquivalent: ""
+        )
+        item.target = self
+        item.representedObject = keyAction
+        item.tag = requiresContextItem ? 1 : 0
+        item.isEnabled = enabled
+        return item
+    }
+
+    private func contextMenuTitle(_ title: String, actions: [KeyAction]) -> String {
+        var seen = Set<String>()
+        var shortcuts: [String] = []
+
+        for action in actions {
+            for shortcut in preferredShortcuts(for: action) where !seen.contains(shortcut) {
+                seen.insert(shortcut)
+                shortcuts.append(shortcut)
+            }
+        }
+
+        guard !shortcuts.isEmpty else {
+            return title
+        }
+
+        return "\(title) (\(shortcuts.joined(separator: " / ")))"
+    }
+
+    private func preferredShortcuts(for action: KeyAction) -> [String] {
+        let normal = keybindingManager.shortcuts(for: action, mode: .normal)
+        if !normal.isEmpty {
+            return normal
+        }
+
+        let visual = keybindingManager.shortcuts(for: action, mode: .visual)
+        if !visual.isEmpty {
+            return visual
+        }
+
+        return keybindingManager.shortcuts(for: action, mode: .filter)
+    }
+
+    @objc
+    private func contextMenuPerformAction(_ sender: NSMenuItem) {
+        guard let action = sender.representedObject as? KeyAction else {
             return
         }
-        viewModel.setCursor(index: clickedRow)
-        openSelectedFile()
-    }
 
-    @objc private func contextMenuRevealInFinder(_ sender: Any?) {
-        let clickedRow = tableView.clickedRow
-        guard clickedRow >= 0,
-              viewModel.directoryContents.displayedItems.indices.contains(clickedRow) else {
+        let requiresContextItem = sender.tag == 1
+        guard resolveContextSelectionIfNeeded(requiresContextItem: requiresContextItem) else {
             return
         }
-        let item = viewModel.directoryContents.displayedItems[clickedRow]
-        NSWorkspace.shared.activateFileViewerSelecting([item.url])
+
+        _ = handleKeyAction(action)
     }
 
-    @objc private func contextMenuCopy(_ sender: Any?) {
-        onFileOperationRequested?(.copy)
-    }
+    private func resolveContextSelectionIfNeeded(requiresContextItem: Bool) -> Bool {
+        guard requiresContextItem else {
+            return true
+        }
 
-    @objc private func contextMenuCut(_ sender: Any?) {
-        onFileOperationRequested?(.move)
-    }
+        let clickedRow = tableView.clickedRow
+        if viewModel.directoryContents.displayedItems.indices.contains(clickedRow) {
+            viewModel.setCursor(index: clickedRow)
+            return true
+        }
 
-    @objc private func contextMenuRename(_ sender: Any?) {
-        onFileOperationRequested?(.rename)
-    }
-
-    @objc private func contextMenuDelete(_ sender: Any?) {
-        onFileOperationRequested?(.delete)
-    }
-
-    @objc private func contextMenuNewFolder(_ sender: Any?) {
-        onFileOperationRequested?(.createDirectory)
+        return viewModel.selectedItem != nil
     }
 }

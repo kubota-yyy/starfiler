@@ -1,5 +1,79 @@
 import AppKit
 
+private final class ActionToastPresenter {
+    private weak var currentToast: NSView?
+    private var dismissWorkItem: DispatchWorkItem?
+
+    func show(message: String, in hostView: NSView) {
+        dismissWorkItem?.cancel()
+        currentToast?.removeFromSuperview()
+
+        let toastView = makeToastView(message: message)
+        toastView.alphaValue = 0
+        hostView.addSubview(toastView)
+
+        NSLayoutConstraint.activate([
+            toastView.trailingAnchor.constraint(equalTo: hostView.trailingAnchor, constant: -16),
+            toastView.bottomAnchor.constraint(equalTo: hostView.bottomAnchor, constant: -16),
+            toastView.widthAnchor.constraint(lessThanOrEqualToConstant: 380)
+        ])
+
+        hostView.layoutSubtreeIfNeeded()
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.14
+            toastView.animator().alphaValue = 1
+        }
+
+        currentToast = toastView
+        let dismiss = DispatchWorkItem { [weak self, weak toastView] in
+            guard let self, let toastView else {
+                return
+            }
+
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.16
+                toastView.animator().alphaValue = 0
+            }, completionHandler: {
+                toastView.removeFromSuperview()
+                if self.currentToast === toastView {
+                    self.currentToast = nil
+                }
+            })
+        }
+        dismissWorkItem = dismiss
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4, execute: dismiss)
+    }
+
+    private func makeToastView(message: String) -> NSView {
+        let container = NSVisualEffectView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.material = .hudWindow
+        container.blendingMode = .withinWindow
+        container.state = .active
+        container.wantsLayer = true
+        container.layer?.cornerRadius = 10
+        container.layer?.masksToBounds = true
+        container.layer?.borderWidth = 1
+        container.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.35).cgColor
+
+        let label = NSTextField(wrappingLabelWithString: message)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.textColor = .labelColor
+        label.font = .systemFont(ofSize: 12, weight: .medium)
+        label.maximumNumberOfLines = 3
+
+        container.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
+            label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
+            label.topAnchor.constraint(equalTo: container.topAnchor, constant: 10),
+            label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -10)
+        ])
+
+        return container
+    }
+}
+
 final class MainSplitViewController: NSSplitViewController {
     private struct PaneStatus {
         var path: String
@@ -24,12 +98,19 @@ final class MainSplitViewController: NSSplitViewController {
 
     private var leftPaneStatus: PaneStatus
     private var rightPaneStatus: PaneStatus
+    private var actionFeedbackEnabled: Bool
+    private var fileIconSize: CGFloat
+    private let toastPresenter = ActionToastPresenter()
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
+    var onSpotlightSearchScopeChanged: ((SpotlightSearchScope) -> Void)?
+    var onImagePreviewRecursiveModeChanged: ((Bool) -> Void)?
 
-    init(viewModel: MainViewModel, configManager: ConfigManager) {
+    init(viewModel: MainViewModel, configManager: ConfigManager, actionFeedbackEnabled: Bool, fileIconSize: CGFloat) {
         self.viewModel = viewModel
         self.configManager = configManager
+        self.actionFeedbackEnabled = actionFeedbackEnabled
+        self.fileIconSize = fileIconSize
 
         self.sidebarViewModel = SidebarViewModel(
             configManager: configManager,
@@ -60,6 +141,9 @@ final class MainSplitViewController: NSSplitViewController {
         viewModel.requestTextInput = { [weak self] prompt in
             self?.presentTextPrompt(prompt)
         }
+        viewModel.onFileOperationCompleted = { [weak self] record, context in
+            self?.handleFileOperationCompleted(record, context: context)
+        }
 
         configureSplitView()
         bindPaneControllers()
@@ -71,6 +155,8 @@ final class MainSplitViewController: NSSplitViewController {
         applyPreviewPaneVisibility(animated: false)
 
         propagateBookmarksConfig()
+        setSpotlightSearchScope(viewModel.leftPane.spotlightSearchScope)
+        setFileIconSize(fileIconSize)
     }
 
     required init?(coder: NSCoder) {
@@ -91,9 +177,43 @@ final class MainSplitViewController: NSSplitViewController {
         applySidebarVisibility(animated: true)
     }
 
-    func setFilerTheme(_ theme: FilerTheme) {
-        leftPaneViewController.applyTheme(theme)
-        rightPaneViewController.applyTheme(theme)
+    func setFilerTheme(_ theme: FilerTheme, backgroundOpacity: CGFloat = 1.0) {
+        let palette = theme.palette
+        splitView.wantsLayer = true
+        splitView.layer?.backgroundColor = palette.windowBackgroundColor.applyingBackgroundOpacity(backgroundOpacity).cgColor
+
+        leftPaneViewController.applyTheme(theme, backgroundOpacity: backgroundOpacity)
+        rightPaneViewController.applyTheme(theme, backgroundOpacity: backgroundOpacity)
+        sidebarViewController.applyTheme(theme, backgroundOpacity: backgroundOpacity)
+        previewPaneViewController.applyTheme(theme, backgroundOpacity: backgroundOpacity)
+    }
+
+    func reloadBookmarksConfig() {
+        bookmarksConfig = configManager.loadBookmarksConfig()
+        propagateBookmarksConfig()
+        sidebarViewController.reloadData()
+    }
+
+    func reloadKeybindings() {
+        leftPaneViewController.reloadKeybindings()
+        rightPaneViewController.reloadKeybindings()
+    }
+
+    func setActionFeedbackEnabled(_ enabled: Bool) {
+        actionFeedbackEnabled = enabled
+    }
+
+    func setSpotlightSearchScope(_ scope: SpotlightSearchScope) {
+        viewModel.setSpotlightSearchScope(scope)
+        leftPaneViewController.setSpotlightSearchScope(scope)
+        rightPaneViewController.setSpotlightSearchScope(scope)
+    }
+
+    func setFileIconSize(_ size: CGFloat) {
+        let clampedSize = min(max(size, 12), 40)
+        fileIconSize = clampedSize
+        leftPaneViewController.setFileIconSize(clampedSize)
+        rightPaneViewController.setFileIconSize(clampedSize)
     }
 
     private func configureSplitView() {
@@ -134,11 +254,11 @@ final class MainSplitViewController: NSSplitViewController {
             self?.setActivePane(.right)
         }
 
-        leftPaneViewController.onSelectionChanged = { [weak self] selectedItem in
-            self?.viewModel.updatePreviewSelection(for: .left, selectedItem: selectedItem)
+        leftPaneViewController.onSelectionChanged = { [weak self] _ in
+            self?.viewModel.updatePreviewSelection(for: .left)
         }
-        rightPaneViewController.onSelectionChanged = { [weak self] selectedItem in
-            self?.viewModel.updatePreviewSelection(for: .right, selectedItem: selectedItem)
+        rightPaneViewController.onSelectionChanged = { [weak self] _ in
+            self?.viewModel.updatePreviewSelection(for: .right)
         }
 
         leftPaneViewController.onStatusChanged = { [weak self] path, itemCount, markedCount in
@@ -164,6 +284,33 @@ final class MainSplitViewController: NSSplitViewController {
             self?.navigateToSearchResult(BookmarkSearchViewModel.SearchResult(
                 groupName: "", displayName: "", path: path, shortcutHint: nil
             ))
+        }
+
+        leftPaneViewController.onDropOperationCompleted = { [weak self] operation, itemCount in
+            self?.handleDropOperationCompleted(operation: operation, itemCount: itemCount)
+        }
+        rightPaneViewController.onDropOperationCompleted = { [weak self] operation, itemCount in
+            self?.handleDropOperationCompleted(operation: operation, itemCount: itemCount)
+        }
+
+        leftPaneViewController.onSpotlightSearchScopeChanged = { [weak self] scope in
+            self?.handleSpotlightSearchScopeChanged(scope)
+        }
+        rightPaneViewController.onSpotlightSearchScopeChanged = { [weak self] scope in
+            self?.handleSpotlightSearchScopeChanged(scope)
+        }
+
+        previewPaneViewController.onRecursiveModeChanged = { [weak self] enabled in
+            self?.viewModel.previewPane.setRecursiveEnabled(enabled)
+            self?.onImagePreviewRecursiveModeChanged?(enabled)
+        }
+
+        previewPaneViewController.onImageSelectionChanged = { [weak self] selectedURL in
+            self?.viewModel.previewPane.setSelectedFileURL(selectedURL)
+        }
+
+        previewPaneViewController.onNavigateRequested = { [weak self] destination in
+            self?.viewModel.activePane.navigate(to: destination)
         }
     }
 
@@ -235,6 +382,76 @@ final class MainSplitViewController: NSSplitViewController {
         default:
             return false
         }
+    }
+
+    private func handleFileOperationCompleted(_ record: FileOperationRecord, context: FileOperationCompletionContext) {
+        let message: String?
+        switch context {
+        case .undo:
+            message = "Action undone"
+        case .normal:
+            message = actionMessage(for: record.result)
+        }
+
+        guard let message else {
+            return
+        }
+
+        showActionToast(message)
+    }
+
+    private func handleDropOperationCompleted(operation: NSDragOperation, itemCount: Int) {
+        guard itemCount > 0 else {
+            return
+        }
+
+        let message: String
+        switch operation {
+        case .move:
+            message = "\(itemCount) \(itemLabel(for: itemCount)) moved"
+        default:
+            message = "\(itemCount) \(itemLabel(for: itemCount)) copied"
+        }
+        showActionToast(message)
+    }
+
+    private func handleSpotlightSearchScopeChanged(_ scope: SpotlightSearchScope) {
+        setSpotlightSearchScope(scope)
+        onSpotlightSearchScopeChanged?(scope)
+    }
+
+    private func actionMessage(for result: FileOperationResult) -> String? {
+        switch result {
+        case .copied(let changes):
+            guard !changes.isEmpty else { return nil }
+            return "\(changes.count) \(itemLabel(for: changes.count)) copied"
+        case .moved(let changes):
+            guard !changes.isEmpty else { return nil }
+            return "\(changes.count) \(itemLabel(for: changes.count)) moved"
+        case .trashed(let changes):
+            guard !changes.isEmpty else { return nil }
+            return "\(changes.count) \(itemLabel(for: changes.count)) moved to Trash"
+        case .renamed(let change):
+            guard change.source != change.destination else { return nil }
+            return "Renamed to \"\(change.destination.lastPathComponent)\""
+        case .createdDirectory(let url):
+            return "Created folder \"\(url.lastPathComponent)\""
+        case .batchRenamed(let changes):
+            guard !changes.isEmpty else { return nil }
+            return "\(changes.count) \(itemLabel(for: changes.count)) renamed"
+        }
+    }
+
+    private func itemLabel(for count: Int) -> String {
+        count == 1 ? "item" : "items"
+    }
+
+    private func showActionToast(_ message: String) {
+        guard actionFeedbackEnabled else {
+            return
+        }
+
+        toastPresenter.show(message: message, in: view)
     }
 
     private func refreshActivePaneUI(focusActivePane shouldFocus: Bool) {
@@ -504,6 +721,7 @@ final class MainSplitViewController: NSSplitViewController {
             try configManager.saveBookmarksConfig(bookmarksConfig)
             sidebarViewController.reloadData()
             propagateBookmarksConfig()
+            showActionToast("Saved bookmark \"\(entry.displayName)\"")
         } catch {
             let alert = NSAlert()
             alert.alertStyle = .critical

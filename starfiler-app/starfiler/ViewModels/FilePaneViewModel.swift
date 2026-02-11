@@ -42,6 +42,7 @@ final class FilePaneViewModel {
     private nonisolated(unsafe) var loadTask: Task<Void, Never>?
     private nonisolated(unsafe) var spotlightSearchTask: Task<Void, Never>?
     private var isSpotlightSearchActive = false
+    private(set) var spotlightSearchScope: SpotlightSearchScope
     private var pendingRevealURL: URL?
 
     init(
@@ -49,12 +50,14 @@ final class FilePaneViewModel {
         securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared,
         directoryMonitor: any DirectoryMonitoring = DirectoryMonitor(),
         spotlightSearchService: (any SpotlightSearching)? = nil,
+        initialSpotlightSearchScope: SpotlightSearchScope = .currentDirectory,
         initialDirectory: URL = UserPaths.homeDirectoryURL
     ) {
         self.fileSystemService = fileSystemService
         self.securityScopedBookmarkService = securityScopedBookmarkService
         self.directoryMonitor = directoryMonitor
         self.spotlightSearchService = spotlightSearchService ?? SpotlightSearchService()
+        self.spotlightSearchScope = initialSpotlightSearchScope
         let normalizedDirectory = initialDirectory.standardizedFileURL
         self.paneState = PaneState(currentDirectory: normalizedDirectory)
         self.directoryContents = DirectoryContents()
@@ -182,6 +185,14 @@ final class FilePaneViewModel {
         applySpotlightResults([])
     }
 
+    func setSpotlightSearchScope(_ scope: SpotlightSearchScope) {
+        guard spotlightSearchScope != scope else {
+            return
+        }
+
+        spotlightSearchScope = scope
+    }
+
     func updateSpotlightSearchQuery(_ query: String) {
         guard isSpotlightSearchActive else {
             return
@@ -196,14 +207,19 @@ final class FilePaneViewModel {
             return
         }
 
-        let scope = paneState.currentDirectory
+        let scope = spotlightSearchScope
+        let currentDirectory = paneState.currentDirectory
 
         spotlightSearchTask = Task { [weak self] in
             guard let self else {
                 return
             }
 
-            let stream = self.spotlightSearchService.search(query: trimmedQuery, scope: scope)
+            let stream = self.spotlightSearchService.search(
+                query: trimmedQuery,
+                scope: scope,
+                currentDirectory: currentDirectory
+            )
             for await items in stream {
                 guard !Task.isCancelled, self.isSpotlightSearchActive else {
                     return
@@ -369,6 +385,48 @@ final class FilePaneViewModel {
 
     func sortByDate() {
         applySortDescriptor(.date(ascending: true))
+    }
+
+    func sortBySelectionOrder() {
+        applySortDescriptor(.selection(ascending: true))
+    }
+
+    func cycleSortMode() {
+        let nextSortDescriptor: DirectoryContents.SortDescriptor
+
+        switch directoryContents.sortDescriptor.column {
+        case .name:
+            nextSortDescriptor = .size(ascending: true)
+        case .size:
+            nextSortDescriptor = .date(ascending: true)
+        case .date:
+            nextSortDescriptor = .selection(ascending: true)
+        case .selection:
+            nextSortDescriptor = .name(ascending: true)
+        }
+
+        applySortDescriptor(nextSortDescriptor)
+    }
+
+    var sortModeDisplayText: String {
+        let title: String
+        switch directoryContents.sortDescriptor.column {
+        case .name:
+            title = "Name"
+        case .size:
+            title = "Size"
+        case .date:
+            title = "Date Modified"
+        case .selection:
+            title = "Selection Order"
+        }
+
+        if directoryContents.sortDescriptor.column == .selection {
+            return "Sort: \(title)"
+        }
+
+        let direction = directoryContents.sortDescriptor.ascending ? "(Asc)" : "(Desc)"
+        return "Sort: \(title) \(direction)"
     }
 
     func setSortDescriptor(_ sortDescriptor: DirectoryContents.SortDescriptor) {

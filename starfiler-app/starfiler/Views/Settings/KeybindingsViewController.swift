@@ -1,15 +1,19 @@
 import AppKit
 
 final class KeybindingsViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate {
+    var onKeybindingsChanged: (() -> Void)?
+
     private let scrollView = NSScrollView()
     private let tableView = NSTableView()
     private let segmentedControl = NSSegmentedControl()
     private let resetButton = NSButton(title: "Reset to Defaults", target: nil, action: nil)
     private let openConfigButton = NSButton(title: "Open Config File", target: nil, action: nil)
 
+    private static let modes = ["normal", "visual", "filter", "menu"]
+
     private var currentMode: String = "normal"
-    private var displayedBindings: [(sequence: String, action: String)] = []
-    private var allBindings: [String: [(sequence: String, action: String)]] = [:]
+    private var displayedBindings: [(sequence: String, action: String, isReadOnly: Bool)] = []
+    private var allBindings: [String: [(sequence: String, action: String, isReadOnly: Bool)]] = [:]
 
     override func loadView() {
         view = NSView()
@@ -18,6 +22,7 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
     override func viewDidLoad() {
         super.viewDidLoad()
         loadBindings()
+        loadMenuBindings()
         configureUI()
         configureLayout()
         reloadTable()
@@ -28,14 +33,42 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
         let userBindings = loadUserBindings()
         let merged = mergeBindings(defaultBindings: defaultBindings, userBindings: userBindings)
 
-        allBindings = [:]
+        for key in allBindings.keys where key != "menu" {
+            allBindings.removeValue(forKey: key)
+        }
         for (modeName, bindings) in merged {
-            var entries: [(String, String)] = []
+            var entries: [(String, String, Bool)] = []
             for (sequence, action) in bindings.sorted(by: { $0.value < $1.value }) {
-                entries.append((sequence, action))
+                entries.append((sequence, action, false))
             }
             allBindings[modeName] = entries
         }
+    }
+
+    private func loadMenuBindings() {
+        let menuShortcuts: [(String, String)] = [
+            ("\u{2318}N", "New Folder"),
+            ("\u{2318}\u{21A9}", "Open"),
+            ("\u{2318}Z", "Undo"),
+            ("\u{2318}C", "Copy"),
+            ("\u{2318}V", "Paste"),
+            ("\u{232B}", "Move to Trash"),
+            ("\u{2318}A", "Select All"),
+            ("\u{2318}S", "Toggle Sidebar"),
+            ("\u{2318}P", "Toggle Preview"),
+            ("\u{2318}.", "Toggle Hidden Files"),
+            ("\u{2318}R", "Refresh"),
+            ("\u{2318}[", "Go Back"),
+            ("\u{2318}]", "Go Forward"),
+            ("Esc", "Enclosing Folder"),
+            ("\u{2318}\u{21E7}H", "Home"),
+            ("\u{2318}W", "Close Window"),
+            ("\u{2318}M", "Minimize"),
+            ("Tab", "Switch Pane"),
+            ("\u{2318},", "Settings"),
+            ("\u{2318}Q", "Quit"),
+        ]
+        allBindings["menu"] = menuShortcuts.map { ($0.0, $0.1, true) }
     }
 
     private func loadDefaultBindings() -> [String: [String: String]] {
@@ -73,7 +106,7 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
     }
 
     private func configureUI() {
-        let modes = ["normal", "visual", "filter"]
+        let modes = Self.modes
         segmentedControl.segmentCount = modes.count
         for (index, mode) in modes.enumerated() {
             segmentedControl.setLabel(mode.capitalized, forSegment: index)
@@ -89,6 +122,8 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
         tableView.rowHeight = 24
         tableView.usesAlternatingRowBackgroundColors = true
         tableView.allowsColumnReordering = false
+        tableView.doubleAction = #selector(handleDoubleClick(_:))
+        tableView.target = self
 
         let sequenceColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("sequence"))
         sequenceColumn.title = "Key Sequence"
@@ -148,13 +183,109 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
 
     @objc
     private func modeChanged(_ sender: NSSegmentedControl) {
-        let modes = ["normal", "visual", "filter"]
+        let modes = Self.modes
         let index = sender.selectedSegment
         guard modes.indices.contains(index) else {
             return
         }
         currentMode = modes[index]
         reloadTable()
+    }
+
+    @objc
+    private func handleDoubleClick(_ sender: Any?) {
+        let row = tableView.clickedRow
+        guard row >= 0, displayedBindings.indices.contains(row) else {
+            return
+        }
+
+        let binding = displayedBindings[row]
+        if binding.isReadOnly {
+            return
+        }
+
+        presentKeyRecorder(forRow: row)
+    }
+
+    private func presentKeyRecorder(forRow row: Int) {
+        let binding = displayedBindings[row]
+
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Edit Keybinding"
+        alert.informativeText = "Action: \(formatAction(binding.action))\nCurrent: \(formatSequence(binding.sequence))\n\nPress a new key combination:"
+        alert.addButton(withTitle: "Cancel")
+
+        let recorder = KeyRecorderView(frame: NSRect(x: 0, y: 0, width: 280, height: 60))
+
+        var recordedNewSequence: String?
+        recorder.onKeyRecorded = { sequence in
+            recordedNewSequence = sequence
+        }
+
+        alert.accessoryView = recorder
+
+        DispatchQueue.main.async {
+            recorder.startRecording(currentBinding: self.formatSequence(binding.sequence))
+        }
+
+        let response = alert.runModal()
+
+        if response == .alertFirstButtonReturn, let newSequence = recordedNewSequence {
+            if let conflict = findConflict(sequence: newSequence, mode: currentMode, excludingRow: row) {
+                let conflictAlert = NSAlert()
+                conflictAlert.alertStyle = .warning
+                conflictAlert.messageText = "Key Conflict"
+                conflictAlert.informativeText = "\"\(formatSequence(newSequence))\" is already bound to \"\(formatAction(conflict))\" in \(currentMode) mode."
+                conflictAlert.addButton(withTitle: "OK")
+                conflictAlert.runModal()
+                return
+            }
+
+            saveKeybinding(oldSequence: binding.sequence, newSequence: newSequence, action: binding.action, mode: currentMode)
+            loadBindings()
+            loadMenuBindings()
+            reloadTable()
+        }
+    }
+
+    private func findConflict(sequence: String, mode: String, excludingRow: Int) -> String? {
+        guard let bindings = allBindings[mode] else { return nil }
+        for (index, binding) in bindings.enumerated() where index != excludingRow {
+            if binding.sequence == sequence {
+                return binding.action
+            }
+        }
+        return nil
+    }
+
+    private func saveKeybinding(oldSequence: String, newSequence: String, action: String, mode: String) {
+        guard let url = KeybindingManager.defaultUserConfigURL() else { return }
+
+        var userConfig: KeybindingsConfig
+        if FileManager.default.fileExists(atPath: url.path),
+           let data = try? Data(contentsOf: url),
+           let existing = try? JSONDecoder().decode(KeybindingsConfig.self, from: data) {
+            userConfig = existing
+        } else {
+            userConfig = KeybindingsConfig(bindings: [:])
+        }
+
+        var modeBindings = userConfig.bindings[mode] ?? [:]
+        if oldSequence != newSequence {
+            modeBindings.removeValue(forKey: oldSequence)
+        }
+        modeBindings[newSequence] = action
+        userConfig.bindings[mode] = modeBindings
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        if let data = try? encoder.encode(userConfig) {
+            let parentDir = url.deletingLastPathComponent()
+            try? FileManager.default.createDirectory(at: parentDir, withIntermediateDirectories: true)
+            try? data.write(to: url, options: [.atomic])
+            onKeybindingsChanged?()
+        }
     }
 
     @objc
@@ -173,9 +304,11 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
         if let url = KeybindingManager.defaultUserConfigURL(),
            FileManager.default.fileExists(atPath: url.path) {
             try? FileManager.default.removeItem(at: url)
+            onKeybindingsChanged?()
         }
 
         loadBindings()
+        loadMenuBindings()
         reloadTable()
     }
 
@@ -238,11 +371,15 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
             ])
         }
 
+        let textColor: NSColor = binding.isReadOnly ? .tertiaryLabelColor : .labelColor
+
         switch identifier.rawValue {
         case "sequence":
             cell.textField?.stringValue = formatSequence(binding.sequence)
+            cell.textField?.textColor = textColor
         case "action":
             cell.textField?.stringValue = formatAction(binding.action)
+            cell.textField?.textColor = textColor
         default:
             cell.textField?.stringValue = ""
         }
@@ -253,12 +390,13 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
     private func formatSequence(_ sequence: String) -> String {
         sequence
             .replacingOccurrences(of: "Ctrl-", with: "^")
-            .replacingOccurrences(of: "Shift-", with: "⇧")
-            .replacingOccurrences(of: "Alt-", with: "⌥")
-            .replacingOccurrences(of: "Cmd-", with: "⌘")
+            .replacingOccurrences(of: "Shift-", with: "\u{21E7}")
+            .replacingOccurrences(of: "Alt-", with: "\u{2325}")
+            .replacingOccurrences(of: "Cmd-", with: "\u{2318}")
     }
 
     private func formatAction(_ action: String) -> String {
+        if action.contains(" ") { return action }
         let words = action.reduce(into: "") { result, char in
             if char.isUppercase && !result.isEmpty {
                 result.append(" ")
@@ -266,92 +404,5 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
             result.append(char)
         }
         return words.prefix(1).uppercased() + words.dropFirst()
-    }
-}
-
-final class ThemeSettingsViewController: NSViewController {
-    var onThemeChanged: ((FilerTheme) -> Void)?
-
-    private let titleLabel = NSTextField(labelWithString: "Filer Theme")
-    private let themePopUpButton = NSPopUpButton()
-    private let descriptionLabel = NSTextField(wrappingLabelWithString: "")
-    private var selectedTheme: FilerTheme
-
-    init(selectedTheme: FilerTheme) {
-        self.selectedTheme = selectedTheme
-        super.init(nibName: nil, bundle: nil)
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func loadView() {
-        view = NSView()
-    }
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        configureUI()
-        configureLayout()
-        applyThemeSelection(selectedTheme, notify: false)
-    }
-
-    private func configureUI() {
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = .systemFont(ofSize: 14, weight: .semibold)
-
-        themePopUpButton.translatesAutoresizingMaskIntoConstraints = false
-        themePopUpButton.target = self
-        themePopUpButton.action = #selector(themeChanged(_:))
-        themePopUpButton.removeAllItems()
-        themePopUpButton.addItems(withTitles: FilerTheme.allCases.map(\.displayName))
-
-        descriptionLabel.translatesAutoresizingMaskIntoConstraints = false
-        descriptionLabel.font = .systemFont(ofSize: 12, weight: .regular)
-        descriptionLabel.textColor = .secondaryLabelColor
-        descriptionLabel.maximumNumberOfLines = 2
-        descriptionLabel.lineBreakMode = .byWordWrapping
-    }
-
-    private func configureLayout() {
-        view.addSubview(titleLabel)
-        view.addSubview(themePopUpButton)
-        view.addSubview(descriptionLabel)
-
-        NSLayoutConstraint.activate([
-            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            titleLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: 20),
-
-            themePopUpButton.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            themePopUpButton.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 10),
-            themePopUpButton.widthAnchor.constraint(equalToConstant: 220),
-
-            descriptionLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            descriptionLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            descriptionLabel.topAnchor.constraint(equalTo: themePopUpButton.bottomAnchor, constant: 10),
-        ])
-    }
-
-    @objc
-    private func themeChanged(_ sender: NSPopUpButton) {
-        let index = sender.indexOfSelectedItem
-        guard FilerTheme.allCases.indices.contains(index) else {
-            return
-        }
-        applyThemeSelection(FilerTheme.allCases[index], notify: true)
-    }
-
-    private func applyThemeSelection(_ theme: FilerTheme, notify: Bool) {
-        selectedTheme = theme
-        descriptionLabel.stringValue = theme.descriptionText
-
-        if let index = FilerTheme.allCases.firstIndex(of: theme) {
-            themePopUpButton.selectItem(at: index)
-        }
-
-        if notify {
-            onThemeChanged?(theme)
-        }
     }
 }

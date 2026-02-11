@@ -13,8 +13,7 @@ enum StarfilerMain {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var mainWindowController: MainWindowController?
-    private var keybindingsWindowController: NSWindowController?
-    private var themeWindowController: NSWindowController?
+    private var settingsWindowController: SettingsWindowController?
     private var launchTask: Task<Void, Never>?
     private var pendingOpenDirectories: [URL] = []
     private let securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared
@@ -147,6 +146,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appName = ProcessInfo.processInfo.processName
         appMenu.addItem(withTitle: "About \(appName)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         appMenu.addItem(NSMenuItem.separator())
+        appMenu.addItem(withTitle: "Settings...", action: #selector(menuShowSettings(_:)), keyEquivalent: ",")
+        appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(withTitle: "Hide \(appName)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         let hideOthersItem = appMenu.addItem(withTitle: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
         hideOthersItem.keyEquivalentModifierMask = [.command, .option]
@@ -189,25 +190,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let viewMenuItem = NSMenuItem()
         mainMenu.addItem(viewMenuItem)
         let viewMenu = NSMenu(title: "View")
-        viewMenu.addItem(withTitle: "Toggle Sidebar", action: #selector(menuToggleSidebar(_:)), keyEquivalent: "s")
-        viewMenu.addItem(withTitle: "Toggle Preview", action: #selector(menuTogglePreview(_:)), keyEquivalent: "p")
+        let toggleSidebarItem = viewMenu.addItem(withTitle: "Toggle Sidebar", action: #selector(menuToggleSidebar(_:)), keyEquivalent: "s")
+        toggleSidebarItem.keyEquivalentModifierMask = [.command]
+
+        let togglePreviewItem = viewMenu.addItem(withTitle: "Toggle Preview", action: #selector(menuTogglePreview(_:)), keyEquivalent: "p")
+        togglePreviewItem.keyEquivalentModifierMask = [.control]
         viewMenu.addItem(withTitle: "Toggle Hidden Files", action: #selector(menuToggleHiddenFiles(_:)), keyEquivalent: ".")
         viewMenu.addItem(NSMenuItem.separator())
         viewMenu.addItem(withTitle: "Sort by Name", action: #selector(menuSortByName(_:)), keyEquivalent: "")
         viewMenu.addItem(withTitle: "Sort by Size", action: #selector(menuSortBySize(_:)), keyEquivalent: "")
-        viewMenu.addItem(withTitle: "Sort by Date", action: #selector(menuSortByDate(_:)), keyEquivalent: "")
+        viewMenu.addItem(withTitle: "Sort by Date Modified", action: #selector(menuSortByDate(_:)), keyEquivalent: "")
+        viewMenu.addItem(withTitle: "Sort by Selection Order", action: #selector(menuSortBySelectionOrder(_:)), keyEquivalent: "")
         viewMenu.addItem(withTitle: "Reverse Sort Order", action: #selector(menuReverseSortOrder(_:)), keyEquivalent: "")
         viewMenu.addItem(NSMenuItem.separator())
         viewMenu.addItem(withTitle: "Refresh", action: #selector(menuRefresh(_:)), keyEquivalent: "r")
         viewMenuItem.submenu = viewMenu
-
-        // Settings menu
-        let settingsMenuItem = NSMenuItem()
-        mainMenu.addItem(settingsMenuItem)
-        let settingsMenu = NSMenu(title: "Settings")
-        settingsMenu.addItem(withTitle: "Keybindings...", action: #selector(menuShowKeybindings(_:)), keyEquivalent: ",")
-        settingsMenu.addItem(withTitle: "Theme...", action: #selector(menuShowTheme(_:)), keyEquivalent: "")
-        settingsMenuItem.submenu = settingsMenu
 
         // Go menu
         let goMenuItem = NSMenuItem()
@@ -288,7 +285,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func menuTogglePreview(_ sender: Any?) {
-        mainWindowController?.performAction { $0.togglePreviewPane() }
+        mainWindowController?.togglePreviewPane()
     }
 
     @objc private func menuToggleHiddenFiles(_ sender: Any?) {
@@ -347,59 +344,85 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainWindowController?.performAction { $0.activePane.sortByDate() }
     }
 
+    @objc private func menuSortBySelectionOrder(_ sender: Any?) {
+        mainWindowController?.performAction { $0.activePane.sortBySelectionOrder() }
+    }
+
     @objc private func menuReverseSortOrder(_ sender: Any?) {
         mainWindowController?.performAction { $0.activePane.reverseSortOrder() }
     }
 
     @objc private func menuToggleSidebar(_ sender: Any?) {
-        mainWindowController?.performAction { $0.toggleSidebar() }
+        mainWindowController?.toggleSidebarPane()
     }
 
     @objc private func menuSwitchPane(_ sender: Any?) {
         mainWindowController?.performAction { $0.switchActivePane() }
     }
 
-    @objc private func menuShowKeybindings(_ sender: Any?) {
-        presentKeybindingsWindow()
+    @objc private func menuShowSettings(_ sender: Any?) {
+        presentSettingsWindow()
     }
 
-    @objc private func menuShowTheme(_ sender: Any?) {
-        presentThemeWindow()
-    }
-
-    private func presentKeybindingsWindow() {
-        let keybindingsVC = KeybindingsViewController()
-        let window = NSWindow(contentViewController: keybindingsVC)
-        window.title = "Keybindings"
-        window.setContentSize(NSSize(width: 640, height: 500))
-        window.styleMask = [.titled, .closable, .resizable]
-        window.minSize = NSSize(width: 500, height: 400)
-        window.center()
-
-        let windowController = NSWindowController(window: window)
-        windowController.showWindow(self)
-        keybindingsWindowController = windowController
-    }
-
-    private func presentThemeWindow() {
-        guard let mainWindowController else {
+    private func presentSettingsWindow() {
+        if let existing = settingsWindowController {
+            existing.showWindow(self)
             return
         }
 
-        let themeSettingsVC = ThemeSettingsViewController(selectedTheme: mainWindowController.currentFilerTheme)
-        themeSettingsVC.onThemeChanged = { [weak self] theme in
+        let currentTheme = mainWindowController?.currentFilerTheme ?? .system
+        let currentTransparentBackground = mainWindowController?.isTransparentBackgroundEnabled ?? false
+        let currentTransparentBackgroundOpacity = mainWindowController?.currentTransparentBackgroundOpacity ?? 0.7
+        let currentActionFeedbackEnabled = mainWindowController?.isActionFeedbackEnabled ?? true
+        let currentSpotlightSearchScope = mainWindowController?.currentSpotlightSearchScope ?? .currentDirectory
+        let currentFileIconSize = mainWindowController?.currentFileIconSize ?? 16
+
+        let appearanceVC = AppearanceSettingsViewController(
+            selectedTheme: currentTheme,
+            isTransparentBackgroundEnabled: currentTransparentBackground,
+            transparentBackgroundOpacity: currentTransparentBackgroundOpacity,
+            isActionFeedbackEnabled: currentActionFeedbackEnabled,
+            selectedSpotlightSearchScope: currentSpotlightSearchScope,
+            initialFileIconSize: currentFileIconSize
+        )
+        appearanceVC.onThemeChanged = { [weak self] theme in
             self?.mainWindowController?.updateFilerTheme(theme)
         }
+        appearanceVC.onTransparentBackgroundChanged = { [weak self] enabled in
+            self?.mainWindowController?.updateTransparentBackground(enabled)
+        }
+        appearanceVC.onTransparentBackgroundOpacityChanged = { [weak self] opacity in
+            self?.mainWindowController?.updateTransparentBackgroundOpacity(opacity)
+        }
+        appearanceVC.onActionFeedbackChanged = { [weak self] enabled in
+            self?.mainWindowController?.updateActionFeedbackEnabled(enabled)
+        }
+        appearanceVC.onSpotlightSearchScopeChanged = { [weak self] scope in
+            self?.mainWindowController?.updateSpotlightSearchScope(scope)
+        }
+        appearanceVC.onFileIconSizeChanged = { [weak self] size in
+            self?.mainWindowController?.updateFileIconSize(size)
+        }
 
-        let window = NSWindow(contentViewController: themeSettingsVC)
-        window.title = "Theme"
-        window.setContentSize(NSSize(width: 420, height: 170))
-        window.styleMask = [.titled, .closable]
-        window.minSize = NSSize(width: 380, height: 150)
-        window.center()
+        let keybindingsVC = KeybindingsViewController()
+        keybindingsVC.onKeybindingsChanged = { [weak self] in
+            self?.mainWindowController?.reloadKeybindings()
+        }
 
-        let windowController = NSWindowController(window: window)
-        windowController.showWindow(self)
-        themeWindowController = windowController
+        let bookmarksVC = BookmarksSettingsViewController()
+        bookmarksVC.onBookmarksChanged = { [weak self] in
+            self?.mainWindowController?.reloadBookmarksConfig()
+        }
+
+        let advancedVC = AdvancedSettingsViewController()
+
+        let controller = SettingsWindowController(
+            appearanceVC: appearanceVC,
+            keybindingsVC: keybindingsVC,
+            bookmarksVC: bookmarksVC,
+            advancedVC: advancedVC
+        )
+        controller.showWindow(self)
+        settingsWindowController = controller
     }
 }

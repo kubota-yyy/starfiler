@@ -1,0 +1,332 @@
+import AppKit
+
+final class AppearanceSettingsViewController: NSViewController {
+    var onThemeChanged: ((FilerTheme) -> Void)?
+    var onTransparentBackgroundChanged: ((Bool) -> Void)?
+    var onTransparentBackgroundOpacityChanged: ((CGFloat) -> Void)?
+    var onActionFeedbackChanged: ((Bool) -> Void)?
+    var onSpotlightSearchScopeChanged: ((SpotlightSearchScope) -> Void)?
+    var onFileIconSizeChanged: ((CGFloat) -> Void)?
+
+    private let titleLabel = NSTextField(labelWithString: "Theme")
+    private let themePopUpButton = NSPopUpButton()
+    private let descriptionLabel = NSTextField(wrappingLabelWithString: "")
+    private let swatchContainer = NSView()
+    private let transparentBackgroundButton = NSButton(checkboxWithTitle: "Transparent Background", target: nil, action: nil)
+    private let transparentOpacityLabel = NSTextField(labelWithString: "Background Opacity")
+    private let transparentOpacitySlider = NSSlider(value: 0.7, minValue: 0.15, maxValue: 1.0, target: nil, action: nil)
+    private let transparentOpacityValueLabel = NSTextField(labelWithString: "")
+    private let actionFeedbackButton = NSButton(checkboxWithTitle: "Show Action Feedback Toasts", target: nil, action: nil)
+    private let fileListSettingsLabel = NSTextField(labelWithString: "File List")
+    private let fileIconSizeLabel = NSTextField(labelWithString: "Icon Size")
+    private let fileIconSizeSlider = NSSlider(value: 16, minValue: 12, maxValue: 40, target: nil, action: nil)
+    private let fileIconSizeValueLabel = NSTextField(labelWithString: "")
+    private let searchSettingsLabel = NSTextField(labelWithString: "Spotlight Search Scope")
+    private let spotlightScopePopUpButton = NSPopUpButton()
+    private let spotlightScopeDescriptionLabel = NSTextField(wrappingLabelWithString: "")
+    private var selectedTheme: FilerTheme
+    private var isTransparentBackgroundEnabled: Bool
+    private var transparentBackgroundOpacity: CGFloat
+    private var isActionFeedbackEnabled: Bool
+    private var selectedSpotlightSearchScope: SpotlightSearchScope
+    private var fileIconSize: CGFloat
+
+    init(
+        selectedTheme: FilerTheme,
+        isTransparentBackgroundEnabled: Bool,
+        transparentBackgroundOpacity: CGFloat,
+        isActionFeedbackEnabled: Bool,
+        selectedSpotlightSearchScope: SpotlightSearchScope,
+        initialFileIconSize: CGFloat
+    ) {
+        self.selectedTheme = selectedTheme
+        self.isTransparentBackgroundEnabled = isTransparentBackgroundEnabled
+        self.transparentBackgroundOpacity = min(max(transparentBackgroundOpacity, 0.15), 1.0)
+        self.isActionFeedbackEnabled = isActionFeedbackEnabled
+        self.selectedSpotlightSearchScope = selectedSpotlightSearchScope
+        self.fileIconSize = min(max(initialFileIconSize, 12), 40)
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func loadView() {
+        view = NSView()
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        configureUI()
+        configureLayout()
+        applyThemeSelection(selectedTheme, notify: false)
+    }
+
+    private func configureUI() {
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.font = .systemFont(ofSize: 14, weight: .semibold)
+
+        themePopUpButton.translatesAutoresizingMaskIntoConstraints = false
+        themePopUpButton.target = self
+        themePopUpButton.action = #selector(themeChanged(_:))
+        themePopUpButton.removeAllItems()
+        themePopUpButton.addItems(withTitles: FilerTheme.allCases.map(\.displayName))
+
+        descriptionLabel.translatesAutoresizingMaskIntoConstraints = false
+        descriptionLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        descriptionLabel.textColor = .secondaryLabelColor
+        descriptionLabel.maximumNumberOfLines = 2
+        descriptionLabel.lineBreakMode = .byWordWrapping
+
+        swatchContainer.translatesAutoresizingMaskIntoConstraints = false
+
+        transparentBackgroundButton.translatesAutoresizingMaskIntoConstraints = false
+        transparentBackgroundButton.target = self
+        transparentBackgroundButton.action = #selector(transparentBackgroundChanged(_:))
+        transparentBackgroundButton.state = isTransparentBackgroundEnabled ? .on : .off
+
+        transparentOpacityLabel.translatesAutoresizingMaskIntoConstraints = false
+        transparentOpacityLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        transparentOpacityLabel.textColor = .secondaryLabelColor
+
+        transparentOpacitySlider.translatesAutoresizingMaskIntoConstraints = false
+        transparentOpacitySlider.target = self
+        transparentOpacitySlider.action = #selector(transparentOpacityChanged(_:))
+        transparentOpacitySlider.doubleValue = Double(transparentBackgroundOpacity)
+        transparentOpacitySlider.isEnabled = isTransparentBackgroundEnabled
+
+        transparentOpacityValueLabel.translatesAutoresizingMaskIntoConstraints = false
+        transparentOpacityValueLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        transparentOpacityValueLabel.alignment = .right
+        transparentOpacityValueLabel.stringValue = "\(Int((transparentBackgroundOpacity * 100).rounded())) %"
+        transparentOpacityValueLabel.textColor = .secondaryLabelColor
+
+        actionFeedbackButton.translatesAutoresizingMaskIntoConstraints = false
+        actionFeedbackButton.target = self
+        actionFeedbackButton.action = #selector(actionFeedbackChanged(_:))
+        actionFeedbackButton.state = isActionFeedbackEnabled ? .on : .off
+
+        fileListSettingsLabel.translatesAutoresizingMaskIntoConstraints = false
+        fileListSettingsLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+
+        fileIconSizeLabel.translatesAutoresizingMaskIntoConstraints = false
+        fileIconSizeLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        fileIconSizeLabel.textColor = .secondaryLabelColor
+
+        fileIconSizeSlider.translatesAutoresizingMaskIntoConstraints = false
+        fileIconSizeSlider.target = self
+        fileIconSizeSlider.action = #selector(fileIconSizeChanged(_:))
+        fileIconSizeSlider.doubleValue = Double(fileIconSize)
+
+        fileIconSizeValueLabel.translatesAutoresizingMaskIntoConstraints = false
+        fileIconSizeValueLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        fileIconSizeValueLabel.alignment = .right
+        fileIconSizeValueLabel.stringValue = "\(Int(fileIconSize.rounded())) px"
+
+        searchSettingsLabel.translatesAutoresizingMaskIntoConstraints = false
+        searchSettingsLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+
+        spotlightScopePopUpButton.translatesAutoresizingMaskIntoConstraints = false
+        spotlightScopePopUpButton.target = self
+        spotlightScopePopUpButton.action = #selector(spotlightScopeChanged(_:))
+        spotlightScopePopUpButton.removeAllItems()
+        spotlightScopePopUpButton.addItems(withTitles: SpotlightSearchScope.allCases.map(\.displayName))
+        if let selectedIndex = SpotlightSearchScope.allCases.firstIndex(of: selectedSpotlightSearchScope) {
+            spotlightScopePopUpButton.selectItem(at: selectedIndex)
+        }
+
+        spotlightScopeDescriptionLabel.translatesAutoresizingMaskIntoConstraints = false
+        spotlightScopeDescriptionLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        spotlightScopeDescriptionLabel.textColor = .secondaryLabelColor
+        spotlightScopeDescriptionLabel.maximumNumberOfLines = 2
+        spotlightScopeDescriptionLabel.lineBreakMode = .byWordWrapping
+        spotlightScopeDescriptionLabel.stringValue = selectedSpotlightSearchScope.descriptionText
+    }
+
+    private func configureLayout() {
+        view.addSubview(titleLabel)
+        view.addSubview(themePopUpButton)
+        view.addSubview(descriptionLabel)
+        view.addSubview(swatchContainer)
+        view.addSubview(transparentBackgroundButton)
+        view.addSubview(transparentOpacityLabel)
+        view.addSubview(transparentOpacitySlider)
+        view.addSubview(transparentOpacityValueLabel)
+        view.addSubview(actionFeedbackButton)
+        view.addSubview(fileListSettingsLabel)
+        view.addSubview(fileIconSizeLabel)
+        view.addSubview(fileIconSizeSlider)
+        view.addSubview(fileIconSizeValueLabel)
+        view.addSubview(searchSettingsLabel)
+        view.addSubview(spotlightScopePopUpButton)
+        view.addSubview(spotlightScopeDescriptionLabel)
+
+        NSLayoutConstraint.activate([
+            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            titleLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: 20),
+
+            themePopUpButton.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            themePopUpButton.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 10),
+            themePopUpButton.widthAnchor.constraint(equalToConstant: 220),
+
+            descriptionLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            descriptionLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            descriptionLabel.topAnchor.constraint(equalTo: themePopUpButton.bottomAnchor, constant: 10),
+
+            swatchContainer.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            swatchContainer.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20),
+            swatchContainer.topAnchor.constraint(equalTo: descriptionLabel.bottomAnchor, constant: 14),
+            swatchContainer.heightAnchor.constraint(equalToConstant: 28),
+
+            transparentBackgroundButton.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            transparentBackgroundButton.topAnchor.constraint(equalTo: swatchContainer.bottomAnchor, constant: 16),
+
+            transparentOpacityLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            transparentOpacityLabel.topAnchor.constraint(equalTo: transparentBackgroundButton.bottomAnchor, constant: 10),
+
+            transparentOpacitySlider.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            transparentOpacitySlider.topAnchor.constraint(equalTo: transparentOpacityLabel.bottomAnchor, constant: 6),
+            transparentOpacitySlider.widthAnchor.constraint(equalToConstant: 220),
+
+            transparentOpacityValueLabel.leadingAnchor.constraint(equalTo: transparentOpacitySlider.trailingAnchor, constant: 10),
+            transparentOpacityValueLabel.centerYAnchor.constraint(equalTo: transparentOpacitySlider.centerYAnchor),
+            transparentOpacityValueLabel.widthAnchor.constraint(equalToConstant: 72),
+
+            actionFeedbackButton.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            actionFeedbackButton.topAnchor.constraint(equalTo: transparentOpacitySlider.bottomAnchor, constant: 10),
+
+            fileListSettingsLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            fileListSettingsLabel.topAnchor.constraint(equalTo: actionFeedbackButton.bottomAnchor, constant: 20),
+
+            fileIconSizeLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            fileIconSizeLabel.topAnchor.constraint(equalTo: fileListSettingsLabel.bottomAnchor, constant: 10),
+
+            fileIconSizeSlider.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            fileIconSizeSlider.topAnchor.constraint(equalTo: fileIconSizeLabel.bottomAnchor, constant: 6),
+            fileIconSizeSlider.widthAnchor.constraint(equalToConstant: 220),
+
+            fileIconSizeValueLabel.leadingAnchor.constraint(equalTo: fileIconSizeSlider.trailingAnchor, constant: 10),
+            fileIconSizeValueLabel.centerYAnchor.constraint(equalTo: fileIconSizeSlider.centerYAnchor),
+            fileIconSizeValueLabel.widthAnchor.constraint(equalToConstant: 72),
+
+            searchSettingsLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            searchSettingsLabel.topAnchor.constraint(equalTo: fileIconSizeSlider.bottomAnchor, constant: 20),
+
+            spotlightScopePopUpButton.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            spotlightScopePopUpButton.topAnchor.constraint(equalTo: searchSettingsLabel.bottomAnchor, constant: 8),
+            spotlightScopePopUpButton.widthAnchor.constraint(equalToConstant: 220),
+
+            spotlightScopeDescriptionLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            spotlightScopeDescriptionLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            spotlightScopeDescriptionLabel.topAnchor.constraint(equalTo: spotlightScopePopUpButton.bottomAnchor, constant: 8),
+        ])
+    }
+
+    @objc
+    private func themeChanged(_ sender: NSPopUpButton) {
+        let index = sender.indexOfSelectedItem
+        guard FilerTheme.allCases.indices.contains(index) else {
+            return
+        }
+        applyThemeSelection(FilerTheme.allCases[index], notify: true)
+    }
+
+    @objc
+    private func transparentBackgroundChanged(_ sender: NSButton) {
+        isTransparentBackgroundEnabled = sender.state == .on
+        transparentOpacitySlider.isEnabled = isTransparentBackgroundEnabled
+        onTransparentBackgroundChanged?(isTransparentBackgroundEnabled)
+    }
+
+    @objc
+    private func transparentOpacityChanged(_ sender: NSSlider) {
+        transparentBackgroundOpacity = CGFloat(sender.doubleValue)
+        transparentOpacityValueLabel.stringValue = "\(Int((transparentBackgroundOpacity * 100).rounded())) %"
+        onTransparentBackgroundOpacityChanged?(transparentBackgroundOpacity)
+    }
+
+    @objc
+    private func actionFeedbackChanged(_ sender: NSButton) {
+        isActionFeedbackEnabled = sender.state == .on
+        onActionFeedbackChanged?(isActionFeedbackEnabled)
+    }
+
+    @objc
+    private func spotlightScopeChanged(_ sender: NSPopUpButton) {
+        let index = sender.indexOfSelectedItem
+        guard SpotlightSearchScope.allCases.indices.contains(index) else {
+            return
+        }
+
+        let scope = SpotlightSearchScope.allCases[index]
+        selectedSpotlightSearchScope = scope
+        spotlightScopeDescriptionLabel.stringValue = scope.descriptionText
+        onSpotlightSearchScopeChanged?(scope)
+    }
+
+    @objc
+    private func fileIconSizeChanged(_ sender: NSSlider) {
+        fileIconSize = CGFloat(sender.doubleValue)
+        fileIconSizeValueLabel.stringValue = "\(Int(fileIconSize.rounded())) px"
+        onFileIconSizeChanged?(fileIconSize)
+    }
+
+    private func applyThemeSelection(_ theme: FilerTheme, notify: Bool) {
+        selectedTheme = theme
+        descriptionLabel.stringValue = theme.descriptionText
+
+        if let index = FilerTheme.allCases.firstIndex(of: theme) {
+            themePopUpButton.selectItem(at: index)
+        }
+
+        updateSwatches(for: theme)
+
+        if notify {
+            onThemeChanged?(theme)
+        }
+    }
+
+    private func updateSwatches(for theme: FilerTheme) {
+        swatchContainer.subviews.forEach { $0.removeFromSuperview() }
+
+        let palette = theme.palette
+        let colors: [NSColor] = [
+            palette.windowBackgroundColor,
+            palette.paneBackgroundColor,
+            palette.activeBorderColor,
+            palette.accentColor,
+            palette.activeHeaderColor,
+            palette.markedColor,
+            palette.sidebarIconTintColor,
+            palette.filterBarBackgroundColor,
+            palette.statusBarTextColor,
+        ]
+
+        var previousView: NSView?
+        for color in colors {
+            let swatch = NSView()
+            swatch.translatesAutoresizingMaskIntoConstraints = false
+            swatch.wantsLayer = true
+            swatch.layer?.backgroundColor = color.cgColor
+            swatch.layer?.cornerRadius = 4
+            swatch.layer?.borderWidth = 1
+            swatch.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.3).cgColor
+            swatchContainer.addSubview(swatch)
+
+            NSLayoutConstraint.activate([
+                swatch.widthAnchor.constraint(equalToConstant: 28),
+                swatch.heightAnchor.constraint(equalToConstant: 28),
+                swatch.centerYAnchor.constraint(equalTo: swatchContainer.centerYAnchor),
+            ])
+
+            if let prev = previousView {
+                swatch.leadingAnchor.constraint(equalTo: prev.trailingAnchor, constant: 6).isActive = true
+            } else {
+                swatch.leadingAnchor.constraint(equalTo: swatchContainer.leadingAnchor).isActive = true
+            }
+
+            previousView = swatch
+        }
+    }
+}
