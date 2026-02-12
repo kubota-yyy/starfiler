@@ -63,6 +63,7 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
 
     private var bookmarksConfig = BookmarksConfig()
     private var rows: [BookmarkRow] = []
+    private weak var folderEditorPathField: NSTextField?
 
     init(configManager: ConfigManager = ConfigManager()) {
         self.configManager = configManager
@@ -569,6 +570,41 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         NSWorkspace.shared.open(url)
     }
 
+    @objc
+    private func browseFolderBookmarkPath(_ sender: Any?) {
+        guard let pathField = folderEditorPathField else {
+            return
+        }
+
+        let panel = NSOpenPanel()
+        panel.title = "Choose Folder"
+        panel.message = "Select a folder to bookmark."
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+
+        let rawPath = pathField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !rawPath.isEmpty {
+            let currentURL = URL(fileURLWithPath: rawPath, isDirectory: true).standardizedFileURL
+            var isDirectory: ObjCBool = false
+            if FileManager.default.fileExists(atPath: currentURL.path, isDirectory: &isDirectory), isDirectory.boolValue {
+                panel.directoryURL = currentURL
+            } else {
+                let parentURL = currentURL.deletingLastPathComponent().standardizedFileURL
+                if FileManager.default.fileExists(atPath: parentURL.path, isDirectory: &isDirectory), isDirectory.boolValue {
+                    panel.directoryURL = parentURL
+                }
+            }
+        }
+
+        guard panel.runModal() == .OK, let selectedURL = panel.url else {
+            return
+        }
+
+        pathField.stringValue = selectedURL.standardizedFileURL.path
+    }
+
     private func selectGroupIndex(
         title: String,
         informativeText: String,
@@ -726,8 +762,12 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         pathLabel.font = .systemFont(ofSize: 11)
         pathLabel.textColor = .secondaryLabelColor
 
-        let pathField = NSTextField(frame: NSRect(x: 0, y: 32, width: 460, height: 24))
+        let pathField = NSTextField(frame: NSRect(x: 0, y: 32, width: 348, height: 24))
         pathField.placeholderString = "/path/to/directory"
+
+        let browsePathButton = NSButton(title: "Browse...", target: self, action: #selector(browseFolderBookmarkPath(_:)))
+        browsePathButton.frame = NSRect(x: 356, y: 32, width: 104, height: 24)
+        browsePathButton.bezelStyle = .rounded
 
         container.addSubview(groupLabel)
         container.addSubview(groupPopup)
@@ -737,6 +777,7 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         container.addSubview(entryShortcutField)
         container.addSubview(pathLabel)
         container.addSubview(pathField)
+        container.addSubview(browsePathButton)
         alert.accessoryView = container
 
         if let initialRow {
@@ -748,6 +789,11 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
             entryShortcutField.stringValue = initialRow.shortcutKey ?? ""
         } else {
             groupPopup.selectItem(at: 0)
+        }
+
+        folderEditorPathField = pathField
+        defer {
+            folderEditorPathField = nil
         }
 
         guard alert.runModal() == .alertFirstButtonReturn else {
