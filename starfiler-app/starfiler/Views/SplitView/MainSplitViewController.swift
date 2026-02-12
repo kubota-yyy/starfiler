@@ -1183,6 +1183,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
                 await MainActor.run {
                     if let itemURL {
                         self.viewModel.activePane.navigate(to: normalizedDestination, selecting: itemURL)
+                        self.focusActivePane()
                     } else {
                         self.viewModel.activePane.navigate(to: normalizedDestination)
                     }
