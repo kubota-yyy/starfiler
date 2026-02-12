@@ -1,11 +1,14 @@
 import AppKit
 
 final class FileNameCellView: NSTableCellView {
+    private let disclosureView = NSImageView()
     private let iconView = NSImageView()
     private let markStarView = NSImageView()
     private let nameLabel = NSTextField(labelWithString: "")
     private var iconWidthConstraint: NSLayoutConstraint?
     private var iconHeightConstraint: NSLayoutConstraint?
+    private var leadingConstraint: NSLayoutConstraint?
+    private var disclosureWidthConstraint: NSLayoutConstraint?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -35,8 +38,33 @@ final class FileNameCellView: NSTableCellView {
         markStarView.contentTintColor = color
     }
 
+    func setTreeIndentation(depth: Int, isExpandable: Bool, isExpanded: Bool) {
+        let indentPadding = 4 + CGFloat(depth) * 16
+        leadingConstraint?.constant = indentPadding
+
+        if isExpandable {
+            disclosureWidthConstraint?.constant = 14
+            let symbolName = isExpanded ? "chevron.down" : "chevron.right"
+            disclosureView.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: isExpanded ? "Expanded" : "Collapsed")
+            disclosureView.isHidden = false
+        } else if depth > 0 {
+            disclosureWidthConstraint?.constant = 14
+            disclosureView.image = nil
+            disclosureView.isHidden = true
+        } else {
+            disclosureWidthConstraint?.constant = 0
+            disclosureView.image = nil
+            disclosureView.isHidden = true
+        }
+    }
+
     private func configureView() {
         identifier = NSUserInterfaceItemIdentifier("nameCell")
+
+        disclosureView.translatesAutoresizingMaskIntoConstraints = false
+        disclosureView.imageScaling = .scaleProportionallyDown
+        disclosureView.contentTintColor = .secondaryLabelColor
+        disclosureView.isHidden = true
 
         iconView.translatesAutoresizingMaskIntoConstraints = false
         iconView.imageScaling = .scaleProportionallyUpOrDown
@@ -52,6 +80,7 @@ final class FileNameCellView: NSTableCellView {
         textField = nameLabel
         imageView = iconView
 
+        addSubview(disclosureView)
         addSubview(iconView)
         addSubview(markStarView)
         addSubview(nameLabel)
@@ -61,8 +90,19 @@ final class FileNameCellView: NSTableCellView {
         self.iconWidthConstraint = iconWidthConstraint
         self.iconHeightConstraint = iconHeightConstraint
 
+        let leadingConstraint = disclosureView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4)
+        self.leadingConstraint = leadingConstraint
+
+        let disclosureWidthConstraint = disclosureView.widthAnchor.constraint(equalToConstant: 0)
+        self.disclosureWidthConstraint = disclosureWidthConstraint
+
         NSLayoutConstraint.activate([
-            iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            leadingConstraint,
+            disclosureView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            disclosureWidthConstraint,
+            disclosureView.heightAnchor.constraint(equalToConstant: 14),
+
+            iconView.leadingAnchor.constraint(equalTo: disclosureView.trailingAnchor, constant: 2),
             iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
             iconWidthConstraint,
             iconHeightConstraint,

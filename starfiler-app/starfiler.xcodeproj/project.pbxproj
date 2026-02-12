@@ -37,6 +37,13 @@
 		EE000000000000000000A001 /* FileItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A001 /* FileItemFactory.swift */; };
 		EE000000000000000000A002 /* TestURLFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A002 /* TestURLFactory.swift */; };
 		EE000000000000000000A003 /* AsyncTestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A003 /* AsyncTestHelpers.swift */; };
+		EE000000000000000000A004 /* MockPinnedItemsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A004 /* MockPinnedItemsService.swift */; };
+		EE000000000000000000002A /* PinnedItemsServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000002A /* PinnedItemsServiceTests.swift */; };
+		CC0000000000000000000070 /* TreeExpansionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000070 /* TreeExpansionState.swift */; };
+		CC0000000000000000000071 /* TreeDisplayItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000071 /* TreeDisplayItem.swift */; };
+		CC0000000000000000000072 /* PinnedItemsConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000072 /* PinnedItemsConfig.swift */; };
+		CC0000000000000000000073 /* PinnedItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000073 /* PinnedItem.swift */; };
+		CC0000000000000000000074 /* PinnedItemsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000074 /* PinnedItemsService.swift */; };
 		CC0000000000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000001 /* AppDelegate.swift */; };
 		CC0000000000000000000002 /* MainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000002 /* MainWindowController.swift */; };
 		CC0000000000000000000003 /* FilePaneViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* FilePaneViewController.swift */; };
@@ -209,6 +216,11 @@
 		BB000000000000000000004B /* MarkdownPreviewPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownPreviewPanelController.swift; sourceTree = "<group>"; };
 		BB000000000000000000004C /* markdown-preview.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "markdown-preview.html"; sourceTree = "<group>"; };
 		BB000000000000000000004D /* TerminalSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSession.swift; sourceTree = "<group>"; };
+		BB0000000000000000000070 /* TreeExpansionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreeExpansionState.swift; sourceTree = "<group>"; };
+		BB0000000000000000000071 /* TreeDisplayItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreeDisplayItem.swift; sourceTree = "<group>"; };
+		BB0000000000000000000072 /* PinnedItemsConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedItemsConfig.swift; sourceTree = "<group>"; };
+		BB0000000000000000000073 /* PinnedItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedItem.swift; sourceTree = "<group>"; };
+		BB0000000000000000000074 /* PinnedItemsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedItemsService.swift; sourceTree = "<group>"; };
 		BB000000000000000000004E /* TerminalSessionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionService.swift; sourceTree = "<group>"; };
 		BB000000000000000000004F /* TerminalSessionListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionListViewModel.swift; sourceTree = "<group>"; };
 		BB0000000000000000000050 /* TerminalSessionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionViewModel.swift; sourceTree = "<group>"; };
@@ -259,6 +271,8 @@
 		FF000000000000000000A001 /* FileItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileItemFactory.swift; sourceTree = "<group>"; };
 		FF000000000000000000A002 /* TestURLFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestURLFactory.swift; sourceTree = "<group>"; };
 		FF000000000000000000A003 /* AsyncTestHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AsyncTestHelpers.swift; sourceTree = "<group>"; };
+		FF000000000000000000A004 /* MockPinnedItemsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockPinnedItemsService.swift; sourceTree = "<group>"; };
+		FF000000000000000000002A /* PinnedItemsServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedItemsServiceTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -353,6 +367,7 @@
 				FF0000000000000000000006 /* BatchRenameServiceTests.swift */,
 				FF0000000000000000000028 /* FileOperationQueueTests.swift */,
 				FF0000000000000000000029 /* ConfigManagerTests.swift */,
+				FF000000000000000000002A /* PinnedItemsServiceTests.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -405,6 +420,7 @@
 				FF0000000000000000000016 /* MockBatchRenameComputing.swift */,
 				FF0000000000000000000017 /* MockVisitHistoryService.swift */,
 				FF0000000000000000000018 /* MockTerminalSessionService.swift */,
+				FF000000000000000000A004 /* MockPinnedItemsService.swift */,
 			);
 			path = Mocks;
 			sourceTree = "<group>";
@@ -606,6 +622,7 @@
 				BB000000000000000000003E /* VisitHistoryService.swift */,
 				BB000000000000000000004A /* ApplicationRelatedItemLocatorService.swift */,
 				BB000000000000000000004E /* TerminalSessionService.swift */,
+				BB0000000000000000000074 /* PinnedItemsService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -625,6 +642,9 @@
 				BB0000000000000000000032 /* SyncModels.swift */,
 				BB000000000000000000003C /* VisitHistoryEntry.swift */,
 				BB000000000000000000004D /* TerminalSession.swift */,
+				BB0000000000000000000070 /* TreeExpansionState.swift */,
+				BB0000000000000000000071 /* TreeDisplayItem.swift */,
+				BB0000000000000000000073 /* PinnedItem.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -662,6 +682,7 @@
 				BB0000000000000000000033 /* BatchRenamePresetsConfig.swift */,
 				BB0000000000000000000034 /* SyncletsConfig.swift */,
 				BB000000000000000000003D /* VisitHistoryConfig.swift */,
+				BB0000000000000000000072 /* PinnedItemsConfig.swift */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -906,6 +927,11 @@
 				CC000000000000000000005C /* BorderlessSplitView.swift in Sources */,
 				CC000000000000000000005D /* PaneHighlightOverlayView.swift in Sources */,
 				CC000000000000000000005E /* GoToPathPopoverViewController.swift in Sources */,
+				CC0000000000000000000070 /* TreeExpansionState.swift in Sources */,
+				CC0000000000000000000071 /* TreeDisplayItem.swift in Sources */,
+				CC0000000000000000000072 /* PinnedItemsConfig.swift in Sources */,
+				CC0000000000000000000073 /* PinnedItem.swift in Sources */,
+				CC0000000000000000000074 /* PinnedItemsService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -943,6 +969,8 @@
 				EE000000000000000000A001 /* FileItemFactory.swift in Sources */,
 				EE000000000000000000A002 /* TestURLFactory.swift in Sources */,
 				EE000000000000000000A003 /* AsyncTestHelpers.swift in Sources */,
+				EE000000000000000000A004 /* MockPinnedItemsService.swift in Sources */,
+				EE000000000000000000002A /* PinnedItemsServiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

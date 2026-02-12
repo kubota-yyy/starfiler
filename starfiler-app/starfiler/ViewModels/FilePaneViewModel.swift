@@ -41,6 +41,7 @@ final class FilePaneViewModel {
     private let directoryMonitor: any DirectoryMonitoring
     private let spotlightSearchService: any SpotlightSearching
     private var loadTask: Task<Void, Never>?
+    private var expandTask: Task<Void, Never>?
     private var spotlightSearchTask: Task<Void, Never>?
     private var isSpotlightSearchActive = false
     private(set) var spotlightSearchScope: SpotlightSearchScope
@@ -200,6 +201,76 @@ final class FilePaneViewModel {
             return
         }
         navigate(to: item.url)
+    }
+
+    func expandSelectedFolder() {
+        guard let item = selectedItem, item.isDirectory, !item.isPackage else {
+            return
+        }
+
+        let url = item.url.standardizedFileURL
+
+        if directoryContents.treeExpansionState.isExpanded(url) {
+            let currentIndex = paneState.cursorIndex
+            if currentIndex + 1 < directoryContents.displayedItems.count {
+                let nextItem = directoryContents.displayedItems[currentIndex + 1]
+                let nextTreeItem = directoryContents.displayedTreeItems[currentIndex + 1]
+                if nextTreeItem.parentURL == url {
+                    setCursor(index: currentIndex + 1)
+                }
+            }
+            return
+        }
+
+        let snapshot = captureSelectionSnapshot()
+
+        expandTask?.cancel()
+        expandTask = Task { [weak self] in
+            guard let self else {
+                return
+            }
+
+            do {
+                let children = try await self.fileSystemService.contentsOfDirectory(at: url)
+                guard !Task.isCancelled else {
+                    return
+                }
+
+                var updatedContents = self.directoryContents
+                updatedContents.treeExpansionState.expand(url, children: children)
+                updatedContents.recompute()
+                self.directoryContents = updatedContents
+                self.restoreSelection(from: snapshot)
+            } catch {
+                // Ignore errors when expanding
+            }
+        }
+    }
+
+    func collapseSelectedFolder() {
+        let cursorIndex = paneState.cursorIndex
+        guard directoryContents.displayedTreeItems.indices.contains(cursorIndex) else {
+            return
+        }
+
+        let treeItem = directoryContents.displayedTreeItems[cursorIndex]
+
+        if treeItem.isExpanded {
+            let snapshot = captureSelectionSnapshot()
+            var updatedContents = directoryContents
+            updatedContents.treeExpansionState.collapse(treeItem.fileItem.url)
+            updatedContents.recompute()
+            directoryContents = updatedContents
+            restoreSelection(from: snapshot)
+            return
+        }
+
+        if let parentURL = treeItem.parentURL {
+            if let parentIndex = directoryContents.displayedItems.firstIndex(where: { $0.url.standardizedFileURL == parentURL }) {
+                setCursor(index: parentIndex)
+            }
+            return
+        }
     }
 
     func enterSpotlightSearchMode() {
@@ -569,6 +640,20 @@ final class FilePaneViewModel {
                 // Directory change resets text filtering.
                 updatedContents.filterText = ""
                 updatedContents.contentFilter = self.displayMode == .media ? .mediaOnly : .allFiles
+
+                // Re-load children for expanded directories
+                let expandedURLs = updatedContents.treeExpansionState.expandedURLs
+                for expandedURL in expandedURLs {
+                    if let children = try? await self.fileSystemService.contentsOfDirectory(at: expandedURL) {
+                        guard !Task.isCancelled else {
+                            return
+                        }
+                        updatedContents.treeExpansionState.updateChildren(for: expandedURL, children: children)
+                    } else {
+                        updatedContents.treeExpansionState.collapse(expandedURL)
+                    }
+                }
+
                 updatedContents.recompute()
                 self.directoryContents = updatedContents
 
@@ -635,6 +720,7 @@ final class FilePaneViewModel {
                 updatedContents.allItems = items
                 updatedContents.filterText = ""
                 updatedContents.contentFilter = self.displayMode == .media ? .mediaOnly : .allFiles
+                updatedContents.treeExpansionState.clear()
                 updatedContents.recompute()
                 self.directoryContents = updatedContents
 

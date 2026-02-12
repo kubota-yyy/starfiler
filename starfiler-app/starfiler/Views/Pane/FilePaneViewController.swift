@@ -292,7 +292,10 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         switch tableColumn?.identifier {
         case Column.name:
-            return makeNameCell(for: item, row: row)
+            let treeItem = viewModel.directoryContents.displayedTreeItems.indices.contains(row)
+                ? viewModel.directoryContents.displayedTreeItems[row]
+                : nil
+            return makeNameCell(for: item, row: row, treeItem: treeItem)
         case Column.size:
             return makeTextCell(text: sizeText(for: item), alignment: .right)
         case Column.modified:
@@ -890,7 +893,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         openSelectedFile()
     }
 
-    private func makeNameCell(for item: FileItem, row: Int) -> NSTableCellView {
+    private func makeNameCell(for item: FileItem, row: Int, treeItem: TreeDisplayItem? = nil) -> NSTableCellView {
         let cell = tableView.makeView(withIdentifier: Cell.name, owner: self) as? FileNameCellView ?? createNameCellView()
 
         let isMarked = viewModel.paneState.markedIndices.contains(row)
@@ -905,6 +908,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         cell.setIcon(icon(for: item, row: row), size: fileIconSize)
+
+        if let treeItem {
+            cell.setTreeIndentation(depth: treeItem.depth, isExpandable: treeItem.isExpandable, isExpanded: treeItem.isExpanded)
+        } else {
+            cell.setTreeIndentation(depth: 0, isExpandable: false, isExpanded: false)
+        }
 
         return cell
     }
@@ -1292,7 +1301,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         case .toggleMediaRecursive:
             viewModel.toggleMediaRecursive()
             handled = true
-        case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo, .togglePreview, .toggleSidebar, .toggleLeftPane, .toggleRightPane, .toggleSinglePane, .equalizePaneWidths, .matchOtherPaneDirectory, .goToOtherPaneDirectory, .openBookmarkSearch, .openHistory, .addBookmark, .batchRename, .syncPanesLeftToRight, .syncPanesRightToLeft, .toggleTerminalPanel, .launchClaude, .launchCodex:
+        case .treeExpand:
+            viewModel.expandSelectedFolder()
+            handled = true
+        case .treeCollapse:
+            viewModel.collapseSelectedFolder()
+            handled = true
+        case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo, .togglePreview, .toggleSidebar, .toggleLeftPane, .toggleRightPane, .toggleSinglePane, .equalizePaneWidths, .matchOtherPaneDirectory, .goToOtherPaneDirectory, .openBookmarkSearch, .openHistory, .addBookmark, .batchRename, .syncPanesLeftToRight, .syncPanesRightToLeft, .togglePin, .toggleTerminalPanel, .launchClaude, .launchCodex:
             handled = onFileOperationRequested?(action) ?? false
         case .enterFilterMode:
             focusSearch(mode: .filter)
@@ -1656,6 +1671,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         menu.addItem(makeContextMenuItem(title: "Bookmark Search...", action: .openBookmarkSearch))
         menu.addItem(makeContextMenuItem(title: "History...", action: .openHistory))
         menu.addItem(makeContextMenuItem(title: "Add Bookmark...", action: .addBookmark))
+        menu.addItem(makeContextMenuItem(title: "Toggle Pin", action: .togglePin))
 
         menu.addItem(NSMenuItem.separator())
 

@@ -62,6 +62,9 @@
       "t c": "launchClaude",
       "t x": "launchCodex",
       "Ctrl-`": "toggleTerminalPanel",
+      "ArrowRight": "treeExpand",
+      "ArrowLeft": "treeCollapse",
+      "P": "togglePin",
       "q": "quit"
     },
     "visual": {

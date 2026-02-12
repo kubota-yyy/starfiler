@@ -63,6 +63,9 @@ enum KeyAction: String, Codable, CaseIterable, Sendable {
     case launchClaude
     case launchCodex
     case toggleTerminalPanel
+    case treeExpand
+    case treeCollapse
+    case togglePin
     case quit
 }
 
