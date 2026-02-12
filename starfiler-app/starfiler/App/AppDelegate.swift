@@ -419,6 +419,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let currentFileIconSize = mainWindowController?.currentFileIconSize ?? 16
         let currentSidebarFavoritesVisible = mainWindowController?.isSidebarFavoritesVisible ?? true
         let currentSidebarRecentItemsLimit = mainWindowController?.currentSidebarRecentItemsLimit ?? 10
+        let currentStarEffectsEnabled = mainWindowController?.isStarEffectsEnabled ?? true
 
         let appearanceVC = AppearanceSettingsViewController(
             selectedTheme: currentTheme,
@@ -428,7 +429,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             selectedSpotlightSearchScope: currentSpotlightSearchScope,
             initialFileIconSize: currentFileIconSize,
             initialSidebarFavoritesVisible: currentSidebarFavoritesVisible,
-            initialSidebarRecentItemsLimit: currentSidebarRecentItemsLimit
+            initialSidebarRecentItemsLimit: currentSidebarRecentItemsLimit,
+            initialStarEffectsEnabled: currentStarEffectsEnabled
         )
         appearanceVC.onThemeChanged = { [weak self] theme in
             self?.mainWindowController?.updateFilerTheme(theme)
@@ -453,6 +455,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         appearanceVC.onSidebarRecentItemsLimitChanged = { [weak self] limit in
             self?.mainWindowController?.updateSidebarRecentItemsLimit(limit)
+        }
+        appearanceVC.onStarEffectsChanged = { [weak self] enabled in
+            self?.mainWindowController?.updateStarEffectsEnabled(enabled)
         }
 
         let keybindingsVC = KeybindingsViewController()

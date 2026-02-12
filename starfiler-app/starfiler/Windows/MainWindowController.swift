@@ -14,6 +14,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var sidebarWidth: CGFloat
     private var leftPaneVisible: Bool
     private var rightPaneVisible: Bool
+    private var starEffectsEnabled: Bool
     private lazy var mainSplitViewController = MainSplitViewController(
         viewModel: mainViewModel,
         configManager: configManager,
@@ -48,6 +49,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         self.sidebarWidth = Self.clampedSidebarWidth(CGFloat(appConfig.sidebarWidth))
         self.leftPaneVisible = appConfig.leftPaneVisible
         self.rightPaneVisible = appConfig.rightPaneVisible
+        self.starEffectsEnabled = appConfig.starEffectsEnabled
         let fallbackDirectory = initialDirectory.standardizedFileURL
         let leftDirectory = Self.resolveDirectory(path: appConfig.lastLeftPanePath, fallback: fallbackDirectory)
         let rightDirectory = Self.resolveDirectory(path: appConfig.lastRightPanePath, fallback: leftDirectory)
@@ -134,6 +136,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     var isSidebarFavoritesVisible: Bool {
         sidebarFavoritesVisible
+    }
+
+    var isStarEffectsEnabled: Bool {
+        starEffectsEnabled
     }
 
     func updateFilerTheme(_ theme: FilerTheme) {
@@ -223,6 +229,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         mainSplitViewController.reloadSidebarSections()
     }
 
+    func updateStarEffectsEnabled(_ enabled: Bool) {
+        guard starEffectsEnabled != enabled else {
+            return
+        }
+
+        starEffectsEnabled = enabled
+        mainSplitViewController.setStarEffectsEnabled(enabled)
+        persistAppConfig()
+    }
+
     func presentBatchRename() {
         mainSplitViewController.presentBatchRenameWindow()
     }
@@ -310,6 +326,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
 
         applyCurrentAppearance()
+        mainSplitViewController.setStarEffectsEnabled(starEffectsEnabled)
         window.contentViewController = containerViewController
     }
 
@@ -365,7 +382,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             leftPaneMediaRecursiveEnabled: mainViewModel.leftPane.mediaRecursiveEnabled,
             rightPaneMediaRecursiveEnabled: mainViewModel.rightPane.mediaRecursiveEnabled,
             leftPaneVisible: leftPaneVisible,
-            rightPaneVisible: rightPaneVisible
+            rightPaneVisible: rightPaneVisible,
+            starEffectsEnabled: starEffectsEnabled
         )
 
         try? configManager.saveAppConfig(appConfig)

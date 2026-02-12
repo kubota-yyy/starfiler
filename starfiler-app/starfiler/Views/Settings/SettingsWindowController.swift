@@ -24,7 +24,7 @@ final class SettingsWindowController: NSWindowController {
 
         let appearanceItem = NSTabViewItem(viewController: appearanceVC)
         appearanceItem.label = "Appearance"
-        appearanceItem.image = NSImage(systemSymbolName: "paintbrush", accessibilityDescription: "Appearance")
+        appearanceItem.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Appearance")
 
         let keybindingsItem = NSTabViewItem(viewController: keybindingsVC)
         keybindingsItem.label = "Keybindings"

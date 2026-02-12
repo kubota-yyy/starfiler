@@ -8,12 +8,18 @@ final class BookmarkSearchPanelController: NSObject, NSTableViewDataSource, NSTa
     private let tableView = NSTableView()
     private let scrollView = NSScrollView()
 
+    private var currentPalette: FilerThemePalette?
+
     var onSelectEntry: ((BookmarkSearchViewModel.SearchResult) -> Void)?
     var onDismiss: (() -> Void)?
 
     init(viewModel: BookmarkSearchViewModel) {
         self.viewModel = viewModel
         super.init()
+    }
+
+    func applyTheme(_ theme: FilerTheme) {
+        currentPalette = theme.palette
     }
 
     func showRelativeTo(window: NSWindow) {
@@ -91,6 +97,13 @@ final class BookmarkSearchPanelController: NSObject, NSTableViewDataSource, NSTa
         searchField.isBezeled = true
         searchField.bezelStyle = .roundedBezel
         searchField.delegate = self
+
+        if let palette = currentPalette {
+            searchField.wantsLayer = true
+            searchField.layer?.borderColor = palette.starAccentColor.withAlphaComponent(0.4).cgColor
+            searchField.layer?.borderWidth = 1
+            searchField.layer?.cornerRadius = 6
+        }
     }
 
     private func configureTableView() {

@@ -31,6 +31,9 @@ struct FilerThemePalette {
     let previewBackgroundColor: NSColor
     let primaryTextColor: NSColor
     let secondaryTextColor: NSColor
+    let starAccentColor: NSColor
+    let starGlowColor: NSColor
+    let starDustColor: NSColor
 
     init(
         activeBorderColor: NSColor,
@@ -62,7 +65,10 @@ struct FilerThemePalette {
         filterBarBorderColor: NSColor = NSColor.separatorColor.withAlphaComponent(0.45),
         previewBackgroundColor: NSColor = .textBackgroundColor,
         primaryTextColor: NSColor = .labelColor,
-        secondaryTextColor: NSColor = .secondaryLabelColor
+        secondaryTextColor: NSColor = .secondaryLabelColor,
+        starAccentColor: NSColor? = nil,
+        starGlowColor: NSColor? = nil,
+        starDustColor: NSColor? = nil
     ) {
         self.activeBorderColor = activeBorderColor
         self.inactiveBorderColor = inactiveBorderColor
@@ -94,6 +100,9 @@ struct FilerThemePalette {
         self.previewBackgroundColor = previewBackgroundColor
         self.primaryTextColor = primaryTextColor
         self.secondaryTextColor = secondaryTextColor
+        self.starAccentColor = starAccentColor ?? accentColor
+        self.starGlowColor = starGlowColor ?? accentColor.withAlphaComponent(0.6)
+        self.starDustColor = starDustColor ?? accentColor.withAlphaComponent(0.04)
     }
 }
 
@@ -107,6 +116,99 @@ extension FilerTheme {
 
     var palette: FilerThemePalette {
         switch self {
+        case .starfield:
+            let starBlue = Self.dynamicColor(
+                light: NSColor(calibratedRed: 0.35, green: 0.50, blue: 0.80, alpha: 1.0),
+                dark: NSColor(calibratedRed: 0.55, green: 0.70, blue: 1.0, alpha: 1.0)
+            )
+            let starGold = Self.dynamicColor(
+                light: NSColor(calibratedRed: 0.75, green: 0.60, blue: 0.20, alpha: 1.0),
+                dark: NSColor(calibratedRed: 0.95, green: 0.80, blue: 0.30, alpha: 1.0)
+            )
+            let starBg = Self.dynamicColor(
+                light: NSColor(calibratedRed: 0.90, green: 0.91, blue: 0.95, alpha: 1.0),
+                dark: NSColor(calibratedRed: 0.04, green: 0.04, blue: 0.08, alpha: 1.0)
+            )
+            return FilerThemePalette(
+                activeBorderColor: starBlue,
+                inactiveBorderColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.78, green: 0.80, blue: 0.86, alpha: 1.0),
+                    dark: NSColor(calibratedRed: 0.14, green: 0.14, blue: 0.22, alpha: 1.0)
+                ),
+                dropTargetBorderColor: starGold,
+                activeHeaderColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.35, green: 0.50, blue: 0.80, alpha: 0.14),
+                    dark: NSColor(calibratedRed: 0.55, green: 0.70, blue: 1.0, alpha: 0.18)
+                ),
+                inactiveHeaderColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.78, green: 0.80, blue: 0.86, alpha: 0.12),
+                    dark: NSColor(calibratedRed: 0.10, green: 0.10, blue: 0.16, alpha: 0.3)
+                ),
+                activePathTextColor: .labelColor,
+                inactivePathTextColor: .secondaryLabelColor,
+                markedColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.75, green: 0.60, blue: 0.20, alpha: 0.16),
+                    dark: NSColor(calibratedRed: 0.95, green: 0.80, blue: 0.30, alpha: 0.22)
+                ),
+                visualMarkedColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.35, green: 0.50, blue: 0.80, alpha: 0.22),
+                    dark: NSColor(calibratedRed: 0.55, green: 0.70, blue: 1.0, alpha: 0.28)
+                ),
+                activePaneAlpha: 1.0,
+                inactivePaneAlpha: 0.88,
+                sidebarSectionHeaderColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.30, green: 0.35, blue: 0.50, alpha: 1.0),
+                    dark: NSColor(calibratedRed: 0.65, green: 0.72, blue: 0.88, alpha: 1.0)
+                ),
+                sidebarEntryTextColor: .labelColor,
+                sidebarIconTintColor: starBlue,
+                sidebarShortcutHintColor: starGold,
+                statusBarBackgroundColor: starBg,
+                statusBarTextColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.30, green: 0.35, blue: 0.50, alpha: 1.0),
+                    dark: NSColor(calibratedRed: 0.65, green: 0.72, blue: 0.88, alpha: 1.0)
+                ),
+                filterBarPromptColor: starBlue,
+                filterBarTextColor: .labelColor,
+                previewBorderColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.78, green: 0.80, blue: 0.86, alpha: 0.8),
+                    dark: NSColor(calibratedRed: 0.14, green: 0.14, blue: 0.22, alpha: 0.8)
+                ),
+                accentColor: starBlue,
+                windowBackgroundColor: starBg,
+                paneBackgroundColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.94, green: 0.95, blue: 0.98, alpha: 1.0),
+                    dark: NSColor(calibratedRed: 0.05, green: 0.05, blue: 0.09, alpha: 1.0)
+                ),
+                tableBackgroundColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.96, green: 0.97, blue: 0.99, alpha: 1.0),
+                    dark: NSColor(calibratedRed: 0.03, green: 0.03, blue: 0.07, alpha: 1.0)
+                ),
+                sidebarBackgroundColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.88, green: 0.89, blue: 0.94, alpha: 1.0),
+                    dark: NSColor(calibratedRed: 0.05, green: 0.05, blue: 0.10, alpha: 1.0)
+                ),
+                filterBarBackgroundColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.86, green: 0.90, blue: 0.98, alpha: 0.86),
+                    dark: NSColor(calibratedRed: 0.12, green: 0.14, blue: 0.26, alpha: 0.82)
+                ),
+                filterBarBorderColor: starBlue.withAlphaComponent(0.35),
+                previewBackgroundColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.95, green: 0.96, blue: 0.99, alpha: 1.0),
+                    dark: NSColor(calibratedRed: 0.04, green: 0.04, blue: 0.08, alpha: 1.0)
+                ),
+                primaryTextColor: .labelColor,
+                secondaryTextColor: .secondaryLabelColor,
+                starAccentColor: starBlue,
+                starGlowColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.45, green: 0.60, blue: 0.90, alpha: 0.7),
+                    dark: NSColor(calibratedRed: 0.65, green: 0.80, blue: 1.0, alpha: 0.7)
+                ),
+                starDustColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.35, green: 0.50, blue: 0.80, alpha: 0.04),
+                    dark: NSColor(calibratedRed: 0.55, green: 0.70, blue: 1.0, alpha: 0.06)
+                )
+            )
         case .system:
             return FilerThemePalette(
                 activeBorderColor: .controlAccentColor,
@@ -138,7 +240,10 @@ extension FilerTheme {
                 filterBarBorderColor: NSColor.separatorColor.withAlphaComponent(0.4),
                 previewBackgroundColor: .textBackgroundColor,
                 primaryTextColor: .labelColor,
-                secondaryTextColor: .secondaryLabelColor
+                secondaryTextColor: .secondaryLabelColor,
+                starAccentColor: .controlAccentColor,
+                starGlowColor: NSColor.controlAccentColor.withAlphaComponent(0.6),
+                starDustColor: NSColor.controlAccentColor.withAlphaComponent(0.04)
             )
         case .nord:
             let nordBg = Self.dynamicColor(
@@ -222,7 +327,10 @@ extension FilerTheme {
                     dark: NSColor(calibratedRed: 0.13, green: 0.15, blue: 0.20, alpha: 1.0)
                 ),
                 primaryTextColor: .labelColor,
-                secondaryTextColor: .secondaryLabelColor
+                secondaryTextColor: .secondaryLabelColor,
+                starAccentColor: NSColor(calibratedRed: 0.53, green: 0.75, blue: 0.82, alpha: 1.0),
+                starGlowColor: NSColor(calibratedRed: 0.53, green: 0.75, blue: 0.82, alpha: 0.6),
+                starDustColor: NSColor(calibratedRed: 0.53, green: 0.75, blue: 0.82, alpha: 0.04)
             )
         case .dracula:
             let draculaPurple = Self.dynamicColor(
@@ -306,7 +414,10 @@ extension FilerTheme {
                     dark: NSColor(calibratedRed: 0.10, green: 0.10, blue: 0.16, alpha: 1.0)
                 ),
                 primaryTextColor: .labelColor,
-                secondaryTextColor: .secondaryLabelColor
+                secondaryTextColor: .secondaryLabelColor,
+                starAccentColor: NSColor(calibratedRed: 0.74, green: 0.58, blue: 0.98, alpha: 1.0),
+                starGlowColor: NSColor(calibratedRed: 0.74, green: 0.58, blue: 0.98, alpha: 0.6),
+                starDustColor: NSColor(calibratedRed: 0.74, green: 0.58, blue: 0.98, alpha: 0.04)
             )
         case .solarized:
             let solarAccent = Self.dynamicColor(
@@ -393,7 +504,10 @@ extension FilerTheme {
                     dark: NSColor(calibratedRed: 0.0, green: 0.13, blue: 0.17, alpha: 1.0)
                 ),
                 primaryTextColor: .labelColor,
-                secondaryTextColor: .secondaryLabelColor
+                secondaryTextColor: .secondaryLabelColor,
+                starAccentColor: NSColor(calibratedRed: 0.15, green: 0.55, blue: 0.82, alpha: 1.0),
+                starGlowColor: NSColor(calibratedRed: 0.15, green: 0.55, blue: 0.82, alpha: 0.6),
+                starDustColor: NSColor(calibratedRed: 0.15, green: 0.55, blue: 0.82, alpha: 0.04)
             )
         case .tokyoNight:
             let tokyoBlue = Self.dynamicColor(
@@ -477,7 +591,19 @@ extension FilerTheme {
                     dark: NSColor(calibratedRed: 0.07, green: 0.08, blue: 0.13, alpha: 1.0)
                 ),
                 primaryTextColor: .labelColor,
-                secondaryTextColor: .secondaryLabelColor
+                secondaryTextColor: .secondaryLabelColor,
+                starAccentColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.20, green: 0.50, blue: 0.84, alpha: 1.0),
+                    dark: NSColor(calibratedRed: 0.48, green: 0.64, blue: 0.97, alpha: 1.0)
+                ),
+                starGlowColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.20, green: 0.50, blue: 0.84, alpha: 0.6),
+                    dark: NSColor(calibratedRed: 0.48, green: 0.64, blue: 0.97, alpha: 0.6)
+                ),
+                starDustColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.20, green: 0.50, blue: 0.84, alpha: 0.04),
+                    dark: NSColor(calibratedRed: 0.48, green: 0.64, blue: 0.97, alpha: 0.04)
+                )
             )
         case .gruvbox:
             let gruvAccent = Self.dynamicColor(
@@ -546,7 +672,19 @@ extension FilerTheme {
                     dark: NSColor(calibratedRed: 0.11, green: 0.10, blue: 0.10, alpha: 1.0)
                 ),
                 primaryTextColor: .labelColor,
-                secondaryTextColor: .secondaryLabelColor
+                secondaryTextColor: .secondaryLabelColor,
+                starAccentColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.80, green: 0.40, blue: 0.16, alpha: 1.0),
+                    dark: NSColor(calibratedRed: 0.98, green: 0.58, blue: 0.21, alpha: 1.0)
+                ),
+                starGlowColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.80, green: 0.40, blue: 0.16, alpha: 0.6),
+                    dark: NSColor(calibratedRed: 0.98, green: 0.58, blue: 0.21, alpha: 0.6)
+                ),
+                starDustColor: Self.dynamicColor(
+                    light: NSColor(calibratedRed: 0.80, green: 0.40, blue: 0.16, alpha: 0.04),
+                    dark: NSColor(calibratedRed: 0.98, green: 0.58, blue: 0.21, alpha: 0.04)
+                )
             )
         case .catppuccinLatte:
             let latteBlue = NSColor(calibratedRed: 0.11, green: 0.42, blue: 0.79, alpha: 1.0)
@@ -582,7 +720,10 @@ extension FilerTheme {
                 filterBarBorderColor: latteBlue.withAlphaComponent(0.32),
                 previewBackgroundColor: NSColor(calibratedRed: 0.99, green: 0.99, blue: 1.0, alpha: 1.0),
                 primaryTextColor: NSColor(calibratedRed: 0.26, green: 0.25, blue: 0.33, alpha: 1.0),
-                secondaryTextColor: NSColor(calibratedRed: 0.48, green: 0.46, blue: 0.55, alpha: 1.0)
+                secondaryTextColor: NSColor(calibratedRed: 0.48, green: 0.46, blue: 0.55, alpha: 1.0),
+                starAccentColor: NSColor(calibratedRed: 0.11, green: 0.42, blue: 0.79, alpha: 1.0),
+                starGlowColor: NSColor(calibratedRed: 0.11, green: 0.42, blue: 0.79, alpha: 0.6),
+                starDustColor: NSColor(calibratedRed: 0.11, green: 0.42, blue: 0.79, alpha: 0.04)
             )
         case .mintLight:
             let mintAccent = NSColor(calibratedRed: 0.0, green: 0.58, blue: 0.48, alpha: 1.0)
@@ -618,7 +759,10 @@ extension FilerTheme {
                 filterBarBorderColor: mintAccent.withAlphaComponent(0.32),
                 previewBackgroundColor: NSColor(calibratedRed: 0.98, green: 1.0, blue: 0.99, alpha: 1.0),
                 primaryTextColor: NSColor(calibratedRed: 0.10, green: 0.28, blue: 0.25, alpha: 1.0),
-                secondaryTextColor: NSColor(calibratedRed: 0.23, green: 0.44, blue: 0.40, alpha: 1.0)
+                secondaryTextColor: NSColor(calibratedRed: 0.23, green: 0.44, blue: 0.40, alpha: 1.0),
+                starAccentColor: NSColor(calibratedRed: 0.0, green: 0.58, blue: 0.48, alpha: 1.0),
+                starGlowColor: NSColor(calibratedRed: 0.0, green: 0.58, blue: 0.48, alpha: 0.6),
+                starDustColor: NSColor(calibratedRed: 0.0, green: 0.58, blue: 0.48, alpha: 0.04)
             )
         }
     }

@@ -74,6 +74,7 @@
 		CC0000000000000000000042 /* KeyRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000045 /* KeyRecorderView.swift */; };
 		CC0000000000000000000043 /* BookmarksSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000046 /* BookmarksSettingsViewController.swift */; };
 		CC0000000000000000000044 /* AdvancedSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000047 /* AdvancedSettingsViewController.swift */; };
+		CC0000000000000000000045 /* StarSparkleAnimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000048 /* StarSparkleAnimator.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -147,6 +148,7 @@
 		BB0000000000000000000045 /* KeyRecorderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyRecorderView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000046 /* BookmarksSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarksSettingsViewController.swift; sourceTree = "<group>"; };
 		BB0000000000000000000047 /* AdvancedSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedSettingsViewController.swift; sourceTree = "<group>"; };
+		BB0000000000000000000048 /* StarSparkleAnimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StarSparkleAnimator.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -229,6 +231,7 @@
 				AA0000000000000000000031 /* Settings */,
 				AA0000000000000000000032 /* BatchRename */,
 				AA0000000000000000000033 /* Sync */,
+				AA0000000000000000000035 /* Effects */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -429,6 +432,14 @@
 			path = Theme;
 			sourceTree = "<group>";
 		};
+		AA0000000000000000000035 /* Effects */ = {
+			isa = PBXGroup;
+			children = (
+				BB0000000000000000000048 /* StarSparkleAnimator.swift */,
+			);
+			path = Effects;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -563,6 +574,7 @@
 				CC0000000000000000000042 /* KeyRecorderView.swift in Sources */,
 				CC0000000000000000000043 /* BookmarksSettingsViewController.swift in Sources */,
 				CC0000000000000000000044 /* AdvancedSettingsViewController.swift in Sources */,
+				CC0000000000000000000045 /* StarSparkleAnimator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

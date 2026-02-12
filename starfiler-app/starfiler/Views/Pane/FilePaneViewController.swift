@@ -32,6 +32,7 @@ private final class MarkedRowView: NSTableRowView {
 
 private final class FileNameCellView: NSTableCellView {
     private let iconView = NSImageView()
+    private let markStarView = NSImageView()
     private let nameLabel = NSTextField(labelWithString: "")
     private var iconWidthConstraint: NSLayoutConstraint?
     private var iconHeightConstraint: NSLayoutConstraint?
@@ -59,11 +60,21 @@ private final class FileNameCellView: NSTableCellView {
         iconHeightConstraint?.constant = clamped
     }
 
+    func setMarkStar(visible: Bool, color: NSColor) {
+        markStarView.isHidden = !visible
+        markStarView.contentTintColor = color
+    }
+
     private func configureView() {
         identifier = NSUserInterfaceItemIdentifier("nameCell")
 
         iconView.translatesAutoresizingMaskIntoConstraints = false
         iconView.imageScaling = .scaleProportionallyUpOrDown
+
+        markStarView.translatesAutoresizingMaskIntoConstraints = false
+        markStarView.image = NSImage(systemSymbolName: "star.fill", accessibilityDescription: "Marked")
+        markStarView.imageScaling = .scaleProportionallyDown
+        markStarView.isHidden = true
 
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
         nameLabel.lineBreakMode = .byTruncatingMiddle
@@ -72,6 +83,7 @@ private final class FileNameCellView: NSTableCellView {
         imageView = iconView
 
         addSubview(iconView)
+        addSubview(markStarView)
         addSubview(nameLabel)
 
         let iconWidthConstraint = iconView.widthAnchor.constraint(equalToConstant: 16)
@@ -85,7 +97,12 @@ private final class FileNameCellView: NSTableCellView {
             iconWidthConstraint,
             iconHeightConstraint,
 
-            nameLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 8),
+            markStarView.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 3),
+            markStarView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            markStarView.widthAnchor.constraint(equalToConstant: 8),
+            markStarView.heightAnchor.constraint(equalToConstant: 8),
+
+            nameLabel.leadingAnchor.constraint(equalTo: markStarView.trailingAnchor, constant: 3),
             nameLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
             nameLabel.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
@@ -116,7 +133,7 @@ private final class BookmarkJumpOverlayView: NSView {
     func applyPalette(_ palette: FilerThemePalette, backgroundOpacity: CGFloat) {
         _ = backgroundOpacity
         layer?.backgroundColor = palette.windowBackgroundColor.cgColor
-        layer?.borderColor = palette.filterBarBorderColor.cgColor
+        layer?.borderColor = palette.starAccentColor.withAlphaComponent(0.5).cgColor
         titleLabel.textColor = palette.primaryTextColor
         candidatesLabel.textColor = palette.secondaryTextColor
     }
@@ -211,7 +228,7 @@ private final class MediaCollectionItem: NSCollectionViewItem {
     static let identifier = NSUserInterfaceItemIdentifier("mediaCollectionItem")
 
     private let titleLabel = NSTextField(labelWithString: "")
-    private let markBadge = NSTextField(labelWithString: "●")
+    private let markBadge = NSImageView()
 
     override func loadView() {
         view = NSView()
@@ -235,8 +252,8 @@ private final class MediaCollectionItem: NSCollectionViewItem {
         titleLabel.maximumNumberOfLines = 2
 
         markBadge.translatesAutoresizingMaskIntoConstraints = false
-        markBadge.font = .systemFont(ofSize: 12, weight: .bold)
-        markBadge.textColor = .systemOrange
+        markBadge.image = NSImage(systemSymbolName: "star.fill", accessibilityDescription: "Marked")
+        markBadge.contentTintColor = .systemOrange
         markBadge.isHidden = true
 
         view.wantsLayer = true
@@ -275,6 +292,7 @@ private final class MediaCollectionItem: NSCollectionViewItem {
         titleLabel.textColor = palette.primaryTextColor
         imageView?.image = thumbnail
         markBadge.isHidden = !isMarked
+        markBadge.contentTintColor = palette.starAccentColor
         applySelectionAppearance(palette: palette)
     }
 
@@ -369,6 +387,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private var searchMenuModeItems: [SearchMode: NSMenuItem] = [:]
     private var searchMenuScopeItems: [SpotlightSearchScope: NSMenuItem] = [:]
     private var currentDisplayMode: PaneDisplayMode = .browser
+    private var starEffectsEnabled = true
+    private var headerStarImageView: NSImageView?
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
     var onSelectionChanged: ((FileItem?) -> Void)?
@@ -406,6 +426,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         configureSearchControls()
         configureDragAndDrop()
         configureContextMenu()
+        configureStarEffects()
         bindViewModel()
         setActive(false)
     }
@@ -424,8 +445,19 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     func setActive(_ active: Bool) {
+        let wasInactive = !isPaneActive
         isPaneActive = active
         updateActiveAppearance()
+
+        // Star pulse animation on activation
+        if active && wasInactive && starEffectsEnabled, let starView = headerStarImageView, let layer = starView.layer {
+            let pulse = CAKeyframeAnimation(keyPath: "transform.scale")
+            pulse.values = [1.0, 1.3, 1.0]
+            pulse.keyTimes = [0, 0.5, 1.0]
+            pulse.duration = 0.18
+            pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            layer.add(pulse, forKey: "starPulse")
+        }
     }
 
     func updateBookmarksConfig(_ config: BookmarksConfig) {
@@ -446,6 +478,14 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         keybindingManager = KeybindingManager()
         tableView.reloadKeybindings()
         mediaCollectionView.reloadKeybindings()
+    }
+
+    func setStarEffectsEnabled(_ enabled: Bool) {
+        starEffectsEnabled = enabled
+        headerStarImageView?.isHidden = !enabled || !isPaneActive
+        tableView.reloadData()
+        mediaCollectionView.reloadData()
+        updateActiveAppearance()
     }
 
     func setSpotlightSearchScope(_ scope: SpotlightSearchScope) {
@@ -662,6 +702,24 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         configureSearchFieldMenuTemplate()
 
         bookmarkJumpOverlayView.isHidden = true
+    }
+
+    private func configureStarEffects() {
+        // Header star icon
+        let starImage = NSImage(systemSymbolName: "star.fill", accessibilityDescription: "Active")
+        let starView = NSImageView(image: starImage ?? NSImage())
+        starView.translatesAutoresizingMaskIntoConstraints = false
+        starView.contentTintColor = filerTheme.palette.starAccentColor
+        starView.isHidden = true
+        headerView.addSubview(starView)
+        NSLayoutConstraint.activate([
+            starView.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 3),
+            starView.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
+            starView.widthAnchor.constraint(equalToConstant: 10),
+            starView.heightAnchor.constraint(equalToConstant: 10),
+        ])
+        headerStarImageView = starView
+
     }
 
     private func configureTableView() {
@@ -920,6 +978,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         let borderColor: NSColor
         if isDropTargetHighlighted {
             borderColor = palette.dropTargetBorderColor
+        } else if isPaneActive && starEffectsEnabled {
+            borderColor = palette.starAccentColor
         } else {
             borderColor = isPaneActive ? palette.activeBorderColor : palette.inactiveBorderColor
         }
@@ -937,6 +997,21 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         scrollView.backgroundColor = palette.tableBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
         scrollView.alphaValue = isPaneActive ? palette.activePaneAlpha : palette.inactivePaneAlpha
         bookmarkJumpOverlayView.applyPalette(palette, backgroundOpacity: backgroundOpacity)
+
+        // Star effects: header star icon
+        headerStarImageView?.isHidden = !starEffectsEnabled || !isPaneActive
+        headerStarImageView?.contentTintColor = palette.starAccentColor
+
+        // Star effects: glow shadow on active pane border
+        if isPaneActive && starEffectsEnabled {
+            view.layer?.shadowColor = palette.starAccentColor.cgColor
+            view.layer?.shadowRadius = 4
+            view.layer?.shadowOpacity = 0.3
+            view.layer?.shadowOffset = .zero
+        } else {
+            view.layer?.shadowOpacity = 0
+        }
+
     }
 
     @objc
@@ -979,7 +1054,16 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         let cell = tableView.makeView(withIdentifier: Cell.name, owner: self) as? FileNameCellView ?? createNameCellView()
 
         let isMarked = viewModel.paneState.markedIndices.contains(row)
-        cell.setName(isMarked ? "* \(item.name)" : item.name, textColor: filerTheme.palette.primaryTextColor)
+        let palette = filerTheme.palette
+
+        if starEffectsEnabled {
+            cell.setMarkStar(visible: isMarked, color: palette.starAccentColor)
+            cell.setName(item.name, textColor: palette.primaryTextColor)
+        } else {
+            cell.setMarkStar(visible: false, color: palette.starAccentColor)
+            cell.setName(isMarked ? "* \(item.name)" : item.name, textColor: palette.primaryTextColor)
+        }
+
         cell.setIcon(icon(for: item, row: row), size: fileIconSize)
 
         return cell

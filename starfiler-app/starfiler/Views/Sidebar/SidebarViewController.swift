@@ -327,15 +327,27 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     private func makeSectionHeaderView(title: String, in outlineView: NSOutlineView) -> NSView {
         let cellIdentifier = NSUserInterfaceItemIdentifier("sectionHeader")
         let palette = currentTheme.palette
+        let isFavorites = title == "Favorites"
 
         if let existing = outlineView.makeView(withIdentifier: cellIdentifier, owner: self) as? NSTableCellView {
             existing.textField?.stringValue = title
             existing.textField?.textColor = palette.sidebarSectionHeaderColor
+            if let starView = existing.viewWithTag(200) as? NSImageView {
+                starView.isHidden = !isFavorites
+                starView.contentTintColor = palette.starAccentColor
+            }
             return existing
         }
 
         let cell = NSTableCellView()
         cell.identifier = cellIdentifier
+
+        let starImageView = NSImageView()
+        starImageView.translatesAutoresizingMaskIntoConstraints = false
+        starImageView.image = NSImage(systemSymbolName: "star.fill", accessibilityDescription: nil)
+        starImageView.contentTintColor = palette.starAccentColor
+        starImageView.tag = 200
+        starImageView.isHidden = !isFavorites
 
         let textField = NSTextField(labelWithString: title)
         textField.translatesAutoresizingMaskIntoConstraints = false
@@ -343,10 +355,16 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         textField.textColor = palette.sidebarSectionHeaderColor
 
         cell.textField = textField
+        cell.addSubview(starImageView)
         cell.addSubview(textField)
 
         NSLayoutConstraint.activate([
-            textField.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
+            starImageView.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
+            starImageView.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            starImageView.widthAnchor.constraint(equalToConstant: 12),
+            starImageView.heightAnchor.constraint(equalToConstant: 12),
+
+            textField.leadingAnchor.constraint(equalTo: starImageView.trailingAnchor, constant: 4),
             textField.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
             textField.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
         ])

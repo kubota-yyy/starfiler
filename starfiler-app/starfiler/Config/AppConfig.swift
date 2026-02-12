@@ -1,6 +1,7 @@
 import Foundation
 
 enum FilerTheme: String, Codable, CaseIterable, Sendable {
+    case starfield
     case system
     case nord
     case dracula
@@ -12,6 +13,7 @@ enum FilerTheme: String, Codable, CaseIterable, Sendable {
 
     var displayName: String {
         switch self {
+        case .starfield: return "Starfield"
         case .system: return "System"
         case .nord: return "Nord"
         case .dracula: return "Dracula"
@@ -25,6 +27,8 @@ enum FilerTheme: String, Codable, CaseIterable, Sendable {
 
     var descriptionText: String {
         switch self {
+        case .starfield:
+            return "Deep space palette with stellar blue accents and golden star highlights."
         case .system:
             return "Use macOS-native accents and neutral highlights."
         case .nord:
@@ -47,7 +51,7 @@ enum FilerTheme: String, Codable, CaseIterable, Sendable {
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let rawValue = try container.decode(String.self)
-        self = FilerTheme(rawValue: rawValue) ?? .system
+        self = FilerTheme(rawValue: rawValue) ?? .starfield
     }
 }
 
@@ -119,6 +123,7 @@ struct AppConfig: Codable, Sendable {
     var rightPaneMediaRecursiveEnabled: Bool
     var leftPaneVisible: Bool
     var rightPaneVisible: Bool
+    var starEffectsEnabled: Bool
 
     init(
         showHiddenFiles: Bool = true,
@@ -129,7 +134,7 @@ struct AppConfig: Codable, Sendable {
         lastLeftPanePath: String = UserPaths.homeDirectoryPath,
         lastRightPanePath: String = UserPaths.homeDirectoryPath,
         lastActivePane: String = "left",
-        filerTheme: FilerTheme = .system,
+        filerTheme: FilerTheme = .starfield,
         transparentBackground: Bool = false,
         transparentBackgroundOpacity: Double = 0.7,
         actionFeedbackEnabled: Bool = true,
@@ -143,7 +148,8 @@ struct AppConfig: Codable, Sendable {
         leftPaneMediaRecursiveEnabled: Bool = false,
         rightPaneMediaRecursiveEnabled: Bool = false,
         leftPaneVisible: Bool = true,
-        rightPaneVisible: Bool = true
+        rightPaneVisible: Bool = true,
+        starEffectsEnabled: Bool = true
     ) {
         self.showHiddenFiles = showHiddenFiles
         self.defaultSortColumn = defaultSortColumn
@@ -168,6 +174,7 @@ struct AppConfig: Codable, Sendable {
         self.rightPaneMediaRecursiveEnabled = rightPaneMediaRecursiveEnabled
         self.leftPaneVisible = leftPaneVisible
         self.rightPaneVisible = rightPaneVisible
+        self.starEffectsEnabled = starEffectsEnabled
     }
 
     enum CodingKeys: String, CodingKey {
@@ -194,6 +201,7 @@ struct AppConfig: Codable, Sendable {
         case rightPaneMediaRecursiveEnabled
         case leftPaneVisible
         case rightPaneVisible
+        case starEffectsEnabled
     }
 
     init(from decoder: Decoder) throws {
@@ -223,6 +231,7 @@ struct AppConfig: Codable, Sendable {
         rightPaneMediaRecursiveEnabled = try container.decodeIfPresent(Bool.self, forKey: .rightPaneMediaRecursiveEnabled) ?? false
         leftPaneVisible = try container.decodeIfPresent(Bool.self, forKey: .leftPaneVisible) ?? true
         rightPaneVisible = try container.decodeIfPresent(Bool.self, forKey: .rightPaneVisible) ?? true
+        starEffectsEnabled = try container.decodeIfPresent(Bool.self, forKey: .starEffectsEnabled) ?? true
     }
 
     private static func clampedSidebarRecentItemsLimit(_ value: Int) -> Int {

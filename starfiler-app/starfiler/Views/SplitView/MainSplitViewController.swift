@@ -3,6 +3,8 @@ import AppKit
 private final class ActionToastPresenter {
     private weak var currentToast: NSView?
     private var dismissWorkItem: DispatchWorkItem?
+    var starEffectsEnabled = true
+    var palette: FilerThemePalette?
 
     func show(message: String, in hostView: NSView) {
         dismissWorkItem?.cancel()
@@ -22,6 +24,13 @@ private final class ActionToastPresenter {
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.14
             toastView.animator().alphaValue = 1
+        }
+
+        if starEffectsEnabled, let layer = hostView.layer {
+            let toastFrame = toastView.frame
+            let burstPoint = CGPoint(x: toastFrame.minX + 6, y: toastFrame.midY)
+            let glowColor = palette?.starGlowColor ?? .controlAccentColor
+            StarSparkleAnimator.burst(count: 4, in: layer, at: burstPoint, color: glowColor, size: 7, duration: 0.35)
         }
 
         currentToast = toastView
@@ -56,15 +65,27 @@ private final class ActionToastPresenter {
         container.layer?.borderWidth = 1
         container.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.35).cgColor
 
+        let sparkleImageView = NSImageView()
+        sparkleImageView.translatesAutoresizingMaskIntoConstraints = false
+        sparkleImageView.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: nil)
+        sparkleImageView.contentTintColor = palette?.starGlowColor ?? .controlAccentColor
+        sparkleImageView.isHidden = !starEffectsEnabled
+
         let label = NSTextField(wrappingLabelWithString: message)
         label.translatesAutoresizingMaskIntoConstraints = false
         label.textColor = .labelColor
         label.font = .systemFont(ofSize: 12, weight: .medium)
         label.maximumNumberOfLines = 3
 
+        container.addSubview(sparkleImageView)
         container.addSubview(label)
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
+            sparkleImageView.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 10),
+            sparkleImageView.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            sparkleImageView.widthAnchor.constraint(equalToConstant: 14),
+            sparkleImageView.heightAnchor.constraint(equalToConstant: 14),
+
+            label.leadingAnchor.constraint(equalTo: sparkleImageView.trailingAnchor, constant: 6),
             label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
             label.topAnchor.constraint(equalTo: container.topAnchor, constant: 10),
             label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -10)
@@ -105,6 +126,7 @@ final class MainSplitViewController: NSSplitViewController {
     private var rightPaneStatus: PaneStatus
     private var actionFeedbackEnabled: Bool
     private var fileIconSize: CGFloat
+    private var starEffectsEnabled = true
     private let initialSidebarWidth: CGFloat
     private var hasAppliedInitialSidebarWidth = false
     private var lastReportedSidebarWidth: CGFloat
@@ -240,6 +262,7 @@ final class MainSplitViewController: NSSplitViewController {
         splitView.wantsLayer = true
         splitView.layer?.backgroundColor = palette.windowBackgroundColor.applyingBackgroundOpacity(backgroundOpacity).cgColor
 
+        toastPresenter.palette = palette
         leftPaneViewController.applyTheme(theme, backgroundOpacity: backgroundOpacity)
         rightPaneViewController.applyTheme(theme, backgroundOpacity: backgroundOpacity)
         sidebarViewController.applyTheme(theme, backgroundOpacity: backgroundOpacity)
@@ -263,6 +286,14 @@ final class MainSplitViewController: NSSplitViewController {
 
     func setActionFeedbackEnabled(_ enabled: Bool) {
         actionFeedbackEnabled = enabled
+    }
+
+    func setStarEffectsEnabled(_ enabled: Bool) {
+        starEffectsEnabled = enabled
+        toastPresenter.starEffectsEnabled = enabled
+        leftPaneViewController.setStarEffectsEnabled(enabled)
+        rightPaneViewController.setStarEffectsEnabled(enabled)
+        previewPaneViewController.setStarEffectsEnabled(enabled)
     }
 
     func setSpotlightSearchScope(_ scope: SpotlightSearchScope) {

@@ -9,6 +9,7 @@ final class AppearanceSettingsViewController: NSViewController {
     var onFileIconSizeChanged: ((CGFloat) -> Void)?
     var onSidebarFavoritesVisibilityChanged: ((Bool) -> Void)?
     var onSidebarRecentItemsLimitChanged: ((Int) -> Void)?
+    var onStarEffectsChanged: ((Bool) -> Void)?
 
     private let titleLabel = NSTextField(labelWithString: "Theme")
     private let themePopUpButton = NSPopUpButton()
@@ -19,6 +20,7 @@ final class AppearanceSettingsViewController: NSViewController {
     private let transparentOpacitySlider = NSSlider(value: 0.7, minValue: 0.15, maxValue: 1.0, target: nil, action: nil)
     private let transparentOpacityValueLabel = NSTextField(labelWithString: "")
     private let actionFeedbackButton = NSButton(checkboxWithTitle: "Show Action Feedback Toasts", target: nil, action: nil)
+    private let starEffectsButton = NSButton(checkboxWithTitle: "Enable Star Effects", target: nil, action: nil)
     private let fileListSettingsLabel = NSTextField(labelWithString: "File List")
     private let fileIconSizeLabel = NSTextField(labelWithString: "Icon Size")
     private let fileIconSizeSlider = NSSlider(value: 16, minValue: 12, maxValue: 40, target: nil, action: nil)
@@ -48,6 +50,7 @@ final class AppearanceSettingsViewController: NSViewController {
     private var fileIconSize: CGFloat
     private var isSidebarFavoritesVisible: Bool
     private var sidebarRecentItemsLimit: Int
+    private var isStarEffectsEnabled: Bool
 
     init(
         selectedTheme: FilerTheme,
@@ -57,7 +60,8 @@ final class AppearanceSettingsViewController: NSViewController {
         selectedSpotlightSearchScope: SpotlightSearchScope,
         initialFileIconSize: CGFloat,
         initialSidebarFavoritesVisible: Bool,
-        initialSidebarRecentItemsLimit: Int
+        initialSidebarRecentItemsLimit: Int,
+        initialStarEffectsEnabled: Bool = true
     ) {
         self.selectedTheme = selectedTheme
         self.isTransparentBackgroundEnabled = isTransparentBackgroundEnabled
@@ -67,6 +71,7 @@ final class AppearanceSettingsViewController: NSViewController {
         self.fileIconSize = min(max(initialFileIconSize, 12), 40)
         self.isSidebarFavoritesVisible = initialSidebarFavoritesVisible
         self.sidebarRecentItemsLimit = Self.clampedSidebarRecentItemsLimit(initialSidebarRecentItemsLimit)
+        self.isStarEffectsEnabled = initialStarEffectsEnabled
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -128,6 +133,11 @@ final class AppearanceSettingsViewController: NSViewController {
         actionFeedbackButton.target = self
         actionFeedbackButton.action = #selector(actionFeedbackChanged(_:))
         actionFeedbackButton.state = isActionFeedbackEnabled ? .on : .off
+
+        starEffectsButton.translatesAutoresizingMaskIntoConstraints = false
+        starEffectsButton.target = self
+        starEffectsButton.action = #selector(starEffectsChanged(_:))
+        starEffectsButton.state = isStarEffectsEnabled ? .on : .off
 
         fileListSettingsLabel.translatesAutoresizingMaskIntoConstraints = false
         fileListSettingsLabel.font = .systemFont(ofSize: 13, weight: .semibold)
@@ -197,6 +207,7 @@ final class AppearanceSettingsViewController: NSViewController {
         view.addSubview(transparentOpacitySlider)
         view.addSubview(transparentOpacityValueLabel)
         view.addSubview(actionFeedbackButton)
+        view.addSubview(starEffectsButton)
         view.addSubview(fileListSettingsLabel)
         view.addSubview(fileIconSizeLabel)
         view.addSubview(fileIconSizeSlider)
@@ -243,8 +254,11 @@ final class AppearanceSettingsViewController: NSViewController {
             actionFeedbackButton.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             actionFeedbackButton.topAnchor.constraint(equalTo: transparentOpacitySlider.bottomAnchor, constant: 10),
 
+            starEffectsButton.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            starEffectsButton.topAnchor.constraint(equalTo: actionFeedbackButton.bottomAnchor, constant: 6),
+
             fileListSettingsLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            fileListSettingsLabel.topAnchor.constraint(equalTo: actionFeedbackButton.bottomAnchor, constant: 20),
+            fileListSettingsLabel.topAnchor.constraint(equalTo: starEffectsButton.bottomAnchor, constant: 20),
 
             fileIconSizeLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             fileIconSizeLabel.topAnchor.constraint(equalTo: fileListSettingsLabel.bottomAnchor, constant: 10),
@@ -311,6 +325,12 @@ final class AppearanceSettingsViewController: NSViewController {
     private func actionFeedbackChanged(_ sender: NSButton) {
         isActionFeedbackEnabled = sender.state == .on
         onActionFeedbackChanged?(isActionFeedbackEnabled)
+    }
+
+    @objc
+    private func starEffectsChanged(_ sender: NSButton) {
+        isStarEffectsEnabled = sender.state == .on
+        onStarEffectsChanged?(isStarEffectsEnabled)
     }
 
     @objc
