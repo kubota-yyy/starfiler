@@ -290,12 +290,20 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         mainSplitViewController.toggleSinglePane()
     }
 
+    func equalizePaneWidths() {
+        mainSplitViewController.equalizePaneWidths()
+    }
+
     func reloadBookmarksConfig() {
         mainSplitViewController.reloadBookmarksConfig()
     }
 
     func reloadKeybindings() {
         mainSplitViewController.reloadKeybindings()
+    }
+
+    func presentGoToPathPrompt() {
+        mainSplitViewController.presentGoToPathPrompt()
     }
 
     private func configureWindow() {

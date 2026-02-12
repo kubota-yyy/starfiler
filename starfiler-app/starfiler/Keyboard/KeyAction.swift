@@ -52,6 +52,7 @@ enum KeyAction: String, Codable, CaseIterable, Sendable {
     case toggleLeftPane
     case toggleRightPane
     case toggleSinglePane
+    case equalizePaneWidths
     case toggleMediaMode
     case toggleMediaRecursive
     case batchRename

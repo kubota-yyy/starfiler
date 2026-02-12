@@ -20,9 +20,10 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
     private let sectionHeaderHeight: CGFloat = 22
     private let entryRowHeight: CGFloat = 24
-    private let windowControlsHeight: CGFloat = 30
+    private let windowControlsHeight: CGFloat = 22
 
     var onNavigateRequested: ((URL) -> Void)?
+    var onNavigationFailed: ((String) -> Void)?
 
     init(viewModel: SidebarViewModel) {
         self.viewModel = viewModel
@@ -122,6 +123,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
+        scrollView.borderType = .noBorder
         scrollView.drawsBackground = true
     }
 
@@ -154,6 +156,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         recentScrollView.hasVerticalScroller = true
         recentScrollView.hasHorizontalScroller = false
         recentScrollView.autohidesScrollers = true
+        recentScrollView.borderType = .noBorder
         recentScrollView.drawsBackground = true
     }
 
@@ -185,11 +188,11 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
             recentSeparatorView.heightAnchor.constraint(equalToConstant: 1),
 
             recentHeaderLabel.topAnchor.constraint(equalTo: recentSeparatorView.bottomAnchor, constant: 4),
-            recentHeaderLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 2),
+            recentHeaderLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             recentHeaderLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -4),
 
             recentScrollView.topAnchor.constraint(equalTo: recentHeaderLabel.bottomAnchor, constant: 2),
-            recentScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            recentScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
             recentScrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             recentScrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             recentScrollViewHeightConstraint,
@@ -201,8 +204,9 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
             windowControlsContainer.topAnchor.constraint(equalTo: view.topAnchor),
             windowControlsHeightConstraint,
 
-            windowControlsStackView.leadingAnchor.constraint(equalTo: windowControlsContainer.leadingAnchor, constant: 12),
-            windowControlsStackView.centerYAnchor.constraint(equalTo: windowControlsContainer.centerYAnchor),
+            windowControlsStackView.leadingAnchor.constraint(equalTo: windowControlsContainer.leadingAnchor, constant: 14),
+            windowControlsStackView.topAnchor.constraint(equalTo: windowControlsContainer.topAnchor, constant: 6),
+            windowControlsStackView.bottomAnchor.constraint(lessThanOrEqualTo: windowControlsContainer.bottomAnchor, constant: -2),
 
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -291,6 +295,8 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         }
 
         guard let url = viewModel.urlForEntry(entry) else {
+            let resolvedPath = UserPaths.resolveBookmarkPath(entry.path)
+            onNavigationFailed?("Path not found:\n\(resolvedPath)")
             return
         }
 

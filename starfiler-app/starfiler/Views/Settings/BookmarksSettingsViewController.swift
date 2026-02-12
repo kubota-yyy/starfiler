@@ -35,7 +35,15 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         let entryIndex: Int
     }
 
+    private struct BookmarkIdentity: Hashable {
+        let groupName: String
+        let displayName: String
+        let path: String
+        let shortcutKey: String?
+    }
+
     private let configManager: ConfigManager
+    private let securityScopedBookmarkService: any SecurityScopedBookmarkProviding
 
     private let descriptionLabel = NSTextField(
         wrappingLabelWithString:
@@ -65,8 +73,12 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
     private var rows: [BookmarkRow] = []
     private weak var folderEditorPathField: NSTextField?
 
-    init(configManager: ConfigManager = ConfigManager()) {
+    init(
+        configManager: ConfigManager = ConfigManager(),
+        securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared
+    ) {
         self.configManager = configManager
+        self.securityScopedBookmarkService = securityScopedBookmarkService
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -134,6 +146,7 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         tableView.rowHeight = 24
         tableView.usesAlternatingRowBackgroundColors = true
         tableView.allowsColumnReordering = false
+        tableView.allowsMultipleSelection = true
         tableView.target = self
         tableView.doubleAction = #selector(editBookmark(_:))
 
@@ -278,8 +291,9 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
     }
 
     private func updateButtonState() {
-        let hasSelection = selectedRow != nil
-        editButton.isEnabled = hasSelection
+        let hasSelection = !selectedRows.isEmpty
+        let hasSingleSelection = selectedRows.count == 1
+        editButton.isEnabled = hasSingleSelection
         deleteButton.isEnabled = hasSelection
         moveUpButton.isEnabled = canMoveSelectedBookmarkUp
         moveDownButton.isEnabled = canMoveSelectedBookmarkDown
@@ -294,11 +308,23 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
     }
 
     private var selectedRow: BookmarkRow? {
+        guard selectedRows.count == 1 else {
+            return nil
+        }
         let row = tableView.selectedRow
         guard row >= 0, rows.indices.contains(row) else {
             return nil
         }
         return rows[row]
+    }
+
+    private var selectedRows: [BookmarkRow] {
+        tableView.selectedRowIndexes.compactMap { rowIndex in
+            guard rows.indices.contains(rowIndex) else {
+                return nil
+            }
+            return rows[rowIndex]
+        }
     }
 
     private var canMoveSelectedBookmarkUp: Bool {
@@ -496,14 +522,20 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
 
     @objc
     private func deleteBookmark(_ sender: Any?) {
-        guard let selectedRow else {
+        let selectedBookmarks = selectedRows
+        guard !selectedBookmarks.isEmpty else {
             return
         }
 
+        let selectionCount = selectedBookmarks.count
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "Delete Folder Bookmark"
-        alert.informativeText = "Delete \"\(selectedRow.displayName)\" from group \"\(selectedRow.groupName)\"?"
+        alert.messageText = selectionCount == 1 ? "Delete Folder Bookmark" : "Delete Folder Bookmarks"
+        if selectionCount == 1, let selectedRow = selectedBookmarks.first {
+            alert.informativeText = "Delete \"\(selectedRow.displayName)\" from group \"\(selectedRow.groupName)\"?"
+        } else {
+            alert.informativeText = "Delete \(selectionCount) selected bookmarks?"
+        }
         alert.addButton(withTitle: "Delete")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else {
@@ -511,12 +543,28 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         }
 
         var groups = bookmarksConfig.groups
-        guard let groupIndex = groups.firstIndex(where: { $0.name == selectedRow.groupName }) else {
-            return
-        }
-
-        groups[groupIndex].entries.removeAll { entry in
-            entry.path == selectedRow.path && entry.displayName == selectedRow.displayName
+        let selectedKeys = Set(
+            selectedBookmarks.map { row in
+                BookmarkIdentity(
+                    groupName: row.groupName,
+                    displayName: row.displayName,
+                    path: row.path,
+                    shortcutKey: row.shortcutKey
+                )
+            }
+        )
+        for groupIndex in groups.indices {
+            let groupName = groups[groupIndex].name
+            groups[groupIndex].entries.removeAll { entry in
+                selectedKeys.contains(
+                    BookmarkIdentity(
+                        groupName: groupName,
+                        displayName: entry.displayName,
+                        path: entry.path,
+                        shortcutKey: entry.shortcutKey
+                    )
+                )
+            }
         }
 
         persist(BookmarksConfig(groups: groups))
@@ -867,6 +915,7 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         }
 
         persist(BookmarksConfig(groups: groups))
+        persistSecurityScopedBookmark(for: result.path)
     }
 
     private func hasGroup(named name: String, in groups: [BookmarkGroup], excludingIndex: Int? = nil) -> Bool {
@@ -905,6 +954,36 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
             alert.informativeText = error.localizedDescription
             alert.addButton(withTitle: "OK")
             alert.runModal()
+        }
+    }
+
+    private func persistSecurityScopedBookmark(for path: String) {
+        let normalizedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedPath.isEmpty else {
+            return
+        }
+
+        let url = URL(fileURLWithPath: normalizedPath, isDirectory: true).standardizedFileURL
+        Task { [weak self] in
+            guard let self else {
+                return
+            }
+
+            do {
+                try await self.securityScopedBookmarkService.saveBookmark(for: url)
+            } catch {
+                await MainActor.run {
+                    let alert = NSAlert()
+                    alert.alertStyle = .warning
+                    alert.messageText = "Bookmark saved without access permission"
+                    alert.informativeText =
+                        "Path: \(url.path)\n\n" +
+                        "Open the folder once via Browse and save again to grant sandbox access.\n\n" +
+                        error.localizedDescription
+                    alert.addButton(withTitle: "OK")
+                    alert.runModal()
+                }
+            }
         }
     }
 

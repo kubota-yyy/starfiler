@@ -34,6 +34,7 @@ final class FilePaneViewModel {
     var onCursorChanged: ((Int) -> Void)?
     var onMarkedIndicesChanged: ((IndexSet) -> Void)?
     var onDirectoryChanged: ((URL) -> Void)?
+    var onDirectoryLoadFailed: ((URL, Error) -> Void)?
     var onDisplayModeChanged: ((PaneDisplayMode) -> Void)?
     var onMediaRecursiveChanged: ((Bool) -> Void)?
 
@@ -48,6 +49,9 @@ final class FilePaneViewModel {
     private(set) var displayMode: PaneDisplayMode
     private(set) var mediaRecursiveEnabled: Bool
     private var pendingRevealURL: URL?
+    private var hasActiveFilter: Bool {
+        !directoryContents.filterText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     init(
         fileSystemService: FileSystemProviding = FileSystemService(),
@@ -301,6 +305,12 @@ final class FilePaneViewModel {
     func setCursor(index: Int) {
         guard !directoryContents.displayedItems.isEmpty else {
             paneState.cursorIndex = 0
+            return
+        }
+
+        if hasActiveFilter {
+            paneState.cursorIndex = 0
+            updateVisualSelectionForCurrentCursorIfNeeded()
             return
         }
 
@@ -622,6 +632,8 @@ final class FilePaneViewModel {
                 self.startMonitoringCurrentDirectory(directory)
                 self.onDirectoryChanged?(directory)
             } catch {
+                let isCancellation = error is CancellationError
+
                 if didAcquireDestinationScope {
                     await self.securityScopedBookmarkService.stopAccessing(directory)
                 }
@@ -629,6 +641,12 @@ final class FilePaneViewModel {
                 if let previousDirectory {
                     self.startMonitoringCurrentDirectory(previousDirectory)
                 }
+
+                if isCancellation {
+                    return
+                }
+
+                self.onDirectoryLoadFailed?(directory, error)
             }
         }
     }
@@ -662,6 +680,12 @@ final class FilePaneViewModel {
             paneState.cursorIndex = 0
             return
         }
+
+        if hasActiveFilter {
+            paneState.cursorIndex = 0
+            return
+        }
+
         if paneState.cursorIndex >= count {
             paneState.cursorIndex = count - 1
         }

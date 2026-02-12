@@ -95,7 +95,153 @@ private final class ActionToastPresenter {
     }
 }
 
-final class MainSplitViewController: NSSplitViewController {
+private final class BorderlessSplitView: NSSplitView {
+    override var dividerThickness: CGFloat {
+        1
+    }
+
+    override var dividerColor: NSColor {
+        NSColor.separatorColor.withAlphaComponent(0.72)
+    }
+
+    override func drawDivider(in rect: NSRect) {
+        dividerColor.setFill()
+        NSBezierPath(rect: rect.integral).fill()
+    }
+}
+
+private final class PaneHighlightOverlayView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
+    }
+}
+
+private final class GoToPathPopoverViewController: NSViewController, NSTextFieldDelegate {
+    private let accentColor: NSColor
+    private let onSubmit: (String) -> Void
+    private let onCancel: () -> Void
+
+    private let iconView = NSImageView()
+    private let titleLabel = NSTextField(labelWithString: "")
+    private let pathField = NSTextField(string: "")
+    private let hintLabel = NSTextField(labelWithString: "Enter: Go   Esc: Cancel")
+    private let errorLabel = NSTextField(labelWithString: "")
+
+    init(
+        currentPath: String,
+        accentColor: NSColor,
+        onSubmit: @escaping (String) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self.accentColor = accentColor
+        self.onSubmit = onSubmit
+        self.onCancel = onCancel
+        super.init(nibName: nil, bundle: nil)
+
+        titleLabel.stringValue = "Go to File or Folder"
+        pathField.placeholderString = currentPath
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func loadView() {
+        let rootView = NSView(frame: NSRect(x: 0, y: 0, width: 430, height: 112))
+        rootView.translatesAutoresizingMaskIntoConstraints = false
+
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        iconView.image = NSImage(systemSymbolName: "scope", accessibilityDescription: nil)
+        iconView.contentTintColor = accentColor
+
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.font = .systemFont(ofSize: 12, weight: .semibold)
+        titleLabel.textColor = accentColor
+
+        pathField.translatesAutoresizingMaskIntoConstraints = false
+        pathField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+        pathField.delegate = self
+        pathField.focusRingType = .default
+
+        hintLabel.translatesAutoresizingMaskIntoConstraints = false
+        hintLabel.font = .systemFont(ofSize: 11, weight: .regular)
+        hintLabel.textColor = .secondaryLabelColor
+
+        errorLabel.translatesAutoresizingMaskIntoConstraints = false
+        errorLabel.font = .systemFont(ofSize: 11, weight: .medium)
+        errorLabel.textColor = .systemRed
+        errorLabel.isHidden = true
+
+        rootView.addSubview(iconView)
+        rootView.addSubview(titleLabel)
+        rootView.addSubview(pathField)
+        rootView.addSubview(hintLabel)
+        rootView.addSubview(errorLabel)
+
+        NSLayoutConstraint.activate([
+            iconView.leadingAnchor.constraint(equalTo: rootView.leadingAnchor, constant: 12),
+            iconView.topAnchor.constraint(equalTo: rootView.topAnchor, constant: 12),
+            iconView.widthAnchor.constraint(equalToConstant: 14),
+            iconView.heightAnchor.constraint(equalToConstant: 14),
+
+            titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 6),
+            titleLabel.centerYAnchor.constraint(equalTo: iconView.centerYAnchor),
+            titleLabel.trailingAnchor.constraint(equalTo: rootView.trailingAnchor, constant: -12),
+
+            pathField.leadingAnchor.constraint(equalTo: rootView.leadingAnchor, constant: 12),
+            pathField.trailingAnchor.constraint(equalTo: rootView.trailingAnchor, constant: -12),
+            pathField.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
+
+            hintLabel.leadingAnchor.constraint(equalTo: rootView.leadingAnchor, constant: 12),
+            hintLabel.topAnchor.constraint(equalTo: pathField.bottomAnchor, constant: 8),
+
+            errorLabel.leadingAnchor.constraint(equalTo: hintLabel.trailingAnchor, constant: 12),
+            errorLabel.centerYAnchor.constraint(equalTo: hintLabel.centerYAnchor),
+            errorLabel.trailingAnchor.constraint(lessThanOrEqualTo: rootView.trailingAnchor, constant: -12)
+        ])
+
+        view = rootView
+    }
+
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        focusInputField()
+    }
+
+    func focusInputField() {
+        view.window?.makeFirstResponder(pathField)
+        pathField.selectText(nil)
+    }
+
+    func showValidationError(_ message: String) {
+        errorLabel.stringValue = message
+        errorLabel.isHidden = false
+        NSSound.beep()
+        focusInputField()
+    }
+
+    func controlTextDidChange(_ obj: Notification) {
+        if !errorLabel.isHidden {
+            errorLabel.isHidden = true
+        }
+    }
+
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+            onSubmit(pathField.stringValue)
+            return true
+        }
+
+        if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+            onCancel()
+            return true
+        }
+
+        return false
+    }
+}
+
+final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     private static let defaultSidebarWidth = CGFloat(260)
     private static let defaultPreviewWidth = CGFloat(320)
     private static let sidebarWidthRange: ClosedRange<CGFloat> = CGFloat(AppConfig.sidebarWidthRange.lowerBound) ... CGFloat(AppConfig.sidebarWidthRange.upperBound)
@@ -133,6 +279,9 @@ final class MainSplitViewController: NSSplitViewController {
     private var lastReportedSidebarWidth: CGFloat
     private var lastReportedPreviewWidth: CGFloat
     private let toastPresenter = ActionToastPresenter()
+    private var goToPathPopover: NSPopover?
+    private weak var goToPathHighlightView: NSView?
+    private var shouldRefocusAfterGoToPathDismiss = true
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
     var onSpotlightSearchScopeChanged: ((SpotlightSearchScope) -> Void)?
@@ -162,7 +311,7 @@ final class MainSplitViewController: NSSplitViewController {
             visitHistoryService: viewModel.visitHistoryService
         )
         self.sidebarViewController = SidebarViewController(viewModel: sidebarViewModel)
-        self.sidebarSplitItem = NSSplitViewItem(sidebarWithViewController: sidebarViewController)
+        self.sidebarSplitItem = NSSplitViewItem(viewController: sidebarViewController)
 
         self.leftPaneViewController = FilePaneViewController(viewModel: viewModel.leftPane)
         self.rightPaneViewController = FilePaneViewController(viewModel: viewModel.rightPane)
@@ -184,12 +333,19 @@ final class MainSplitViewController: NSSplitViewController {
         )
 
         super.init(nibName: nil, bundle: nil)
+        splitView = BorderlessSplitView()
 
         viewModel.requestTextInput = { [weak self] prompt in
             self?.presentTextPrompt(prompt)
         }
         viewModel.onFileOperationCompleted = { [weak self] record, context in
             self?.handleFileOperationCompleted(record, context: context)
+        }
+        viewModel.onFileOperationFailed = { [weak self] message in
+            self?.presentErrorAlert(
+                title: "File operation failed",
+                informativeText: message
+            )
         }
 
         configureSplitView()
@@ -263,6 +419,36 @@ final class MainSplitViewController: NSSplitViewController {
         applyPaneVisibility(leftVisible: true, rightVisible: true, animated: true)
     }
 
+    func equalizePaneWidths() {
+        guard !leftSplitItem.isCollapsed, !rightSplitItem.isCollapsed else {
+            return
+        }
+
+        view.layoutSubtreeIfNeeded()
+        let arrangedSubviews = splitView.arrangedSubviews
+        guard let leftIndex = arrangedSubviewIndex(for: leftPaneViewController.view, in: arrangedSubviews),
+              let rightIndex = arrangedSubviewIndex(for: rightPaneViewController.view, in: arrangedSubviews),
+              rightIndex == leftIndex + 1 else {
+            return
+        }
+
+        let leftMinX = arrangedSubviews[leftIndex].frame.minX
+        let rightMaxX = arrangedSubviews[rightIndex].frame.maxX
+        let availableWidth = rightMaxX - leftMinX - splitView.dividerThickness
+        guard availableWidth > 0 else {
+            return
+        }
+
+        let targetDividerPosition = leftMinX + (availableWidth / 2)
+        splitView.setPosition(targetDividerPosition, ofDividerAt: leftIndex)
+    }
+
+    private func arrangedSubviewIndex(for paneView: NSView, in arrangedSubviews: [NSView]) -> Int? {
+        arrangedSubviews.firstIndex { arrangedSubview in
+            paneView === arrangedSubview || paneView.isDescendant(of: arrangedSubview)
+        }
+    }
+
     func setFilerTheme(_ theme: FilerTheme, backgroundOpacity: CGFloat = 1.0) {
         let palette = theme.palette
         splitView.wantsLayer = true
@@ -288,6 +474,115 @@ final class MainSplitViewController: NSSplitViewController {
     func reloadKeybindings() {
         leftPaneViewController.reloadKeybindings()
         rightPaneViewController.reloadKeybindings()
+    }
+
+    func presentGoToPathPrompt() {
+        let activePaneSide = viewModel.activePaneSide
+        let currentPath = viewModel.activePane.paneState.currentDirectory.path
+        let paneView = paneViewController(for: activePaneSide).view
+        let accentColor = goToPathAccentColor(for: activePaneSide)
+
+        dismissGoToPathPopover(refocusActivePane: false)
+
+        var popoverContentController: GoToPathPopoverViewController?
+        let contentController = GoToPathPopoverViewController(
+            currentPath: currentPath,
+            accentColor: accentColor,
+            onSubmit: { [weak self] rawInput in
+                guard let self else {
+                    return
+                }
+
+                let trimmedInput = rawInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmedInput.isEmpty else {
+                    popoverContentController?.showValidationError("Enter a path")
+                    return
+                }
+
+                guard let destination = self.resolveNavigationDestination(from: trimmedInput) else {
+                    popoverContentController?.showValidationError("Path not found")
+                    return
+                }
+
+                self.dismissGoToPathPopover(refocusActivePane: true)
+                self.navigateActivePane(to: destination)
+            },
+            onCancel: { [weak self] in
+                self?.dismissGoToPathPopover(refocusActivePane: true)
+            }
+        )
+        popoverContentController = contentController
+
+        let popover = NSPopover()
+        popover.behavior = .semitransient
+        popover.animates = true
+        popover.delegate = self
+        popover.contentViewController = contentController
+
+        showGoToPathHighlight(on: paneView, accentColor: accentColor)
+
+        let anchorRect = NSRect(x: paneView.bounds.midX - 1, y: paneView.bounds.height - 28, width: 2, height: 2)
+        popover.show(relativeTo: anchorRect, of: paneView, preferredEdge: .minY)
+        contentController.focusInputField()
+        goToPathPopover = popover
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        clearGoToPathPresentation(refocusActivePane: shouldRefocusAfterGoToPathDismiss)
+        shouldRefocusAfterGoToPathDismiss = true
+    }
+
+    private func dismissGoToPathPopover(refocusActivePane: Bool) {
+        shouldRefocusAfterGoToPathDismiss = refocusActivePane
+
+        guard let popover = goToPathPopover else {
+            clearGoToPathPresentation(refocusActivePane: refocusActivePane)
+            return
+        }
+
+        popover.performClose(nil)
+    }
+
+    private func clearGoToPathPresentation(refocusActivePane: Bool) {
+        goToPathPopover?.delegate = nil
+        goToPathPopover = nil
+        goToPathHighlightView?.removeFromSuperview()
+        goToPathHighlightView = nil
+
+        if refocusActivePane {
+            focusActivePane()
+        }
+    }
+
+    private func goToPathAccentColor(for side: PaneSide) -> NSColor {
+        switch side {
+        case .left:
+            return .systemBlue
+        case .right:
+            return .systemOrange
+        }
+    }
+
+    private func showGoToPathHighlight(on paneView: NSView, accentColor: NSColor) {
+        goToPathHighlightView?.removeFromSuperview()
+
+        let overlay = PaneHighlightOverlayView()
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        overlay.wantsLayer = true
+        overlay.layer?.borderWidth = 3
+        overlay.layer?.cornerRadius = 8
+        overlay.layer?.borderColor = accentColor.withAlphaComponent(0.85).cgColor
+        overlay.layer?.backgroundColor = accentColor.withAlphaComponent(0.08).cgColor
+
+        paneView.addSubview(overlay)
+        NSLayoutConstraint.activate([
+            overlay.leadingAnchor.constraint(equalTo: paneView.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: paneView.trailingAnchor),
+            overlay.topAnchor.constraint(equalTo: paneView.topAnchor),
+            overlay.bottomAnchor.constraint(equalTo: paneView.bottomAnchor)
+        ])
+
+        goToPathHighlightView = overlay
     }
 
     func embedWindowControlButtons(_ buttons: [NSButton]) {
@@ -403,6 +698,13 @@ final class MainSplitViewController: NSSplitViewController {
             ))
         }
 
+        leftPaneViewController.onDirectoryLoadFailed = { [weak self] directory, error in
+            self?.presentNavigationErrorAlert(for: directory, error: error)
+        }
+        rightPaneViewController.onDirectoryLoadFailed = { [weak self] directory, error in
+            self?.presentNavigationErrorAlert(for: directory, error: error)
+        }
+
         leftPaneViewController.onDropOperationCompleted = { [weak self] operation, itemCount in
             self?.handleDropOperationCompleted(operation: operation, itemCount: itemCount)
         }
@@ -428,7 +730,13 @@ final class MainSplitViewController: NSSplitViewController {
 
     private func bindSidebar() {
         sidebarViewController.onNavigateRequested = { [weak self] url in
-            self?.viewModel.activePane.navigate(to: url)
+            self?.navigateActivePane(to: url)
+        }
+        sidebarViewController.onNavigationFailed = { [weak self] message in
+            self?.presentErrorAlert(
+                title: "Failed to open path",
+                informativeText: message
+            )
         }
     }
 
@@ -484,6 +792,9 @@ final class MainSplitViewController: NSSplitViewController {
             return true
         case .toggleSinglePane:
             toggleSinglePane()
+            return true
+        case .equalizePaneWidths:
+            equalizePaneWidths()
             return true
         case .openBookmarkSearch:
             presentBookmarkSearchPanel()
@@ -860,15 +1171,10 @@ final class MainSplitViewController: NSSplitViewController {
     }
 
     private func navigateToSearchResult(_ result: BookmarkSearchViewModel.SearchResult) {
-        let path = result.path
+        let path = UserPaths.resolveBookmarkPath(result.path)
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) else {
-            let alert = NSAlert()
-            alert.alertStyle = .warning
-            alert.messageText = "Path not found"
-            alert.informativeText = path
-            alert.addButton(withTitle: "OK")
-            alert.runModal()
+            presentPathNotFoundAlert(path: path)
             return
         }
 
@@ -877,7 +1183,164 @@ final class MainSplitViewController: NSSplitViewController {
             ? url
             : url.deletingLastPathComponent().standardizedFileURL
 
-        viewModel.activePane.navigate(to: destination)
+        navigateActivePane(to: destination)
+    }
+
+    private func resolveNavigationDestination(from rawInput: String) -> URL? {
+        let sanitizedInput = stripSurroundingQuotes(from: rawInput.trimmingCharacters(in: .whitespacesAndNewlines))
+        guard !sanitizedInput.isEmpty else {
+            return nil
+        }
+
+        let expandedPath = (sanitizedInput as NSString).expandingTildeInPath
+        let currentDirectory = viewModel.activePane.paneState.currentDirectory
+        let rawURL: URL
+        if expandedPath.hasPrefix("/") {
+            rawURL = URL(fileURLWithPath: expandedPath)
+        } else {
+            rawURL = URL(fileURLWithPath: expandedPath, relativeTo: currentDirectory)
+        }
+
+        let normalizedURL = rawURL.standardizedFileURL
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: normalizedURL.path, isDirectory: &isDirectory) else {
+            return nil
+        }
+
+        if isDirectory.boolValue {
+            return normalizedURL
+        }
+
+        return normalizedURL.deletingLastPathComponent().standardizedFileURL
+    }
+
+    private func stripSurroundingQuotes(from value: String) -> String {
+        guard value.count >= 2 else {
+            return value
+        }
+
+        if (value.hasPrefix("\"") && value.hasSuffix("\"")) || (value.hasPrefix("'") && value.hasSuffix("'")) {
+            return String(value.dropFirst().dropLast())
+        }
+
+        return value
+    }
+
+    private func navigateActivePane(to destination: URL) {
+        let normalizedDestination = destination.standardizedFileURL
+        Task { [weak self] in
+            guard let self else {
+                return
+            }
+
+            do {
+                try await self.viewModel.securityScopedBookmarkService.startAccessing(normalizedDestination)
+                await self.viewModel.securityScopedBookmarkService.stopAccessing(normalizedDestination)
+                await MainActor.run {
+                    self.viewModel.activePane.navigate(to: normalizedDestination)
+                }
+            } catch let bookmarkError as SecurityScopedBookmarkError {
+                switch bookmarkError {
+                case .bookmarkNotFound:
+                    await MainActor.run {
+                        self.presentAccessGrantPrompt(for: normalizedDestination)
+                    }
+                default:
+                    await MainActor.run {
+                        self.presentNavigationErrorAlert(for: normalizedDestination, error: bookmarkError)
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.presentNavigationErrorAlert(for: normalizedDestination, error: error)
+                }
+            }
+        }
+    }
+
+    private func presentPathNotFoundAlert(path: String) {
+        presentErrorAlert(title: "Path not found", informativeText: path)
+    }
+
+    private func presentAccessGrantPrompt(for destination: URL) {
+        let panel = NSOpenPanel()
+        panel.title = "Grant Folder Access"
+        panel.message = "Select the bookmark folder (or one of its parent folders) to allow navigation."
+        panel.prompt = "Grant Access"
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.directoryURL = destination
+
+        guard panel.runModal() == .OK, let selectedURL = panel.url?.standardizedFileURL else {
+            return
+        }
+
+        guard isSameOrDescendant(destination, of: selectedURL) else {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "Selected folder does not contain bookmark"
+            alert.informativeText = "Choose \(destination.path) or one of its parent folders."
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+            return
+        }
+
+        Task { [weak self] in
+            guard let self else {
+                return
+            }
+
+            do {
+                try await self.viewModel.securityScopedBookmarkService.saveBookmark(for: selectedURL)
+                await MainActor.run {
+                    self.viewModel.activePane.navigate(to: destination)
+                }
+            } catch {
+                await MainActor.run {
+                    self.presentNavigationErrorAlert(for: selectedURL, error: error)
+                }
+            }
+        }
+    }
+
+    private func presentNavigationErrorAlert(for destination: URL, error: Error) {
+        presentErrorAlert(
+            title: "Failed to open path",
+            informativeText: "\(destination.path)\n\n\(error.localizedDescription)"
+        )
+    }
+
+    private func presentBookmarkPermissionSaveError(for destination: URL, error: Error) {
+        presentErrorAlert(
+            title: "Bookmark saved without access permission",
+            informativeText:
+                "\(destination.path)\n\n" +
+                "You can keep this bookmark, but navigation may fail until access is granted.\n\n" +
+                error.localizedDescription
+        )
+    }
+
+    private func presentErrorAlert(title: String, informativeText: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = title
+        alert.informativeText = informativeText
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    private func isSameOrDescendant(_ child: URL, of parent: URL) -> Bool {
+        let childPath = child.standardizedFileURL.resolvingSymlinksInPath().path
+        let parentPath = parent.standardizedFileURL.resolvingSymlinksInPath().path
+
+        if childPath == parentPath {
+            return true
+        }
+
+        let normalizedParent = parentPath == "/" ? "/" : parentPath + "/"
+        return childPath.hasPrefix(normalizedParent)
     }
 
     private func presentAddBookmarkAlert() {
@@ -983,6 +1446,19 @@ final class MainSplitViewController: NSSplitViewController {
 
         do {
             try configManager.saveBookmarksConfig(bookmarksConfig)
+            let bookmarkURL = URL(fileURLWithPath: entry.path, isDirectory: true).standardizedFileURL
+            Task { [weak self] in
+                guard let self else {
+                    return
+                }
+                do {
+                    try await self.viewModel.securityScopedBookmarkService.saveBookmark(for: bookmarkURL)
+                } catch {
+                    await MainActor.run {
+                        self.presentBookmarkPermissionSaveError(for: bookmarkURL, error: error)
+                    }
+                }
+            }
             sidebarViewController.reloadData()
             propagateBookmarksConfig()
             showActionToast("Saved bookmark \"\(entry.displayName)\"")

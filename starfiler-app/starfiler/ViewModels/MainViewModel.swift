@@ -37,6 +37,7 @@ final class MainViewModel {
     var requestTextInput: ((TextInputPrompt) -> String?)?
     var lastOperationError: String?
     var onFileOperationCompleted: ((FileOperationRecord, FileOperationCompletionContext) -> Void)?
+    var onFileOperationFailed: ((String) -> Void)?
 
     init(
         fileSystemService: FileSystemProviding = FileSystemService(),
@@ -91,6 +92,7 @@ final class MainViewModel {
         self.requestTextInput = nil
         self.lastOperationError = nil
         self.onFileOperationCompleted = nil
+        self.onFileOperationFailed = nil
 
         leftPane.setShowHiddenFiles(initialShowHiddenFiles)
         rightPane.setShowHiddenFiles(initialShowHiddenFiles)
@@ -352,6 +354,7 @@ final class MainViewModel {
                 onFileOperationCompleted?(record, completionContext)
             case .failed(let error):
                 lastOperationError = error.message
+                onFileOperationFailed?(error.message)
             }
         }
     }

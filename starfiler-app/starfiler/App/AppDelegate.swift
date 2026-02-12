@@ -47,11 +47,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
             let hasBookmarks = try await securityScopedBookmarkService.hasBookmarks()
             if !hasBookmarks {
-                guard let selectedHomeDirectory = requestHomeDirectoryAccess() else {
+                guard let selectedStartupDisk = requestStartupDiskAccess() else {
                     NSApp.terminate(nil)
                     return
                 }
-                try await securityScopedBookmarkService.saveBookmark(for: selectedHomeDirectory)
+                try await securityScopedBookmarkService.saveBookmark(for: selectedStartupDisk)
             }
 
             let controller = MainWindowController(securityScopedBookmarkService: securityScopedBookmarkService)
@@ -66,16 +66,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor
-    private func requestHomeDirectoryAccess() -> URL? {
-        let homeURL = UserPaths.homeDirectoryURL
+    private func requestStartupDiskAccess() -> URL? {
+        let startupDiskURL = URL(fileURLWithPath: "/", isDirectory: true).standardizedFileURL
         let panel = NSOpenPanel()
-        panel.directoryURL = homeURL
+        panel.directoryURL = startupDiskURL
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
         panel.canCreateDirectories = false
         panel.prompt = "Grant Access"
-        panel.message = "starfiler requires directory access. Select your home directory (\(homeURL.path)) or another working directory."
+        panel.message = "starfiler requires directory access. Select the startup disk (Macintosh HD) to reduce future permission prompts."
 
         guard panel.runModal() == .OK, let selectedURL = panel.url?.standardizedFileURL else {
             return nil
@@ -163,7 +163,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fileMenu.addItem(withTitle: "New Folder", action: #selector(menuCreateDirectory(_:)), keyEquivalent: "n")
         fileMenu.addItem(NSMenuItem.separator())
         fileMenu.addItem(withTitle: "Open", action: #selector(menuOpenFile(_:)), keyEquivalent: "\r")
-        fileMenu.addItem(withTitle: "Reveal in Finder", action: #selector(menuRevealInFinder(_:)), keyEquivalent: "")
+        let showInFinderItem = fileMenu.addItem(withTitle: "Show in Finder", action: #selector(menuRevealInFinder(_:)), keyEquivalent: "f")
+        showInFinderItem.keyEquivalentModifierMask = [.command, .shift]
         fileMenu.addItem(NSMenuItem.separator())
         fileMenu.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         fileMenuItem.submenu = fileMenu
@@ -176,7 +177,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editMenu.addItem(NSMenuItem.separator())
         editMenu.addItem(withTitle: "Copy", action: #selector(menuCopy(_:)), keyEquivalent: "c")
         let copyItemPathItem = editMenu.addItem(withTitle: "Copy File/Folder Path", action: #selector(menuCopySelectedItemPath(_:)), keyEquivalent: "c")
-        copyItemPathItem.keyEquivalentModifierMask = [.command, .option]
+        copyItemPathItem.keyEquivalentModifierMask = [.command, .shift]
         editMenu.addItem(withTitle: "Paste", action: #selector(menuPaste(_:)), keyEquivalent: "v")
         editMenu.addItem(NSMenuItem.separator())
         editMenu.addItem(withTitle: "Move to Trash", action: #selector(menuDelete(_:)), keyEquivalent: "\u{08}")
@@ -203,6 +204,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         toggleRightPaneItem.keyEquivalentModifierMask = [.control]
         let toggleSinglePaneItem = viewMenu.addItem(withTitle: "Toggle Single Pane", action: #selector(menuToggleSinglePane(_:)), keyEquivalent: "3")
         toggleSinglePaneItem.keyEquivalentModifierMask = [.control]
+        let equalizePaneWidthsItem = viewMenu.addItem(withTitle: "Equalize Pane Widths", action: #selector(menuEqualizePaneWidths(_:)), keyEquivalent: "4")
+        equalizePaneWidthsItem.keyEquivalentModifierMask = [.control]
         let toggleMediaModeItem = viewMenu.addItem(withTitle: "Toggle Media Mode", action: #selector(menuToggleMediaMode(_:)), keyEquivalent: "m")
         toggleMediaModeItem.keyEquivalentModifierMask = [.control]
         let toggleMediaRecursiveItem = viewMenu.addItem(withTitle: "Toggle Media Recursive", action: #selector(menuToggleMediaRecursive(_:)), keyEquivalent: "m")
@@ -225,6 +228,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         goMenu.addItem(withTitle: "Back", action: #selector(menuGoBack(_:)), keyEquivalent: "[")
         goMenu.addItem(withTitle: "Forward", action: #selector(menuGoForward(_:)), keyEquivalent: "]")
         goMenu.addItem(withTitle: "Enclosing Folder", action: #selector(menuGoToParent(_:)), keyEquivalent: "\u{1B}")
+        let goToFolderItem = goMenu.addItem(withTitle: "Go to File or Folder...", action: #selector(menuGoToPath(_:)), keyEquivalent: "g")
+        goToFolderItem.keyEquivalentModifierMask = [.command, .shift]
         goMenu.addItem(NSMenuItem.separator())
         let homeItem = goMenu.addItem(withTitle: "Home", action: #selector(menuGoHome(_:)), keyEquivalent: "h")
         homeItem.keyEquivalentModifierMask = [.command, .shift]
@@ -233,7 +238,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let documentsItem = goMenu.addItem(withTitle: "Documents", action: #selector(menuGoDocuments(_:)), keyEquivalent: "o")
         documentsItem.keyEquivalentModifierMask = [.command, .shift]
         let downloadsItem = goMenu.addItem(withTitle: "Downloads", action: #selector(menuGoDownloads(_:)), keyEquivalent: "l")
-        downloadsItem.keyEquivalentModifierMask = [.command, .option]
+        downloadsItem.keyEquivalentModifierMask = [.command, .shift]
         let applicationsItem = goMenu.addItem(withTitle: "Applications", action: #selector(menuGoApplications(_:)), keyEquivalent: "a")
         applicationsItem.keyEquivalentModifierMask = [.command, .shift]
         goMenuItem.submenu = goMenu
@@ -263,9 +268,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func menuRevealInFinder(_ sender: Any?) {
         mainWindowController?.performAction { vm in
-            if let url = vm.activePane.selectedItem?.url {
-                NSWorkspace.shared.activateFileViewerSelecting([url])
+            guard let url = vm.activePane.selectedItem?.url.standardizedFileURL else {
+                NSSound.beep()
+                return
             }
+            NSWorkspace.shared.activateFileViewerSelecting([url])
         }
     }
 
@@ -330,6 +337,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainWindowController?.toggleSinglePane()
     }
 
+    @objc private func menuEqualizePaneWidths(_ sender: Any?) {
+        mainWindowController?.equalizePaneWidths()
+    }
+
     @objc private func menuToggleMediaMode(_ sender: Any?) {
         mainWindowController?.performAction { $0.activePane.toggleDisplayMode() }
     }
@@ -356,6 +367,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func menuGoToParent(_ sender: Any?) {
         mainWindowController?.performAction { $0.activePane.goToParent() }
+    }
+
+    @objc private func menuGoToPath(_ sender: Any?) {
+        mainWindowController?.presentGoToPathPrompt()
     }
 
     @objc private func menuGoHome(_ sender: Any?) {
@@ -480,7 +495,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.mainWindowController?.reloadKeybindings()
         }
 
-        let bookmarksVC = BookmarksSettingsViewController()
+        let bookmarksVC = BookmarksSettingsViewController(
+            securityScopedBookmarkService: securityScopedBookmarkService
+        )
         bookmarksVC.onBookmarksChanged = { [weak self] in
             self?.mainWindowController?.reloadBookmarksConfig()
         }

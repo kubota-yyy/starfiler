@@ -176,6 +176,7 @@ protocol MediaKeyActionDelegate: AnyObject {
 final class MediaCollectionView: NSCollectionView {
     weak var keyActionDelegate: MediaKeyActionDelegate?
     var didBecomeFirstResponderHandler: (() -> Void)?
+    var inlineFilterKeyHandler: ((NSEvent) -> Bool)?
     var dragSourceHandler: FileDragSource?
     var dragURLsProvider: (() -> [URL])?
     private var keyInterpreter = KeyInterpreter()
@@ -192,6 +193,11 @@ final class MediaCollectionView: NSCollectionView {
 
         guard let keyEvent = event.keyEvent else {
             super.keyDown(with: event)
+            return
+        }
+
+        if inlineFilterKeyHandler?(event) == true {
+            keyInterpreter.clearPendingSequence()
             return
         }
 
@@ -446,6 +452,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     var onBookmarkJump: ((String) -> Void)?
     var onDropOperationCompleted: ((NSDragOperation, Int) -> Void)?
     var onSpotlightSearchScopeChanged: ((SpotlightSearchScope) -> Void)?
+    var onDirectoryLoadFailed: ((URL, Error) -> Void)?
 
     init(viewModel: FilePaneViewModel) {
         self.viewModel = viewModel
@@ -750,6 +757,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         tableView.intercellSpacing = NSSize(width: 8, height: 0)
         tableView.keyActionDelegate = self
         tableView.setVimMode(vimModeState.mode)
+        tableView.inlineFilterKeyHandler = { [weak self] event in
+            self?.handleInlineFilteringKeyDown(event) ?? false
+        }
         tableView.target = self
         tableView.doubleAction = #selector(handleDoubleClick(_:))
         tableView.backgroundColor = filerTheme.palette.tableBackgroundColor
@@ -802,6 +812,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         mediaCollectionView.register(MediaCollectionItem.self, forItemWithIdentifier: MediaCollectionItem.identifier)
         mediaCollectionView.keyActionDelegate = self
         mediaCollectionView.setVimMode(vimModeState.mode)
+        mediaCollectionView.inlineFilterKeyHandler = { [weak self] event in
+            self?.handleInlineFilteringKeyDown(event) ?? false
+        }
         mediaCollectionView.didBecomeFirstResponderHandler = { [weak self] in
             self?.onDidRequestActivate?()
         }
@@ -961,6 +974,10 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         viewModel.onMediaRecursiveChanged = { [weak self] _ in
             self?.updateDisplayModeControls()
+        }
+
+        viewModel.onDirectoryLoadFailed = { [weak self] directory, error in
+            self?.onDirectoryLoadFailed?(directory, error)
         }
 
         publishStatus()
@@ -1249,6 +1266,75 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         onTabPressed?() ?? false
     }
 
+    private func handleInlineFilteringKeyDown(_ event: NSEvent) -> Bool {
+        guard let keyEvent = event.keyEvent else {
+            return false
+        }
+
+        if keyEvent.key == "Escape" {
+            guard !searchField.stringValue.isEmpty else {
+                return false
+            }
+            applyInlineFilterQuery("")
+            return true
+        }
+
+        let modifiers = keyEvent.modifiers
+        let isOptionModified = modifiers.contains(.option)
+        let hasDisallowedModifier = modifiers.contains(.command) || modifiers.contains(.control)
+        guard isOptionModified, !hasDisallowedModifier else {
+            return false
+        }
+
+        let singleEventSequence = [keyEvent]
+        if keybindingManager.lookup(sequence: singleEventSequence, mode: vimModeState.mode) != nil {
+            return false
+        }
+        if keybindingManager.hasPrefix(sequence: singleEventSequence, mode: vimModeState.mode) {
+            return false
+        }
+
+        switch keyEvent.key {
+        case "Backspace", "Delete":
+            guard !searchField.stringValue.isEmpty else {
+                return false
+            }
+            let updated = String(searchField.stringValue.dropLast())
+            applyInlineFilterQuery(updated)
+            return true
+        case "Tab", "Return", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown", "Home", "End":
+            return false
+        default:
+            break
+        }
+
+        guard let rawCharacters = event.charactersIgnoringModifiers, !rawCharacters.isEmpty else {
+            return false
+        }
+
+        let scalarView = String.UnicodeScalarView(
+            rawCharacters.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) }
+        )
+        let appendedText = String(scalarView)
+        guard !appendedText.isEmpty else {
+            return false
+        }
+
+        applyInlineFilterQuery(searchField.stringValue + appendedText)
+        return true
+    }
+
+    private func applyInlineFilterQuery(_ query: String) {
+        if selectedSearchMode != .filter {
+            currentSearchMode = .filter
+            updateSearchModeUI()
+        }
+
+        searchField.stringValue = query
+        viewModel.exitSpotlightSearchMode()
+        viewModel.setFilterText(query)
+    }
+
     private var selectedSearchMode: SearchMode {
         currentSearchMode
     }
@@ -1376,7 +1462,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         case .switchPane:
             handled = handleTabPressed()
         case .toggleMark:
-            viewModel.toggleMark()
+            performToggleMarkAction()
             handled = true
         case .markAll:
             viewModel.markAll()
@@ -1413,7 +1499,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         case .toggleMediaRecursive:
             viewModel.toggleMediaRecursive()
             handled = true
-        case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo, .togglePreview, .toggleSidebar, .toggleLeftPane, .toggleRightPane, .toggleSinglePane, .openBookmarkSearch, .openHistory, .addBookmark, .batchRename, .syncPanes:
+        case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo, .togglePreview, .toggleSidebar, .toggleLeftPane, .toggleRightPane, .toggleSinglePane, .equalizePaneWidths, .openBookmarkSearch, .openHistory, .addBookmark, .batchRename, .syncPanes:
             handled = onFileOperationRequested?(action) ?? false
         case .enterFilterMode:
             focusSearch(mode: .filter)
@@ -1451,6 +1537,34 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         return handled
+    }
+
+    private func performToggleMarkAction() {
+        let itemCount = viewModel.directoryContents.displayedItems.count
+        let cursorIndexBeforeToggle = viewModel.paneState.cursorIndex
+
+        viewModel.toggleMark()
+
+        guard shouldAdvanceCursorAfterSpaceMark(
+            itemCount: itemCount,
+            cursorIndexBeforeToggle: cursorIndexBeforeToggle
+        ) else {
+            return
+        }
+
+        viewModel.setCursor(index: cursorIndexBeforeToggle + 1)
+    }
+
+    private func shouldAdvanceCursorAfterSpaceMark(itemCount: Int, cursorIndexBeforeToggle: Int) -> Bool {
+        guard itemCount > 0, cursorIndexBeforeToggle + 1 < itemCount else {
+            return false
+        }
+
+        guard let keyEvent = NSApp.currentEvent?.keyEvent else {
+            return false
+        }
+
+        return keyEvent.key == "Space" && keyEvent.modifiers.isEmpty
     }
 
     @objc
@@ -1646,7 +1760,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             enabled: hasContextItem
         ))
         menu.addItem(makeContextMenuItem(
-            title: "Reveal in Finder",
+            title: "Show in Finder",
             action: .openFileInFinder,
             requiresContextItem: true,
             enabled: hasContextItem
@@ -1758,6 +1872,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         menu.addItem(makeContextMenuItem(title: "Toggle Preview", action: .togglePreview))
         menu.addItem(makeContextMenuItem(title: "Toggle Left Pane", action: .toggleLeftPane))
         menu.addItem(makeContextMenuItem(title: "Toggle Right Pane", action: .toggleRightPane))
+        menu.addItem(makeContextMenuItem(title: "Equalize Pane Widths", action: .equalizePaneWidths))
         menu.addItem(makeContextMenuItem(title: "Switch Pane", action: .switchPane))
     }
 

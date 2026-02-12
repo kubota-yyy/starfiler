@@ -48,15 +48,15 @@ struct BookmarkJumpInterpreter: Sendable {
         switch state {
         case .idle:
             if event.key == leaderKey {
-                let projectCandidates = keyedProjectCandidates()
-                guard !projectCandidates.isEmpty else {
+                let targetCandidates = bookmarkTargetCandidates()
+                guard !targetCandidates.isEmpty else {
                     reset()
                     return .unhandled
                 }
 
                 state = .awaitingTarget
                 return .pending(
-                    hint: BookmarkJumpHint(title: "Project key", candidates: projectCandidates)
+                    hint: BookmarkJumpHint(title: "Bookmark key", candidates: targetCandidates)
                 )
             }
             return .unhandled
@@ -80,7 +80,17 @@ struct BookmarkJumpInterpreter: Sendable {
                 }
             }
 
-            return .pending(hint: BookmarkJumpHint(title: "Project key", candidates: keyedProjectCandidates()))
+            if let defaultEntry = defaultEntry(for: key) {
+                reset()
+                return .jumpTo(path: defaultEntry.path)
+            }
+
+            return .pending(
+                hint: BookmarkJumpHint(
+                    title: "Bookmark key",
+                    candidates: bookmarkTargetCandidates()
+                )
+            )
 
         case .awaitingProjectEntry(let groupIndex):
             guard bookmarksConfig.groups.indices.contains(groupIndex) else {
@@ -121,8 +131,8 @@ struct BookmarkJumpInterpreter: Sendable {
         case .awaitingTarget:
             return .pending(
                 hint: BookmarkJumpHint(
-                    title: "Project key",
-                    candidates: keyedProjectCandidates()
+                    title: "Bookmark key",
+                    candidates: bookmarkTargetCandidates()
                 )
             )
         case .awaitingProjectEntry(let groupIndex):
@@ -149,6 +159,27 @@ struct BookmarkJumpInterpreter: Sendable {
             }
             return BookmarkJumpHintCandidate(key: key, label: group.name)
         }
+    }
+
+    private func keyedDefaultEntryCandidates() -> [BookmarkJumpHintCandidate] {
+        bookmarksConfig.groups
+            .filter(\.isDefault)
+            .flatMap { group in
+                keyedEntryCandidates(in: group)
+            }
+    }
+
+    private func bookmarkTargetCandidates() -> [BookmarkJumpHintCandidate] {
+        keyedDefaultEntryCandidates() + keyedProjectCandidates()
+    }
+
+    private func defaultEntry(for key: String) -> BookmarkEntry? {
+        for group in bookmarksConfig.groups where group.isDefault {
+            if let entry = group.entries.first(where: { normalizeShortcut($0.shortcutKey) == key }) {
+                return entry
+            }
+        }
+        return nil
     }
 
     private func keyedEntryCandidates(in group: BookmarkGroup) -> [BookmarkJumpHintCandidate] {

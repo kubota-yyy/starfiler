@@ -7,6 +7,7 @@ protocol KeyActionDelegate: AnyObject {
 final class FileTableView: NSTableView {
     weak var keyActionDelegate: (any KeyActionDelegate)?
     var didBecomeFirstResponderHandler: (() -> Void)?
+    var inlineFilterKeyHandler: ((NSEvent) -> Bool)?
     var dragSourceHandler: FileDragSource?
     var dropTargetHandler: FileDropTarget?
     var dragURLsProvider: (() -> [URL])?
@@ -73,6 +74,11 @@ final class FileTableView: NSTableView {
                 }
                 break
             }
+        }
+
+        if inlineFilterKeyHandler?(event) == true {
+            keyInterpreter.clearPendingSequence()
+            return
         }
 
         switch keyInterpreter.interpret(keyEvent) {
