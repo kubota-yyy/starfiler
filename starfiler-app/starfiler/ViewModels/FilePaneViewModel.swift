@@ -1,8 +1,6 @@
 import Foundation
-import Observation
 
 @MainActor
-@Observable
 final class FilePaneViewModel {
     private static let defaultPageStep = 10
     private struct SelectionSnapshot {
@@ -42,8 +40,8 @@ final class FilePaneViewModel {
     private let securityScopedBookmarkService: any SecurityScopedBookmarkProviding
     private let directoryMonitor: any DirectoryMonitoring
     private let spotlightSearchService: any SpotlightSearching
-    private nonisolated(unsafe) var loadTask: Task<Void, Never>?
-    private nonisolated(unsafe) var spotlightSearchTask: Task<Void, Never>?
+    private var loadTask: Task<Void, Never>?
+    private var spotlightSearchTask: Task<Void, Never>?
     private var isSpotlightSearchActive = false
     private(set) var spotlightSearchScope: SpotlightSearchScope
     private(set) var displayMode: PaneDisplayMode
@@ -77,10 +75,12 @@ final class FilePaneViewModel {
     }
 
     deinit {
-        loadTask?.cancel()
-        spotlightSearchTask?.cancel()
-        spotlightSearchService.cancel()
-        directoryMonitor.stopMonitoring()
+        MainActor.assumeIsolated {
+            loadTask?.cancel()
+            spotlightSearchTask?.cancel()
+            spotlightSearchService.cancel()
+            directoryMonitor.stopMonitoring()
+        }
     }
 
     var selectedItem: FileItem? {

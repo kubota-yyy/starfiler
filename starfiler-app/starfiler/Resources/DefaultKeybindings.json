@@ -37,6 +37,8 @@
       "Ctrl-2": "toggleRightPane",
       "Ctrl-3": "toggleSinglePane",
       "Ctrl-4": "equalizePaneWidths",
+      "Ctrl-5": "matchOtherPaneDirectory",
+      "Ctrl-6": "goToOtherPaneDirectory",
       "Ctrl-m": "toggleMediaMode",
       "Ctrl-Shift-m": "toggleMediaRecursive",
       "Ctrl-f": "enterSpotlightSearch",
@@ -56,6 +58,9 @@
       "Ctrl-o": "openFileInFinder",
       "R": "batchRename",
       "S": "syncPanes",
+      "t c": "launchClaude",
+      "t x": "launchCodex",
+      "Ctrl-`": "toggleTerminalPanel",
       "q": "quit"
     },
     "visual": {

@@ -221,4 +221,20 @@ extension URL {
     var isMediaFile: Bool {
         isImageFile || isVideoFile
     }
+
+    var isMarkdownFile: Bool {
+        if hasDirectoryPath {
+            return false
+        }
+
+        let lowercasedExtension = pathExtension.lowercased()
+        guard !lowercasedExtension.isEmpty else {
+            return false
+        }
+
+        let markdownExtensions: Set<String> = [
+            "md", "markdown", "mdown", "mkd", "mkdn"
+        ]
+        return markdownExtensions.contains(lowercasedExtension)
+    }
 }

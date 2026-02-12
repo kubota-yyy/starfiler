@@ -125,6 +125,8 @@ struct AppConfig: Codable, Sendable {
     var rightPaneVisible: Bool
     var starEffectsEnabled: Bool
     var animationEffectSettings: AnimationEffectSettings
+    var terminalPanelVisible: Bool
+    var terminalPanelHeight: Double
 
     init(
         showHiddenFiles: Bool = true,
@@ -151,7 +153,9 @@ struct AppConfig: Codable, Sendable {
         leftPaneVisible: Bool = true,
         rightPaneVisible: Bool = true,
         starEffectsEnabled: Bool = true,
-        animationEffectSettings: AnimationEffectSettings = .allEnabled
+        animationEffectSettings: AnimationEffectSettings = .allEnabled,
+        terminalPanelVisible: Bool = false,
+        terminalPanelHeight: Double = 300
     ) {
         self.showHiddenFiles = showHiddenFiles
         self.defaultSortColumn = defaultSortColumn
@@ -178,6 +182,8 @@ struct AppConfig: Codable, Sendable {
         self.rightPaneVisible = rightPaneVisible
         self.starEffectsEnabled = starEffectsEnabled
         self.animationEffectSettings = animationEffectSettings
+        self.terminalPanelVisible = terminalPanelVisible
+        self.terminalPanelHeight = min(max(terminalPanelHeight, 200), 800)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -206,6 +212,8 @@ struct AppConfig: Codable, Sendable {
         case rightPaneVisible
         case starEffectsEnabled
         case animationEffectSettings
+        case terminalPanelVisible
+        case terminalPanelHeight
     }
 
     init(from decoder: Decoder) throws {
@@ -237,6 +245,9 @@ struct AppConfig: Codable, Sendable {
         rightPaneVisible = try container.decodeIfPresent(Bool.self, forKey: .rightPaneVisible) ?? true
         starEffectsEnabled = try container.decodeIfPresent(Bool.self, forKey: .starEffectsEnabled) ?? true
         animationEffectSettings = try container.decodeIfPresent(AnimationEffectSettings.self, forKey: .animationEffectSettings) ?? .allEnabled
+        terminalPanelVisible = try container.decodeIfPresent(Bool.self, forKey: .terminalPanelVisible) ?? false
+        let terminalHeight = try container.decodeIfPresent(Double.self, forKey: .terminalPanelHeight) ?? 300
+        terminalPanelHeight = min(max(terminalHeight, 200), 800)
     }
 
     private static func clampedSidebarRecentItemsLimit(_ value: Int) -> Int {

@@ -1,5 +1,4 @@
 import Foundation
-import Observation
 
 enum ClipboardOperation: Sendable {
     case copy
@@ -18,11 +17,11 @@ enum FileOperationCompletionContext: Sendable {
 }
 
 @MainActor
-@Observable
 final class MainViewModel {
     let leftPane: FilePaneViewModel
     let rightPane: FilePaneViewModel
     let previewPane: PreviewViewModel
+    let terminalSessionListViewModel: TerminalSessionListViewModel
     let securityScopedBookmarkService: any SecurityScopedBookmarkProviding
     let visitHistoryService: VisitHistoryService
 
@@ -49,6 +48,7 @@ final class MainViewModel {
         initialSortAscending: Bool = true,
         initialPreviewVisible: Bool = false,
         initialSidebarVisible: Bool = true,
+        initialTerminalPanelVisible: Bool = false,
         initialSpotlightSearchScope: SpotlightSearchScope = .currentDirectory,
         initialLeftPaneDisplayMode: PaneDisplayMode = .browser,
         initialRightPaneDisplayMode: PaneDisplayMode = .browser,
@@ -80,6 +80,10 @@ final class MainViewModel {
             initialDisplayMode: initialRightPaneDisplayMode,
             initialMediaRecursiveEnabled: initialRightPaneMediaRecursiveEnabled,
             initialDirectory: normalizedRightDirectory
+        )
+
+        self.terminalSessionListViewModel = TerminalSessionListViewModel(
+            initialPanelVisible: initialTerminalPanelVisible
         )
 
         self.previewPane = PreviewViewModel()
@@ -132,6 +136,30 @@ final class MainViewModel {
     func setSpotlightSearchScope(_ scope: SpotlightSearchScope) {
         leftPane.setSpotlightSearchScope(scope)
         rightPane.setSpotlightSearchScope(scope)
+    }
+
+    @discardableResult
+    func matchOtherPaneDirectoryToActivePane() -> Bool {
+        let destinationDirectory = activePane.paneState.currentDirectory.standardizedFileURL
+        let currentInactiveDirectory = inactivePane.paneState.currentDirectory.standardizedFileURL
+        guard currentInactiveDirectory != destinationDirectory else {
+            return false
+        }
+
+        inactivePane.navigate(to: destinationDirectory)
+        return true
+    }
+
+    @discardableResult
+    func moveActivePaneToOtherPaneDirectory() -> Bool {
+        let destinationDirectory = inactivePane.paneState.currentDirectory.standardizedFileURL
+        let currentActiveDirectory = activePane.paneState.currentDirectory.standardizedFileURL
+        guard currentActiveDirectory != destinationDirectory else {
+            return false
+        }
+
+        activePane.navigate(to: destinationDirectory)
+        return true
     }
 
     func refreshPreviewForActivePane() {

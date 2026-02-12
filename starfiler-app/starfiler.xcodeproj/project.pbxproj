@@ -77,6 +77,25 @@
 		CC0000000000000000000045 /* StarSparkleAnimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000048 /* StarSparkleAnimator.swift */; };
 		CC0000000000000000000046 /* AnimationEffectSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000049 /* AnimationEffectSettings.swift */; };
 		CC0000000000000000000047 /* ApplicationRelatedItemLocatorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000004A /* ApplicationRelatedItemLocatorService.swift */; };
+		CC0000000000000000000048 /* MarkdownPreviewPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000004B /* MarkdownPreviewPanelController.swift */; };
+		CC0000000000000000000049 /* markdown-preview.html in Resources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000004C /* markdown-preview.html */; };
+		CC000000000000000000004A /* TerminalSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000004D /* TerminalSession.swift */; };
+		CC000000000000000000004B /* TerminalSessionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000004E /* TerminalSessionService.swift */; };
+		CC000000000000000000004C /* TerminalSessionListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000004F /* TerminalSessionListViewModel.swift */; };
+		CC000000000000000000004D /* TerminalSessionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000050 /* TerminalSessionViewModel.swift */; };
+		CC000000000000000000004E /* TerminalContentViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000051 /* TerminalContentViewController.swift */; };
+		CC000000000000000000004F /* TerminalSessionCellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000052 /* TerminalSessionCellView.swift */; };
+		CC0000000000000000000050 /* TerminalSessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000053 /* TerminalSessionListView.swift */; };
+		CC0000000000000000000051 /* TerminalPanelViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000054 /* TerminalPanelViewController.swift */; };
+		CC0000000000000000000052 /* MainContainerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000055 /* MainContainerViewController.swift */; };
+		CC0000000000000000000053 /* TerminalSessionWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000056 /* TerminalSessionWindowController.swift */; };
+		CC0000000000000000000054 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = DD0000000000000000000002 /* SwiftTerm */; };
+		CC0000000000000000000055 /* AppearanceTrackingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000057 /* AppearanceTrackingView.swift */; };
+		CC0000000000000000000056 /* MarkedRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000058 /* MarkedRowView.swift */; };
+		CC0000000000000000000057 /* FileNameCellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000059 /* FileNameCellView.swift */; };
+		CC0000000000000000000058 /* BookmarkJumpOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000005A /* BookmarkJumpOverlayView.swift */; };
+		CC0000000000000000000059 /* MediaKeyActionDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000005B /* MediaKeyActionDelegate.swift */; };
+		CC000000000000000000005A /* MediaCollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000005C /* MediaCollectionView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -153,6 +172,24 @@
 		BB0000000000000000000048 /* StarSparkleAnimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StarSparkleAnimator.swift; sourceTree = "<group>"; };
 		BB0000000000000000000049 /* AnimationEffectSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationEffectSettings.swift; sourceTree = "<group>"; };
 		BB000000000000000000004A /* ApplicationRelatedItemLocatorService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationRelatedItemLocatorService.swift; sourceTree = "<group>"; };
+		BB000000000000000000004B /* MarkdownPreviewPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownPreviewPanelController.swift; sourceTree = "<group>"; };
+		BB000000000000000000004C /* markdown-preview.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "markdown-preview.html"; sourceTree = "<group>"; };
+		BB000000000000000000004D /* TerminalSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSession.swift; sourceTree = "<group>"; };
+		BB000000000000000000004E /* TerminalSessionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionService.swift; sourceTree = "<group>"; };
+		BB000000000000000000004F /* TerminalSessionListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionListViewModel.swift; sourceTree = "<group>"; };
+		BB0000000000000000000050 /* TerminalSessionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionViewModel.swift; sourceTree = "<group>"; };
+		BB0000000000000000000051 /* TerminalContentViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalContentViewController.swift; sourceTree = "<group>"; };
+		BB0000000000000000000052 /* TerminalSessionCellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionCellView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000053 /* TerminalSessionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionListView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000054 /* TerminalPanelViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalPanelViewController.swift; sourceTree = "<group>"; };
+		BB0000000000000000000055 /* MainContainerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainContainerViewController.swift; sourceTree = "<group>"; };
+		BB0000000000000000000056 /* TerminalSessionWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionWindowController.swift; sourceTree = "<group>"; };
+		BB0000000000000000000057 /* AppearanceTrackingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceTrackingView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000058 /* MarkedRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkedRowView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000059 /* FileNameCellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileNameCellView.swift; sourceTree = "<group>"; };
+		BB000000000000000000005A /* BookmarkJumpOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkJumpOverlayView.swift; sourceTree = "<group>"; };
+		BB000000000000000000005B /* MediaKeyActionDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaKeyActionDelegate.swift; sourceTree = "<group>"; };
+		BB000000000000000000005C /* MediaCollectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaCollectionView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -161,6 +198,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CC0000000000000000000027 /* QuickLookUI.framework in Frameworks */,
+				CC0000000000000000000054 /* SwiftTerm in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -218,6 +256,7 @@
 			isa = PBXGroup;
 			children = (
 				BB0000000000000000000002 /* MainWindowController.swift */,
+				BB0000000000000000000056 /* TerminalSessionWindowController.swift */,
 			);
 			path = Windows;
 			sourceTree = "<group>";
@@ -236,6 +275,8 @@
 				AA0000000000000000000032 /* BatchRename */,
 				AA0000000000000000000033 /* Sync */,
 				AA0000000000000000000035 /* Effects */,
+				AA0000000000000000000036 /* MarkdownPreview */,
+				AA0000000000000000000037 /* Terminal */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -281,6 +322,7 @@
 			isa = PBXGroup;
 			children = (
 				BB0000000000000000000012 /* MainSplitViewController.swift */,
+				BB0000000000000000000055 /* MainContainerViewController.swift */,
 			);
 			path = SplitView;
 			sourceTree = "<group>";
@@ -290,6 +332,12 @@
 			children = (
 				BB0000000000000000000003 /* FilePaneViewController.swift */,
 				BB0000000000000000000004 /* FileTableView.swift */,
+				BB0000000000000000000057 /* AppearanceTrackingView.swift */,
+				BB0000000000000000000058 /* MarkedRowView.swift */,
+				BB0000000000000000000059 /* FileNameCellView.swift */,
+				BB000000000000000000005A /* BookmarkJumpOverlayView.swift */,
+				BB000000000000000000005B /* MediaKeyActionDelegate.swift */,
+				BB000000000000000000005C /* MediaCollectionView.swift */,
 			);
 			path = Pane;
 			sourceTree = "<group>";
@@ -336,6 +384,8 @@
 				BB0000000000000000000038 /* BatchRenameViewModel.swift */,
 				BB0000000000000000000039 /* SyncViewModel.swift */,
 				BB0000000000000000000040 /* BookmarkSearchViewModel.swift */,
+				BB000000000000000000004F /* TerminalSessionListViewModel.swift */,
+				BB0000000000000000000050 /* TerminalSessionViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -354,6 +404,7 @@
 				BB0000000000000000000037 /* SyncExecutionService.swift */,
 				BB000000000000000000003E /* VisitHistoryService.swift */,
 				BB000000000000000000004A /* ApplicationRelatedItemLocatorService.swift */,
+				BB000000000000000000004E /* TerminalSessionService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -372,6 +423,7 @@
 				BB0000000000000000000031 /* BatchRenameResult.swift */,
 				BB0000000000000000000032 /* SyncModels.swift */,
 				BB000000000000000000003C /* VisitHistoryEntry.swift */,
+				BB000000000000000000004D /* TerminalSession.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -426,6 +478,7 @@
 			isa = PBXGroup;
 			children = (
 				BB000000000000000000001A /* DefaultKeybindings.json */,
+				BB000000000000000000004C /* markdown-preview.html */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -446,6 +499,25 @@
 			path = Effects;
 			sourceTree = "<group>";
 		};
+		AA0000000000000000000036 /* MarkdownPreview */ = {
+			isa = PBXGroup;
+			children = (
+				BB000000000000000000004B /* MarkdownPreviewPanelController.swift */,
+			);
+			path = MarkdownPreview;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000037 /* Terminal */ = {
+			isa = PBXGroup;
+			children = (
+				BB0000000000000000000051 /* TerminalContentViewController.swift */,
+				BB0000000000000000000052 /* TerminalSessionCellView.swift */,
+				BB0000000000000000000053 /* TerminalSessionListView.swift */,
+				BB0000000000000000000054 /* TerminalPanelViewController.swift */,
+			);
+			path = Terminal;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -462,6 +534,9 @@
 			dependencies = (
 			);
 			name = starfiler;
+			packageProductDependencies = (
+				DD0000000000000000000002 /* SwiftTerm */,
+			);
 			productName = Starfiler;
 			productReference = BB000000000000000000000F /* Starfiler.app */;
 			productType = "com.apple.product-type.application";
@@ -490,6 +565,9 @@
 				Base,
 			);
 			mainGroup = AA0000000000000000000001;
+			packageReferences = (
+				DD0000000000000000000001 /* XCRemoteSwiftPackageReference "SwiftTerm" */,
+			);
 			productRefGroup = AA0000000000000000000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -506,6 +584,7 @@
 			files = (
 				CC0000000000000000000017 /* DefaultKeybindings.json in Resources */,
 				CC0000000000000000000028 /* Assets.xcassets in Resources */,
+				CC0000000000000000000049 /* markdown-preview.html in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -583,6 +662,23 @@
 				CC0000000000000000000045 /* StarSparkleAnimator.swift in Sources */,
 				CC0000000000000000000046 /* AnimationEffectSettings.swift in Sources */,
 				CC0000000000000000000047 /* ApplicationRelatedItemLocatorService.swift in Sources */,
+				CC0000000000000000000048 /* MarkdownPreviewPanelController.swift in Sources */,
+				CC000000000000000000004A /* TerminalSession.swift in Sources */,
+				CC000000000000000000004B /* TerminalSessionService.swift in Sources */,
+				CC000000000000000000004C /* TerminalSessionListViewModel.swift in Sources */,
+				CC000000000000000000004D /* TerminalSessionViewModel.swift in Sources */,
+				CC000000000000000000004E /* TerminalContentViewController.swift in Sources */,
+				CC000000000000000000004F /* TerminalSessionCellView.swift in Sources */,
+				CC0000000000000000000050 /* TerminalSessionListView.swift in Sources */,
+				CC0000000000000000000051 /* TerminalPanelViewController.swift in Sources */,
+				CC0000000000000000000052 /* MainContainerViewController.swift in Sources */,
+				CC0000000000000000000053 /* TerminalSessionWindowController.swift in Sources */,
+				CC0000000000000000000055 /* AppearanceTrackingView.swift in Sources */,
+				CC0000000000000000000056 /* MarkedRowView.swift in Sources */,
+				CC0000000000000000000057 /* FileNameCellView.swift in Sources */,
+				CC0000000000000000000058 /* BookmarkJumpOverlayView.swift in Sources */,
+				CC0000000000000000000059 /* MediaKeyActionDelegate.swift in Sources */,
+				CC000000000000000000005A /* MediaCollectionView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -621,6 +717,7 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				ONLY_ACTIVE_ARCH = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
 					"$(inherited)",
@@ -754,6 +851,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		DD0000000000000000000001 /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/migueldeicaza/SwiftTerm";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.2.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		DD0000000000000000000002 /* SwiftTerm */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DD0000000000000000000001 /* XCRemoteSwiftPackageReference "SwiftTerm" */;
+			productName = SwiftTerm;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = AA0000000000000000000000 /* Project object */;
 }

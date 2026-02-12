@@ -177,7 +177,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editMenu.addItem(NSMenuItem.separator())
         editMenu.addItem(withTitle: "Copy", action: #selector(menuCopy(_:)), keyEquivalent: "c")
         let copyItemPathItem = editMenu.addItem(withTitle: "Copy File/Folder Path", action: #selector(menuCopySelectedItemPath(_:)), keyEquivalent: "c")
-        copyItemPathItem.keyEquivalentModifierMask = [.command, .shift]
+        copyItemPathItem.keyEquivalentModifierMask = [.command, .option]
         editMenu.addItem(withTitle: "Paste", action: #selector(menuPaste(_:)), keyEquivalent: "v")
         editMenu.addItem(NSMenuItem.separator())
         editMenu.addItem(withTitle: "Move to Trash", action: #selector(menuDelete(_:)), keyEquivalent: "\u{08}")
@@ -231,6 +231,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let goToFolderItem = goMenu.addItem(withTitle: "Go to File or Folder...", action: #selector(menuGoToPath(_:)), keyEquivalent: "g")
         goToFolderItem.keyEquivalentModifierMask = [.command, .shift]
         goMenu.addItem(NSMenuItem.separator())
+        let hdItem = goMenu.addItem(withTitle: "HD", action: #selector(menuGoHD(_:)), keyEquivalent: "c")
+        hdItem.keyEquivalentModifierMask = [.command, .shift]
         let homeItem = goMenu.addItem(withTitle: "Home", action: #selector(menuGoHome(_:)), keyEquivalent: "h")
         homeItem.keyEquivalentModifierMask = [.command, .shift]
         let desktopItem = goMenu.addItem(withTitle: "Desktop", action: #selector(menuGoDesktop(_:)), keyEquivalent: "d")
@@ -242,6 +244,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let applicationsItem = goMenu.addItem(withTitle: "Applications", action: #selector(menuGoApplications(_:)), keyEquivalent: "a")
         applicationsItem.keyEquivalentModifierMask = [.command, .shift]
         goMenuItem.submenu = goMenu
+
+        // Terminal menu
+        let terminalMenuItem = NSMenuItem()
+        mainMenu.addItem(terminalMenuItem)
+        let terminalMenu = NSMenu(title: "Terminal")
+        let launchClaudeItem = terminalMenu.addItem(withTitle: "Launch Claude Code", action: #selector(menuLaunchClaude(_:)), keyEquivalent: "")
+        let launchCodexItem = terminalMenu.addItem(withTitle: "Launch Codex CLI", action: #selector(menuLaunchCodex(_:)), keyEquivalent: "")
+        terminalMenu.addItem(NSMenuItem.separator())
+        let toggleTerminalItem = terminalMenu.addItem(withTitle: "Toggle Terminal Panel", action: #selector(menuToggleTerminalPanel(_:)), keyEquivalent: "`")
+        toggleTerminalItem.keyEquivalentModifierMask = [.control]
+        terminalMenuItem.submenu = terminalMenu
 
         // Window menu
         let windowMenuItem = NSMenuItem()
@@ -373,6 +386,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainWindowController?.presentGoToPathPrompt()
     }
 
+    @objc private func menuGoHD(_ sender: Any?) {
+        mainWindowController?.performAction {
+            $0.activePane.navigate(to: URL(fileURLWithPath: "/", isDirectory: true))
+        }
+    }
+
     @objc private func menuGoHome(_ sender: Any?) {
         mainWindowController?.performAction {
             $0.activePane.navigate(to: UserPaths.homeDirectoryURL)
@@ -429,6 +448,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func menuSwitchPane(_ sender: Any?) {
         mainWindowController?.performAction { $0.switchActivePane() }
+    }
+
+    @objc private func menuLaunchClaude(_ sender: Any?) {
+        mainWindowController?.launchTerminalSession(command: .claude)
+    }
+
+    @objc private func menuLaunchCodex(_ sender: Any?) {
+        mainWindowController?.launchTerminalSession(command: .codex)
+    }
+
+    @objc private func menuToggleTerminalPanel(_ sender: Any?) {
+        mainWindowController?.toggleTerminalPanel()
     }
 
     @objc private func menuShowSettings(_ sender: Any?) {

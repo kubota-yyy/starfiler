@@ -417,7 +417,7 @@ final class PreviewPaneViewController: NSViewController {
     }
 
     private func displayLoadedImage(_ image: NSImage) {
-        if starEffectsEnabled, let oldImage = imageView.image, let containerLayer = contentContainerView.layer {
+        if starEffectsEnabled, animationEffectSettings.previewCrossfade, let oldImage = imageView.image, let containerLayer = contentContainerView.layer {
             let snapshot = CALayer()
             snapshot.contents = oldImage
             snapshot.frame = scrollView.frame

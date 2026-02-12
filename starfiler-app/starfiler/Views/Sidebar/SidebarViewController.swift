@@ -21,6 +21,9 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     private let sectionHeaderHeight: CGFloat = 22
     private let entryRowHeight: CGFloat = 24
     private let windowControlsHeight: CGFloat = 22
+    private let maxRecentHeightRatio: CGFloat = 0.45
+    private let maxRecentVisibleRows: CGFloat = 12
+    private var lastKnownSidebarHeight: CGFloat = 0
 
     var onNavigateRequested: ((URL) -> Void)?
     var onNavigationFailed: ((String) -> Void)?
@@ -44,6 +47,16 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         configureOutlineViews()
         configureLayout()
         bindViewModel()
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        let height = floor(view.bounds.height)
+        guard abs(height - lastKnownSidebarHeight) >= 1 else {
+            return
+        }
+        lastKnownSidebarHeight = height
+        updateRecentSectionLayout()
     }
 
     private var currentTheme: FilerTheme = .system
@@ -140,6 +153,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         recentOutlineView.dataSource = self
         recentOutlineView.headerView = nil
         recentOutlineView.rowHeight = entryRowHeight
+        recentOutlineView.intercellSpacing = .zero
         recentOutlineView.indentationPerLevel = 0
         recentOutlineView.selectionHighlightStyle = .sourceList
         recentOutlineView.allowsTypeSelect = false
@@ -192,7 +206,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
             recentHeaderLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             recentHeaderLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -4),
 
-            recentScrollView.topAnchor.constraint(equalTo: recentHeaderLabel.bottomAnchor, constant: 2),
+            recentScrollView.topAnchor.constraint(equalTo: recentHeaderLabel.bottomAnchor, constant: 8),
             recentScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
             recentScrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             recentScrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -274,9 +288,11 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
         recentHeaderLabel.stringValue = recentSection?.title ?? "History"
 
-        let scrollHeight = CGFloat(recentCount) * entryRowHeight
-        recentScrollViewHeightConstraint.constant = scrollHeight
-        recentScrollView.hasVerticalScroller = false
+        let contentHeight = recentContentHeight(for: recentCount)
+        let maxHeight = maximumRecentHeight()
+        let targetHeight = min(contentHeight, maxHeight)
+        recentScrollViewHeightConstraint.constant = targetHeight
+        recentScrollView.hasVerticalScroller = contentHeight > maxHeight
 
         scrollToCurrentPosition()
     }
@@ -285,9 +301,57 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         guard let items = recentSection?.items else {
             return
         }
-        if let currentIndex = items.firstIndex(where: { $0.isCurrentPosition }) {
-            recentOutlineView.scrollRowToVisible(currentIndex)
+        guard let currentIndex = items.firstIndex(where: { $0.isCurrentPosition }),
+              recentOutlineView.numberOfRows > currentIndex else {
+            return
         }
+        let shouldAlignTop = items[currentIndex].isLatestPosition
+        scrollRecentRow(currentIndex, alignTop: shouldAlignTop)
+    }
+
+    private func recentContentHeight(for rowCount: Int) -> CGFloat {
+        guard rowCount > 0 else {
+            return 0
+        }
+        let rowPitch = recentOutlineView.rowHeight + recentOutlineView.intercellSpacing.height
+        return CGFloat(rowCount) * rowPitch
+    }
+
+    private func maximumRecentHeight() -> CGFloat {
+        let rowPitch = recentOutlineView.rowHeight + recentOutlineView.intercellSpacing.height
+        let maxByRows = rowPitch * maxRecentVisibleRows
+        guard view.bounds.height > 0 else {
+            return maxByRows
+        }
+        let maxBySidebarHeight = floor(view.bounds.height * maxRecentHeightRatio)
+        return max(rowPitch, min(maxByRows, maxBySidebarHeight))
+    }
+
+    private func scrollRecentRow(_ row: Int, alignTop: Bool) {
+        guard row >= 0 else {
+            return
+        }
+        let rowRect = recentOutlineView.rect(ofRow: row)
+        guard rowRect.height > 0 else {
+            recentOutlineView.scrollRowToVisible(row)
+            return
+        }
+
+        let clipView = recentScrollView.contentView
+        let documentHeight = recentOutlineView.bounds.height
+        let visibleHeight = clipView.bounds.height
+        guard documentHeight > visibleHeight, visibleHeight > 0 else {
+            recentOutlineView.scrollRowToVisible(row)
+            return
+        }
+
+        let desiredOriginY = alignTop
+            ? rowRect.minY
+            : rowRect.midY - (visibleHeight / 2)
+        let maxOriginY = max(0, documentHeight - visibleHeight)
+        let clampedOriginY = min(max(0, desiredOriginY), maxOriginY)
+        clipView.scroll(to: NSPoint(x: 0, y: clampedOriginY))
+        recentScrollView.reflectScrolledClipView(clipView)
     }
 
     // MARK: - Actions

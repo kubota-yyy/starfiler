@@ -2,361 +2,6 @@ import AppKit
 import AVFoundation
 import ImageIO
 
-private final class AppearanceTrackingView: NSView {
-    var onAppearanceChanged: (() -> Void)?
-
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        onAppearanceChanged?()
-    }
-}
-
-private final class MarkedRowView: NSTableRowView {
-    var isMarkedRow = false
-    var isVisualMode = false
-    var markedColor = NSColor.systemOrange.withAlphaComponent(0.14)
-    var visualMarkedColor = NSColor.controlAccentColor.withAlphaComponent(0.22)
-
-    override func drawBackground(in dirtyRect: NSRect) {
-        guard isMarkedRow else {
-            super.drawBackground(in: dirtyRect)
-            return
-        }
-
-        let color = isVisualMode ? visualMarkedColor : markedColor
-
-        color.setFill()
-        dirtyRect.fill()
-    }
-}
-
-private final class FileNameCellView: NSTableCellView {
-    private let iconView = NSImageView()
-    private let markStarView = NSImageView()
-    private let nameLabel = NSTextField(labelWithString: "")
-    private var iconWidthConstraint: NSLayoutConstraint?
-    private var iconHeightConstraint: NSLayoutConstraint?
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        configureView()
-    }
-
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        configureView()
-    }
-
-    func setName(_ text: String, textColor: NSColor) {
-        nameLabel.stringValue = text
-        nameLabel.textColor = textColor
-    }
-
-    func setIcon(_ image: NSImage?, size: CGFloat) {
-        iconView.image = image
-
-        let clamped = min(max(size, 12), 40)
-        iconWidthConstraint?.constant = clamped
-        iconHeightConstraint?.constant = clamped
-    }
-
-    func setMarkStar(visible: Bool, color: NSColor) {
-        markStarView.isHidden = !visible
-        markStarView.contentTintColor = color
-    }
-
-    private func configureView() {
-        identifier = NSUserInterfaceItemIdentifier("nameCell")
-
-        iconView.translatesAutoresizingMaskIntoConstraints = false
-        iconView.imageScaling = .scaleProportionallyUpOrDown
-
-        markStarView.translatesAutoresizingMaskIntoConstraints = false
-        markStarView.image = NSImage(systemSymbolName: "star.fill", accessibilityDescription: "Marked")
-        markStarView.imageScaling = .scaleProportionallyDown
-        markStarView.isHidden = true
-
-        nameLabel.translatesAutoresizingMaskIntoConstraints = false
-        nameLabel.lineBreakMode = .byTruncatingMiddle
-
-        textField = nameLabel
-        imageView = iconView
-
-        addSubview(iconView)
-        addSubview(markStarView)
-        addSubview(nameLabel)
-
-        let iconWidthConstraint = iconView.widthAnchor.constraint(equalToConstant: 16)
-        let iconHeightConstraint = iconView.heightAnchor.constraint(equalToConstant: 16)
-        self.iconWidthConstraint = iconWidthConstraint
-        self.iconHeightConstraint = iconHeightConstraint
-
-        NSLayoutConstraint.activate([
-            iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
-            iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            iconWidthConstraint,
-            iconHeightConstraint,
-
-            markStarView.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 3),
-            markStarView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            markStarView.widthAnchor.constraint(equalToConstant: 12),
-            markStarView.heightAnchor.constraint(equalToConstant: 12),
-
-            nameLabel.leadingAnchor.constraint(equalTo: markStarView.trailingAnchor, constant: 3),
-            nameLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
-            nameLabel.centerYAnchor.constraint(equalTo: centerYAnchor)
-        ])
-    }
-}
-
-private final class BookmarkJumpOverlayView: NSView {
-    private let titleLabel = NSTextField(labelWithString: "")
-    private let candidatesLabel = NSTextField(wrappingLabelWithString: "")
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        configureView()
-    }
-
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        configureView()
-    }
-
-    func update(with hint: BookmarkJumpHint) {
-        titleLabel.stringValue = hint.title
-        candidatesLabel.stringValue = hint.candidates
-            .map { "[\($0.key)] \($0.label)" }
-            .joined(separator: "\n")
-    }
-
-    func applyPalette(_ palette: FilerThemePalette, backgroundOpacity: CGFloat) {
-        _ = backgroundOpacity
-        layer?.backgroundColor = palette.windowBackgroundColor.cgColor
-        layer?.borderColor = palette.starAccentColor.withAlphaComponent(0.5).cgColor
-        titleLabel.textColor = palette.primaryTextColor
-        candidatesLabel.textColor = palette.secondaryTextColor
-    }
-
-    private func configureView() {
-        translatesAutoresizingMaskIntoConstraints = false
-        wantsLayer = true
-        layer?.cornerRadius = 8
-        layer?.borderWidth = 1
-        layer?.masksToBounds = true
-
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = .systemFont(ofSize: 12, weight: .semibold)
-
-        candidatesLabel.translatesAutoresizingMaskIntoConstraints = false
-        candidatesLabel.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
-        candidatesLabel.maximumNumberOfLines = 12
-        candidatesLabel.lineBreakMode = .byTruncatingMiddle
-
-        addSubview(titleLabel)
-        addSubview(candidatesLabel)
-
-        NSLayoutConstraint.activate([
-            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 10),
-
-            candidatesLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            candidatesLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            candidatesLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 6),
-            candidatesLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
-        ])
-    }
-}
-
-protocol MediaKeyActionDelegate: AnyObject {
-    func mediaCollectionView(_ collectionView: MediaCollectionView, didTrigger action: KeyAction) -> Bool
-}
-
-final class MediaCollectionView: NSCollectionView {
-    weak var keyActionDelegate: MediaKeyActionDelegate?
-    var didBecomeFirstResponderHandler: (() -> Void)?
-    var dragSourceHandler: FileDragSource?
-    var dragURLsProvider: (() -> [URL])?
-    private var keyInterpreter = KeyInterpreter()
-    private var mouseDownLocation: NSPoint?
-    private var isDragging = false
-    private static let minimumDragDistance: CGFloat = 5
-
-    override func keyDown(with event: NSEvent) {
-        if event.modifierFlags.contains(.command) {
-            keyInterpreter.clearPendingSequence()
-            super.keyDown(with: event)
-            return
-        }
-
-        guard let keyEvent = event.keyEvent else {
-            super.keyDown(with: event)
-            return
-        }
-
-        switch keyInterpreter.interpret(keyEvent) {
-        case .action(let action):
-            if keyActionDelegate?.mediaCollectionView(self, didTrigger: action) == true {
-                return
-            }
-        case .pending:
-            return
-        case .unhandled:
-            break
-        }
-
-        super.keyDown(with: event)
-    }
-
-    override func becomeFirstResponder() -> Bool {
-        let didBecome = super.becomeFirstResponder()
-        if didBecome {
-            didBecomeFirstResponderHandler?()
-        }
-        return didBecome
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        mouseDownLocation = convert(event.locationInWindow, from: nil)
-        isDragging = false
-        super.mouseDown(with: event)
-    }
-
-    override func mouseDragged(with event: NSEvent) {
-        guard !isDragging else {
-            return
-        }
-
-        guard let origin = mouseDownLocation else {
-            super.mouseDragged(with: event)
-            return
-        }
-
-        let current = convert(event.locationInWindow, from: nil)
-        let dx = current.x - origin.x
-        let dy = current.y - origin.y
-        let distance = sqrt(dx * dx + dy * dy)
-
-        guard distance >= Self.minimumDragDistance else {
-            super.mouseDragged(with: event)
-            return
-        }
-
-        if
-            let dragSourceHandler,
-            let dragURLsProvider,
-            dragSourceHandler.beginDragging(from: self, with: event, urls: dragURLsProvider())
-        {
-            isDragging = true
-            return
-        }
-
-        super.mouseDragged(with: event)
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        mouseDownLocation = nil
-        isDragging = false
-        super.mouseUp(with: event)
-    }
-
-    func setVimMode(_ mode: VimMode) {
-        keyInterpreter.setMode(mode)
-    }
-
-    func reloadKeybindings() {
-        keyInterpreter = KeyInterpreter(
-            mode: keyInterpreter.mode,
-            timeout: keyInterpreter.timeout
-        )
-    }
-}
-
-private final class MediaCollectionItem: NSCollectionViewItem {
-    static let identifier = NSUserInterfaceItemIdentifier("mediaCollectionItem")
-
-    private let titleLabel = NSTextField(labelWithString: "")
-    private let markBadge = NSImageView()
-
-    override func loadView() {
-        view = NSView()
-    }
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-
-        let imageView = NSImageView()
-        imageView.translatesAutoresizingMaskIntoConstraints = false
-        imageView.imageScaling = .scaleProportionallyUpOrDown
-        imageView.wantsLayer = true
-        imageView.layer?.cornerRadius = 6
-        imageView.layer?.masksToBounds = true
-        self.imageView = imageView
-
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.alignment = .center
-        titleLabel.font = .systemFont(ofSize: 11, weight: .regular)
-        titleLabel.lineBreakMode = .byTruncatingMiddle
-        titleLabel.maximumNumberOfLines = 2
-
-        markBadge.translatesAutoresizingMaskIntoConstraints = false
-        markBadge.image = NSImage(systemSymbolName: "star.fill", accessibilityDescription: "Marked")
-        markBadge.contentTintColor = .systemOrange
-        markBadge.isHidden = true
-
-        view.wantsLayer = true
-        view.layer?.cornerRadius = 8
-        view.layer?.borderWidth = 1
-        view.layer?.masksToBounds = true
-
-        view.addSubview(imageView)
-        view.addSubview(titleLabel)
-        view.addSubview(markBadge)
-
-        NSLayoutConstraint.activate([
-            imageView.topAnchor.constraint(equalTo: view.topAnchor, constant: 8),
-            imageView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
-            imageView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
-            imageView.heightAnchor.constraint(equalTo: imageView.widthAnchor, multiplier: 0.75),
-
-            titleLabel.topAnchor.constraint(equalTo: imageView.bottomAnchor, constant: 6),
-            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 6),
-            titleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -6),
-            titleLabel.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor, constant: -8),
-
-            markBadge.topAnchor.constraint(equalTo: view.topAnchor, constant: 4),
-            markBadge.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -6)
-        ])
-    }
-
-    override var isSelected: Bool {
-        didSet {
-            applySelectionAppearance()
-        }
-    }
-
-    func configure(name: String, thumbnail: NSImage?, isMarked: Bool, palette: FilerThemePalette) {
-        titleLabel.stringValue = name
-        titleLabel.textColor = palette.primaryTextColor
-        imageView?.image = thumbnail
-        markBadge.isHidden = !isMarked
-        markBadge.contentTintColor = palette.starAccentColor
-        applySelectionAppearance(palette: palette)
-    }
-
-    private func applySelectionAppearance(palette: FilerThemePalette? = nil) {
-        let palette = palette ?? FilerTheme.system.palette
-        if isSelected {
-            view.layer?.borderColor = palette.activeBorderColor.cgColor
-            view.layer?.backgroundColor = palette.accentColor.withAlphaComponent(0.18).cgColor
-        } else {
-            view.layer?.borderColor = palette.inactiveBorderColor.cgColor
-            view.layer?.backgroundColor = palette.tableBackgroundColor.withAlphaComponent(0.35).cgColor
-        }
-    }
-}
-
 final class FilePaneViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSCollectionViewDataSource, NSCollectionViewDelegate, NSCollectionViewDelegateFlowLayout, NSMenuDelegate, KeyActionDelegate, MediaKeyActionDelegate, NSTextFieldDelegate, NSSearchFieldDelegate {
     private enum SearchMode: Int {
         case filter = 0
@@ -414,6 +59,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private let searchControlsStackView = NSStackView()
     private let displayModeControl = NSSegmentedControl(labels: ["Files", "Media"], trackingMode: .selectOne, target: nil, action: nil)
     private let mediaRecursiveButton = NSButton(checkboxWithTitle: "Recursive", target: nil, action: nil)
+    private let mediaIconSizeLabel = NSTextField(labelWithString: "Icon")
+    private let mediaIconSizeSlider = NSSlider(value: 16, minValue: 12, maxValue: 40, target: nil, action: nil)
+    private let mediaIconSizeValueLabel = NSTextField(labelWithString: "16 px")
     private let searchField = NSSearchField()
     private let scrollView = NSScrollView()
     private let bookmarkJumpOverlayView = BookmarkJumpOverlayView()
@@ -451,6 +99,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     var onBookmarkJump: ((String) -> Void)?
     var onDropOperationCompleted: ((NSDragOperation, Int) -> Void)?
     var onSpotlightSearchScopeChanged: ((SpotlightSearchScope) -> Void)?
+    var onFileIconSizeChanged: ((CGFloat) -> Void)?
+    var onMarkdownPreviewRequested: ((URL) -> Void)?
     var onDirectoryLoadFailed: ((URL, Error) -> Void)?
 
     init(viewModel: FilePaneViewModel) {
@@ -480,7 +130,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         configureSearchControls()
         configureDragAndDrop()
         configureContextMenu()
-        configureStarEffects()
         bindViewModel()
         setActive(false)
     }
@@ -503,7 +152,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         isPaneActive = active
         updateActiveAppearance()
 
-        if active && wasInactive && starEffectsEnabled {
+        if active && wasInactive && starEffectsEnabled && animationEffectSettings.activePanePulse {
             let palette = filerTheme.palette
             let glowLayer = CALayer()
             glowLayer.frame = headerView.bounds
@@ -569,7 +218,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         bookmarkJumpOverlayView.update(with: hint)
         bookmarkJumpOverlayView.isHidden = false
 
-        if starEffectsEnabled {
+        if starEffectsEnabled, animationEffectSettings.bookmarkJumpAnimation {
             bookmarkJumpOverlayView.alphaValue = 0
             NSAnimationContext.runAnimationGroup { ctx in
                 ctx.duration = 0.12
@@ -590,7 +239,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private func hideBookmarkJumpHint() {
-        if starEffectsEnabled && !bookmarkJumpOverlayView.isHidden {
+        if starEffectsEnabled, animationEffectSettings.bookmarkJumpAnimation, !bookmarkJumpOverlayView.isHidden {
             NSAnimationContext.runAnimationGroup({ ctx in
                 ctx.duration = 0.1
                 self.bookmarkJumpOverlayView.animator().alphaValue = 0
@@ -618,6 +267,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         fileIconSize = clampedSize
+        mediaIconSizeSlider.doubleValue = Double(clampedSize)
+        mediaIconSizeValueLabel.stringValue = "\(Int(clampedSize.rounded())) px"
         iconCache.removeAllObjects()
         thumbnailCache.removeAllObjects()
         thumbnailTasks.values.forEach { $0.cancel() }
@@ -690,7 +341,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             nextAscending = true
         }
 
-        if starEffectsEnabled {
+        if starEffectsEnabled, animationEffectSettings.sortRowAnimation {
             let transition = CATransition()
             transition.type = .fade
             transition.duration = 0.2
@@ -740,8 +391,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         let insets = mediaCollectionLayout.sectionInset
         let interitemSpacing = mediaCollectionLayout.minimumInteritemSpacing
         let availableWidth = max(120, collectionView.bounds.width - insets.left - insets.right)
-        let minWidth: CGFloat = 160
-        let columns = max(Int((availableWidth + interitemSpacing) / (minWidth + interitemSpacing)), 1)
+        let targetWidth = preferredMediaTileWidth()
+        let columns = max(Int((availableWidth + interitemSpacing) / (targetWidth + interitemSpacing)), 1)
         let totalSpacing = CGFloat(max(columns - 1, 0)) * interitemSpacing
         let width = floor((availableWidth - totalSpacing) / CGFloat(columns))
         return NSSize(width: width, height: width * 0.78 + 34)
@@ -813,6 +464,30 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         mediaRecursiveButton.isHidden = true
         mediaRecursiveButton.setContentHuggingPriority(.required, for: .horizontal)
 
+        mediaIconSizeLabel.translatesAutoresizingMaskIntoConstraints = false
+        mediaIconSizeLabel.font = .systemFont(ofSize: 11, weight: .regular)
+        mediaIconSizeLabel.textColor = .secondaryLabelColor
+        mediaIconSizeLabel.isHidden = true
+        mediaIconSizeLabel.setContentHuggingPriority(.required, for: .horizontal)
+        mediaIconSizeLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        mediaIconSizeSlider.translatesAutoresizingMaskIntoConstraints = false
+        mediaIconSizeSlider.target = self
+        mediaIconSizeSlider.action = #selector(handleMediaIconSizeChanged(_:))
+        mediaIconSizeSlider.doubleValue = Double(fileIconSize)
+        mediaIconSizeSlider.controlSize = .small
+        mediaIconSizeSlider.isContinuous = true
+        mediaIconSizeSlider.isHidden = true
+
+        mediaIconSizeValueLabel.translatesAutoresizingMaskIntoConstraints = false
+        mediaIconSizeValueLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        mediaIconSizeValueLabel.textColor = .secondaryLabelColor
+        mediaIconSizeValueLabel.alignment = .right
+        mediaIconSizeValueLabel.stringValue = "\(Int(fileIconSize.rounded())) px"
+        mediaIconSizeValueLabel.isHidden = true
+        mediaIconSizeValueLabel.setContentHuggingPriority(.required, for: .horizontal)
+        mediaIconSizeValueLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+
         searchField.translatesAutoresizingMaskIntoConstraints = false
         searchField.controlSize = .small
         searchField.placeholderString = SearchMode.filter.placeholder
@@ -825,9 +500,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         configureSearchFieldMenuTemplate()
 
         bookmarkJumpOverlayView.isHidden = true
-    }
-
-    private func configureStarEffects() {
     }
 
     private func configureTableView() {
@@ -912,6 +584,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         headerView.addSubview(searchControlsStackView)
         searchControlsStackView.addArrangedSubview(displayModeControl)
         searchControlsStackView.addArrangedSubview(mediaRecursiveButton)
+        searchControlsStackView.addArrangedSubview(mediaIconSizeLabel)
+        searchControlsStackView.addArrangedSubview(mediaIconSizeSlider)
+        searchControlsStackView.addArrangedSubview(mediaIconSizeValueLabel)
         searchControlsStackView.addArrangedSubview(searchField)
 
         pathControl.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -929,6 +604,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             searchControlsStackView.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -10),
             searchControlsStackView.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
             searchControlsStackView.leadingAnchor.constraint(greaterThanOrEqualTo: headerView.leadingAnchor, constant: 260),
+            mediaIconSizeSlider.widthAnchor.constraint(equalToConstant: 110),
+            mediaIconSizeValueLabel.widthAnchor.constraint(equalToConstant: 44),
             searchField.widthAnchor.constraint(greaterThanOrEqualToConstant: 132),
             searchField.widthAnchor.constraint(lessThanOrEqualToConstant: 240),
 
@@ -966,9 +643,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private func updateDisplayModeControls() {
+        let isMediaMode = currentDisplayMode == .media
         displayModeControl.selectedSegment = currentDisplayMode == .media ? 1 : 0
         mediaRecursiveButton.state = viewModel.mediaRecursiveEnabled ? .on : .off
-        mediaRecursiveButton.isHidden = currentDisplayMode != .media
+        mediaRecursiveButton.isHidden = !isMediaMode
+        mediaIconSizeLabel.isHidden = !isMediaMode
+        mediaIconSizeSlider.isHidden = !isMediaMode
+        mediaIconSizeValueLabel.isHidden = !isMediaMode
     }
 
     private func configureContextMenu() {
@@ -1011,7 +692,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         fileDropTarget.onDropCompleted = { [weak self] operation, itemCount in
             guard let self else { return }
             self.stopDropPulse()
-            if self.starEffectsEnabled, let layer = self.view.layer {
+            if self.starEffectsEnabled, self.animationEffectSettings.dropZonePulse, let layer = self.view.layer {
                 let center = CGPoint(x: layer.bounds.midX, y: layer.bounds.midY)
                 StarSparkleAnimator.burst(count: 6, in: layer, at: center,
                     color: self.filerTheme.palette.starGlowColor, size: 8, duration: 0.4)
@@ -1048,7 +729,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             self.syncSelectionFromViewModel()
             self.publishSelection()
 
-            if self.starEffectsEnabled, self.currentDisplayMode == .browser {
+            if self.starEffectsEnabled, self.animationEffectSettings.cursorRipple, self.currentDisplayMode == .browser {
                 self.animateCursorRipple(at: self.viewModel.paneState.cursorIndex)
             }
         }
@@ -1192,6 +873,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     @objc
+    private func handleMediaIconSizeChanged(_ sender: NSSlider) {
+        let clampedSize = min(max(CGFloat(sender.doubleValue), 12), 40)
+        setFileIconSize(clampedSize)
+        onFileIconSizeChanged?(clampedSize)
+    }
+
+    @objc
     private func handleMediaDoubleClick(_ recognizer: NSClickGestureRecognizer) {
         let point = recognizer.location(in: mediaCollectionView)
         guard let indexPath = mediaCollectionView.indexPathForItem(at: point) else {
@@ -1286,7 +974,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private func thumbnailCacheKey(for item: FileItem) -> NSString {
-        let pixelSize = Int(fileIconSize.rounded())
+        let pixelSize = thumbnailPixelSizeForCurrentDisplayMode()
         return "thumb#\(item.url.path)#\(pixelSize)" as NSString
     }
 
@@ -1296,7 +984,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         let targetURL = item.url.standardizedFileURL
-        let size = max(16, Int((fileIconSize * 2).rounded()))
+        let size = thumbnailPixelSizeForCurrentDisplayMode()
 
         thumbnailTasks[key] = Task { [weak self] in
             guard let self else {
@@ -1333,6 +1021,18 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
                 self.mediaCollectionView.reloadItems(at: [IndexPath(item: row, section: 0)])
             }
         }
+    }
+
+    private func preferredMediaTileWidth() -> CGFloat {
+        min(max(fileIconSize * 5.5, 120), 260)
+    }
+
+    private func thumbnailPixelSizeForCurrentDisplayMode() -> Int {
+        if currentDisplayMode == .media {
+            return max(128, Int((preferredMediaTileWidth() * 2).rounded()))
+        }
+
+        return max(16, Int((fileIconSize * 2).rounded()))
     }
 
     private static func generateThumbnail(for url: URL, maxPixelSize: Int) async -> NSImage? {
@@ -1413,7 +1113,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             editor.selectAll(nil)
         }
 
-        if starEffectsEnabled {
+        if starEffectsEnabled, animationEffectSettings.filterBarGlow {
             let palette = filerTheme.palette
             searchField.wantsLayer = true
             searchField.layer?.shadowColor = palette.starAccentColor.cgColor
@@ -1548,12 +1248,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             handled = true
         case .markAll:
             viewModel.markAll()
-            if starEffectsEnabled {
+            if starEffectsEnabled, animationEffectSettings.markCascade {
                 animateMarkCascade(topToBottom: true)
             }
             handled = true
         case .clearMarks:
-            if starEffectsEnabled {
+            if starEffectsEnabled, animationEffectSettings.markCascade {
                 animateMarkCascade(topToBottom: false)
             }
             viewModel.clearMarks()
@@ -1565,7 +1265,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
                 mediaCollectionView.setVimMode(vimModeState.mode)
                 viewModel.enterVisualMode()
 
-                if starEffectsEnabled {
+                if starEffectsEnabled, animationEffectSettings.visualModeWave {
                     flashRow(at: viewModel.paneState.cursorIndex,
                         color: filerTheme.palette.starAccentColor.withAlphaComponent(0.4), duration: 0.3)
                 }
@@ -1592,7 +1292,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         case .toggleMediaRecursive:
             viewModel.toggleMediaRecursive()
             handled = true
-        case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo, .togglePreview, .toggleSidebar, .toggleLeftPane, .toggleRightPane, .toggleSinglePane, .equalizePaneWidths, .openBookmarkSearch, .openHistory, .addBookmark, .batchRename, .syncPanes:
+        case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo, .togglePreview, .toggleSidebar, .toggleLeftPane, .toggleRightPane, .toggleSinglePane, .equalizePaneWidths, .matchOtherPaneDirectory, .goToOtherPaneDirectory, .openBookmarkSearch, .openHistory, .addBookmark, .batchRename, .syncPanes, .toggleTerminalPanel, .launchClaude, .launchCodex:
             handled = onFileOperationRequested?(action) ?? false
         case .enterFilterMode:
             focusSearch(mode: .filter)
@@ -1639,7 +1339,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         viewModel.toggleMark()
 
-        if starEffectsEnabled, !wasMarked,
+        if starEffectsEnabled, animationEffectSettings.markSparkle, !wasMarked,
            let rowView = tableView.rowView(atRow: cursorIndexBeforeToggle, makeIfNecessary: false),
            let viewLayer = view.layer {
             let palette = filerTheme.palette
@@ -1686,6 +1386,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         if item.isDirectory && !item.isPackage {
             viewModel.enterSelected()
+        } else if item.url.isMarkdownFile {
+            onMarkdownPreviewRequested?(item.url)
         } else {
             NSWorkspace.shared.open(item.url)
         }
@@ -1977,6 +1679,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         menu.addItem(makeContextMenuItem(title: "Toggle Left Pane", action: .toggleLeftPane))
         menu.addItem(makeContextMenuItem(title: "Toggle Right Pane", action: .toggleRightPane))
         menu.addItem(makeContextMenuItem(title: "Equalize Pane Widths", action: .equalizePaneWidths))
+        menu.addItem(makeContextMenuItem(title: "Set Other Pane to Current Folder", action: .matchOtherPaneDirectory))
+        menu.addItem(makeContextMenuItem(title: "Go to Other Pane Folder", action: .goToOtherPaneDirectory))
         menu.addItem(makeContextMenuItem(title: "Switch Pane", action: .switchPane))
     }
 
@@ -2115,7 +1819,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     // MARK: - Animation Helpers
 
     private func addSlideTransition(direction: CATransitionSubtype) {
-        guard starEffectsEnabled else { return }
+        guard starEffectsEnabled, animationEffectSettings.directoryTransitionSlide else { return }
         let transition = CATransition()
         transition.type = .push
         transition.subtype = direction
@@ -2188,7 +1892,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private func startDropPulse() {
-        guard starEffectsEnabled else { return }
+        guard starEffectsEnabled, animationEffectSettings.dropZonePulse else { return }
         let pulse = CABasicAnimation(keyPath: "borderWidth")
         pulse.fromValue = 1.0
         pulse.toValue = 2.5

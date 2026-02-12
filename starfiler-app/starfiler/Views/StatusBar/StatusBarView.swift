@@ -7,6 +7,7 @@ final class StatusBarView: NSView {
     private var backgroundOpacity: CGFloat = 1.0
     private var previousMarkedCount: Int = 0
     private var starEffectsEnabled = true
+    private var animationEffectSettings = AnimationEffectSettings.allEnabled
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -34,7 +35,7 @@ final class StatusBarView: NSView {
             countLabel.stringValue = "\(itemCount) items"
         }
 
-        if starEffectsEnabled {
+        if starEffectsEnabled, animationEffectSettings.statusBarCountAnimation {
             countLabel.wantsLayer = true
             let transition = CATransition()
             transition.type = .push
@@ -55,6 +56,10 @@ final class StatusBarView: NSView {
 
     func setStarEffectsEnabled(_ enabled: Bool) {
         starEffectsEnabled = enabled
+    }
+
+    func setAnimationEffectSettings(_ settings: AnimationEffectSettings) {
+        animationEffectSettings = settings
     }
 
     func applyTheme(_ theme: FilerTheme, backgroundOpacity: CGFloat = 1.0) {

@@ -22,6 +22,7 @@ final class SidebarViewModel {
         let iconName: String
         let shortcutHint: String?
         let isCurrentPosition: Bool
+        let isLatestPosition: Bool
         let timelinePosition: Int?
 
         init(
@@ -30,6 +31,7 @@ final class SidebarViewModel {
             iconName: String,
             shortcutHint: String? = nil,
             isCurrentPosition: Bool = false,
+            isLatestPosition: Bool = false,
             timelinePosition: Int? = nil
         ) {
             self.displayName = displayName
@@ -37,6 +39,7 @@ final class SidebarViewModel {
             self.iconName = iconName
             self.shortcutHint = shortcutHint
             self.isCurrentPosition = isCurrentPosition
+            self.isLatestPosition = isLatestPosition
             self.timelinePosition = timelinePosition
         }
     }
@@ -126,26 +129,29 @@ final class SidebarViewModel {
         let reversedForward = Array(forwardStack.reversed())
         let allURLs = backStack + [currentURL] + reversedForward
         let currentIndex = backStack.count
+        let latestIndex = allURLs.count - 1
 
-        let items = allURLs.enumerated().map { index, url in
+        let chronologicalItems = allURLs.enumerated().map { index, url in
             let name = url.lastPathComponent.isEmpty ? url.path : url.lastPathComponent
             let isCurrent = index == currentIndex
             let icon: String
             if isCurrent {
-                icon = "location.fill"
+                icon = "smallcircle.filled.circle"
             } else if index < currentIndex {
-                icon = "chevron.left"
+                icon = "arrowshape.turn.up.left.circle"
             } else {
-                icon = "chevron.right"
+                icon = "arrowshape.turn.up.right.circle"
             }
             return SidebarEntry(
                 displayName: name,
                 path: url.path,
                 iconName: icon,
                 isCurrentPosition: isCurrent,
+                isLatestPosition: index == latestIndex,
                 timelinePosition: index
             )
         }
+        let items = Array(chronologicalItems.reversed())
 
         let title = paneSide == .left ? "History (Left)" : "History (Right)"
         navigationHistorySection = SidebarSection(kind: .recent, title: title, items: items)

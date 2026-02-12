@@ -15,6 +15,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var leftPaneVisible: Bool
     private var rightPaneVisible: Bool
     private var starEffectsEnabled: Bool
+    private var terminalPanelVisible: Bool
     private var animationEffectSettings: AnimationEffectSettings
     private lazy var mainSplitViewController = MainSplitViewController(
         viewModel: mainViewModel,
@@ -24,6 +25,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         initialSidebarWidth: sidebarWidth,
         initialLeftPaneVisible: leftPaneVisible,
         initialRightPaneVisible: rightPaneVisible
+    )
+    private lazy var terminalPanelViewController = TerminalPanelViewController(
+        listViewModel: mainViewModel.terminalSessionListViewModel
+    )
+    private lazy var mainContainerViewController = MainContainerViewController(
+        mainSplitViewController: mainSplitViewController,
+        terminalPanelViewController: terminalPanelViewController,
+        terminalPanelVisible: terminalPanelVisible
     )
     private let appUndoManager = UndoManager()
 
@@ -51,6 +60,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         self.rightPaneVisible = appConfig.rightPaneVisible
         self.starEffectsEnabled = appConfig.starEffectsEnabled
         self.animationEffectSettings = appConfig.animationEffectSettings
+        self.terminalPanelVisible = appConfig.terminalPanelVisible
         let fallbackDirectory = initialDirectory.standardizedFileURL
         let leftDirectory = Self.resolveDirectory(path: appConfig.lastLeftPanePath, fallback: fallbackDirectory)
         let rightDirectory = Self.resolveDirectory(path: appConfig.lastRightPanePath, fallback: leftDirectory)
@@ -66,6 +76,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             initialSortAscending: appConfig.defaultSortAscending,
             initialPreviewVisible: appConfig.previewPaneVisible,
             initialSidebarVisible: appConfig.sidebarVisible,
+            initialTerminalPanelVisible: appConfig.terminalPanelVisible,
             initialSpotlightSearchScope: appConfig.spotlightSearchScope,
             initialLeftPaneDisplayMode: appConfig.leftPaneDisplayMode,
             initialRightPaneDisplayMode: appConfig.rightPaneDisplayMode,
@@ -335,6 +346,21 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         mainSplitViewController.equalizePaneWidths()
     }
 
+    func toggleTerminalPanel() {
+        mainContainerViewController.toggleTerminalPanel()
+        terminalPanelVisible = mainContainerViewController.isTerminalPanelVisible
+        persistAppConfig()
+    }
+
+    func launchTerminalSession(command: TerminalSessionCommand) {
+        let workingDirectory = mainViewModel.activePane.paneState.currentDirectory
+        terminalPanelViewController.createSession(command: command, workingDirectory: workingDirectory)
+    }
+
+    func focusTerminalPanel() {
+        terminalPanelViewController.focusActiveTerminal()
+    }
+
     func reloadBookmarksConfig() {
         mainSplitViewController.reloadBookmarksConfig()
     }
@@ -349,6 +375,19 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     func requestDeleteFromActivePane() {
         mainSplitViewController.requestDeleteFromActivePane()
+    }
+
+    private func handleTerminalAction(_ action: KeyAction) {
+        switch action {
+        case .launchClaude:
+            launchTerminalSession(command: .claude)
+        case .launchCodex:
+            launchTerminalSession(command: .codex)
+        case .toggleTerminalPanel:
+            toggleTerminalPanel()
+        default:
+            break
+        }
     }
 
     private func configureWindow() {
@@ -381,11 +420,28 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         mainSplitViewController.onSidebarWidthChanged = { [weak self] width in
             self?.handleSidebarWidthChanged(width)
         }
+        mainSplitViewController.onFileIconSizeChanged = { [weak self] size in
+            self?.updateFileIconSize(size)
+        }
+        mainSplitViewController.onTerminalAction = { [weak self] action in
+            self?.handleTerminalAction(action)
+        }
+
+        mainViewModel.terminalSessionListViewModel.onPanelVisibilityChanged = { [weak self] visible in
+            guard let self else { return }
+            if visible {
+                self.mainContainerViewController.showTerminalPanel()
+            } else {
+                self.mainContainerViewController.hideTerminalPanel()
+            }
+            self.terminalPanelVisible = visible
+            self.persistAppConfig()
+        }
 
         applyCurrentAppearance()
         mainSplitViewController.setStarEffectsEnabled(starEffectsEnabled)
         mainSplitViewController.setAnimationEffectSettings(animationEffectSettings)
-        window.contentViewController = mainSplitViewController
+        window.contentViewController = mainContainerViewController
         attachWindowControlButtons(to: window)
     }
 
@@ -450,7 +506,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             leftPaneVisible: leftPaneVisible,
             rightPaneVisible: rightPaneVisible,
             starEffectsEnabled: starEffectsEnabled,
-            animationEffectSettings: animationEffectSettings
+            animationEffectSettings: animationEffectSettings,
+            terminalPanelVisible: terminalPanelVisible,
+            terminalPanelHeight: Double(mainContainerViewController.terminalPanelHeight)
         )
 
         try? configManager.saveAppConfig(appConfig)

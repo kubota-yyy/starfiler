@@ -266,6 +266,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
 
     private var bookmarksConfig: BookmarksConfig
     private var bookmarkSearchPanelController: BookmarkSearchPanelController?
+    private var markdownPreviewPanelController: MarkdownPreviewPanelController?
     private var batchRenameWindowController: NSWindowController?
     private var syncWindowController: NSWindowController?
 
@@ -274,6 +275,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     private var actionFeedbackEnabled: Bool
     private var fileIconSize: CGFloat
     private var starEffectsEnabled = true
+    private var currentFilerTheme: FilerTheme = .system
     private var animationEffectSettings = AnimationEffectSettings.allEnabled
     private let initialSidebarWidth: CGFloat
     private var hasAppliedInitialSidebarWidth = false
@@ -289,6 +291,8 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     var onSpotlightSearchScopeChanged: ((SpotlightSearchScope) -> Void)?
     var onPaneVisibilityChanged: ((Bool, Bool) -> Void)?
     var onSidebarWidthChanged: ((CGFloat) -> Void)?
+    var onFileIconSizeChanged: ((CGFloat) -> Void)?
+    var onTerminalAction: ((KeyAction) -> Void)?
 
     init(
         viewModel: MainViewModel,
@@ -452,6 +456,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     }
 
     func setFilerTheme(_ theme: FilerTheme, backgroundOpacity: CGFloat = 1.0) {
+        currentFilerTheme = theme
         let palette = theme.palette
         splitView.wantsLayer = true
         splitView.layer?.backgroundColor = palette.windowBackgroundColor.applyingBackgroundOpacity(backgroundOpacity).cgColor
@@ -744,6 +749,19 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         rightPaneViewController.onSpotlightSearchScopeChanged = { [weak self] scope in
             self?.handleSpotlightSearchScopeChanged(scope)
         }
+        leftPaneViewController.onFileIconSizeChanged = { [weak self] size in
+            self?.handleFileIconSizeChanged(size)
+        }
+        rightPaneViewController.onFileIconSizeChanged = { [weak self] size in
+            self?.handleFileIconSizeChanged(size)
+        }
+
+        leftPaneViewController.onMarkdownPreviewRequested = { [weak self] url in
+            self?.presentMarkdownPreview(for: url)
+        }
+        rightPaneViewController.onMarkdownPreviewRequested = { [weak self] url in
+            self?.presentMarkdownPreview(for: url)
+        }
 
         previewPaneViewController.onImageSelectionChanged = { [weak self] selectedURL in
             self?.viewModel.previewPane.setSelectedFileURL(selectedURL)
@@ -825,6 +843,18 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         case .equalizePaneWidths:
             equalizePaneWidths()
             return true
+        case .matchOtherPaneDirectory:
+            let changed = viewModel.matchOtherPaneDirectoryToActivePane()
+            if changed {
+                showActionToast("Other pane set to current folder")
+            }
+            return true
+        case .goToOtherPaneDirectory:
+            let changed = viewModel.moveActivePaneToOtherPaneDirectory()
+            if changed {
+                showActionToast("Moved to other pane folder")
+            }
+            return true
         case .openBookmarkSearch:
             presentBookmarkSearchPanel()
             return true
@@ -839,6 +869,9 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
             return true
         case .syncPanes:
             presentSyncWindow()
+            return true
+        case .launchClaude, .launchCodex, .toggleTerminalPanel:
+            onTerminalAction?(action)
             return true
         default:
             return false
@@ -1005,6 +1038,12 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     private func handleSpotlightSearchScopeChanged(_ scope: SpotlightSearchScope) {
         setSpotlightSearchScope(scope)
         onSpotlightSearchScopeChanged?(scope)
+    }
+
+    private func handleFileIconSizeChanged(_ size: CGFloat) {
+        let clampedSize = min(max(size, 12), 40)
+        setFileIconSize(clampedSize)
+        onFileIconSizeChanged?(clampedSize)
     }
 
     private func actionMessage(for result: FileOperationResult) -> String? {
@@ -1707,5 +1746,25 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         let wc = NSWindowController(window: window)
         wc.showWindow(nil)
         syncWindowController = wc
+    }
+
+    // MARK: - Markdown Preview
+
+    private func presentMarkdownPreview(for fileURL: URL) {
+        markdownPreviewPanelController?.dismiss()
+
+        guard let window = view.window else {
+            return
+        }
+
+        let panel = MarkdownPreviewPanelController()
+        panel.onDismiss = { [weak self] in
+            self?.markdownPreviewPanelController = nil
+            self?.focusActivePane()
+        }
+
+        let palette = currentFilerTheme.palette
+        panel.showRelativeTo(window: window, fileURL: fileURL, palette: palette)
+        markdownPreviewPanelController = panel
     }
 }
