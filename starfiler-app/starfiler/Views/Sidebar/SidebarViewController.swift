@@ -2,6 +2,8 @@ import AppKit
 
 final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate {
     private let viewModel: SidebarViewModel
+    private let windowControlsContainer = NSView()
+    private let windowControlsStackView = NSStackView()
     private let scrollView = NSScrollView()
     private let outlineView = NSOutlineView()
     private let recentSeparatorView = NSView()
@@ -10,6 +12,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     private let recentOutlineView = NSOutlineView()
     private var scrollViewBottomToRecent: NSLayoutConstraint!
     private var scrollViewBottomToView: NSLayoutConstraint!
+    private var windowControlsHeightConstraint: NSLayoutConstraint!
     private var recentScrollViewHeightConstraint: NSLayoutConstraint!
 
     private var regularSections: [SidebarViewModel.SidebarSection] = []
@@ -17,6 +20,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
     private let sectionHeaderHeight: CGFloat = 22
     private let entryRowHeight: CGFloat = 24
+    private let windowControlsHeight: CGFloat = 30
 
     var onNavigateRequested: ((URL) -> Void)?
 
@@ -46,6 +50,28 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         viewModel.reloadSections()
     }
 
+    func embedWindowControlButtons(_ buttons: [NSButton]) {
+        guard !buttons.isEmpty else {
+            return
+        }
+
+        loadViewIfNeeded()
+        windowControlsHeightConstraint.constant = windowControlsHeight
+
+        for existing in windowControlsStackView.arrangedSubviews {
+            windowControlsStackView.removeArrangedSubview(existing)
+            existing.removeFromSuperview()
+        }
+
+        for button in buttons {
+            button.removeFromSuperview()
+            button.translatesAutoresizingMaskIntoConstraints = false
+            button.setContentHuggingPriority(.required, for: .horizontal)
+            button.setContentCompressionResistancePriority(.required, for: .horizontal)
+            windowControlsStackView.addArrangedSubview(button)
+        }
+    }
+
     func applyTheme(_ theme: FilerTheme, backgroundOpacity: CGFloat = 1.0) {
         currentTheme = theme
         let palette = theme.palette
@@ -53,6 +79,8 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
         view.wantsLayer = true
         view.layer?.backgroundColor = backgroundColor.cgColor
+        windowControlsContainer.wantsLayer = true
+        windowControlsContainer.layer?.backgroundColor = backgroundColor.cgColor
         recentSeparatorView.wantsLayer = true
         recentSeparatorView.layer?.backgroundColor = NSColor.separatorColor.withAlphaComponent(0.25).cgColor
         recentHeaderLabel.textColor = palette.sidebarSectionHeaderColor
@@ -132,11 +160,20 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     private var recentConstraints: [NSLayoutConstraint] = []
 
     private func configureLayout() {
+        windowControlsContainer.translatesAutoresizingMaskIntoConstraints = false
+        windowControlsStackView.translatesAutoresizingMaskIntoConstraints = false
+        windowControlsStackView.orientation = .horizontal
+        windowControlsStackView.alignment = .centerY
+        windowControlsStackView.spacing = 8
+
+        windowControlsContainer.addSubview(windowControlsStackView)
         view.addSubview(scrollView)
+        view.addSubview(windowControlsContainer)
         view.addSubview(recentSeparatorView)
         view.addSubview(recentHeaderLabel)
         view.addSubview(recentScrollView)
 
+        windowControlsHeightConstraint = windowControlsContainer.heightAnchor.constraint(equalToConstant: 0)
         scrollViewBottomToRecent = scrollView.bottomAnchor.constraint(equalTo: recentSeparatorView.topAnchor)
         scrollViewBottomToView = scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         recentScrollViewHeightConstraint = recentScrollView.heightAnchor.constraint(equalToConstant: 0)
@@ -159,9 +196,17 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         ]
 
         NSLayoutConstraint.activate([
+            windowControlsContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            windowControlsContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            windowControlsContainer.topAnchor.constraint(equalTo: view.topAnchor),
+            windowControlsHeightConstraint,
+
+            windowControlsStackView.leadingAnchor.constraint(equalTo: windowControlsContainer.leadingAnchor, constant: 12),
+            windowControlsStackView.centerYAnchor.constraint(equalTo: windowControlsContainer.centerYAnchor),
+
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.topAnchor.constraint(equalTo: windowControlsContainer.bottomAnchor),
         ])
 
         setRecentSectionVisible(false)

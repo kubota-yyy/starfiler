@@ -825,7 +825,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         NSLayoutConstraint.activate([
             headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            headerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            headerView.topAnchor.constraint(equalTo: view.topAnchor),
             headerView.heightAnchor.constraint(equalToConstant: 30),
 
             pathControl.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 10),

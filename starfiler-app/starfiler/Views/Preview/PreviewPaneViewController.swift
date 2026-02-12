@@ -199,7 +199,7 @@ final class PreviewPaneViewController: NSViewController {
         NSLayoutConstraint.activate([
             pathBarView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             pathBarView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            pathBarView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            pathBarView.topAnchor.constraint(equalTo: view.topAnchor),
             pathBarView.heightAnchor.constraint(equalToConstant: 30),
 
             pathControl.leadingAnchor.constraint(equalTo: pathBarView.leadingAnchor, constant: 10),
@@ -412,6 +412,7 @@ final class PreviewPaneViewController: NSViewController {
     }
 
     private func displayLoadedImage(_ image: NSImage) {
+        scrollView.alphaValue = 0
         imageView.image = image
         imageView.frame = NSRect(origin: .zero, size: image.size)
         scrollView.documentView = imageView
@@ -516,17 +517,14 @@ final class PreviewPaneViewController: NSViewController {
         fitImageToView()
 
         // When selection changes rapidly, layout can settle a tick later.
-        // Re-apply fit once to ensure the new image starts in fit mode.
+        // Re-apply fit once to ensure the new image starts in fit mode,
+        // then reveal the scroll view so the user never sees the unfitted frame.
         DispatchQueue.main.async { [weak self] in
-            guard
-                let self,
-                self.isFitModeActive,
-                self.imageView.image != nil,
-                !self.scrollView.isHidden
-            else {
-                return
+            guard let self else { return }
+            if self.isFitModeActive, self.imageView.image != nil, !self.scrollView.isHidden {
+                self.fitImageToView()
             }
-            self.fitImageToView()
+            self.scrollView.alphaValue = 1
         }
     }
 

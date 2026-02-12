@@ -94,11 +94,35 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     override func showWindow(_ sender: Any?) {
         super.showWindow(sender)
+        if let window {
+            attachWindowControlButtons(to: window)
+        }
         mainSplitViewController.focusActivePane()
     }
 
     func windowWillClose(_ notification: Notification) {
         persistAppConfig()
+    }
+
+    func windowDidBecomeMain(_ notification: Notification) {
+        guard let window else {
+            return
+        }
+        attachWindowControlButtons(to: window)
+    }
+
+    func windowDidEnterFullScreen(_ notification: Notification) {
+        guard let window else {
+            return
+        }
+        attachWindowControlButtons(to: window)
+    }
+
+    func windowDidExitFullScreen(_ notification: Notification) {
+        guard let window else {
+            return
+        }
+        attachWindowControlButtons(to: window)
     }
 
     func performAction(_ block: (MainViewModel) -> Void) {
@@ -283,6 +307,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.styleMask.insert(.fullSizeContentView)
+        window.toolbar = nil
         window.isMovableByWindowBackground = true
         window.minSize = NSSize(width: 800, height: 600)
         window.setFrameAutosaveName("MainWindow")
@@ -307,6 +332,17 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         applyCurrentAppearance()
         mainSplitViewController.setStarEffectsEnabled(starEffectsEnabled)
         window.contentViewController = mainSplitViewController
+        attachWindowControlButtons(to: window)
+    }
+
+    private func attachWindowControlButtons(to window: NSWindow) {
+        let buttonTypes: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
+        let buttons = buttonTypes.compactMap { window.standardWindowButton($0) }
+        guard buttons.count == buttonTypes.count else {
+            return
+        }
+
+        mainSplitViewController.embedWindowControlButtons(buttons)
     }
 
     private var backgroundOpacity: CGFloat {

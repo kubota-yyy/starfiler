@@ -290,6 +290,10 @@ final class MainSplitViewController: NSSplitViewController {
         rightPaneViewController.reloadKeybindings()
     }
 
+    func embedWindowControlButtons(_ buttons: [NSButton]) {
+        sidebarViewController.embedWindowControlButtons(buttons)
+    }
+
     func setActionFeedbackEnabled(_ enabled: Bool) {
         actionFeedbackEnabled = enabled
     }
