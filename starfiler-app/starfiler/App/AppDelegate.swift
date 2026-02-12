@@ -216,9 +216,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         goMenu.addItem(NSMenuItem.separator())
         let homeItem = goMenu.addItem(withTitle: "Home", action: #selector(menuGoHome(_:)), keyEquivalent: "h")
         homeItem.keyEquivalentModifierMask = [.command, .shift]
-        goMenu.addItem(withTitle: "Desktop", action: #selector(menuGoDesktop(_:)), keyEquivalent: "")
-        goMenu.addItem(withTitle: "Documents", action: #selector(menuGoDocuments(_:)), keyEquivalent: "")
-        goMenu.addItem(withTitle: "Downloads", action: #selector(menuGoDownloads(_:)), keyEquivalent: "")
+        let desktopItem = goMenu.addItem(withTitle: "Desktop", action: #selector(menuGoDesktop(_:)), keyEquivalent: "d")
+        desktopItem.keyEquivalentModifierMask = [.command, .shift]
+        let documentsItem = goMenu.addItem(withTitle: "Documents", action: #selector(menuGoDocuments(_:)), keyEquivalent: "o")
+        documentsItem.keyEquivalentModifierMask = [.command, .shift]
+        let downloadsItem = goMenu.addItem(withTitle: "Downloads", action: #selector(menuGoDownloads(_:)), keyEquivalent: "l")
+        downloadsItem.keyEquivalentModifierMask = [.command, .option]
+        let applicationsItem = goMenu.addItem(withTitle: "Applications", action: #selector(menuGoApplications(_:)), keyEquivalent: "a")
+        applicationsItem.keyEquivalentModifierMask = [.command, .shift]
         goMenuItem.submenu = goMenu
 
         // Window menu
@@ -329,6 +334,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func menuGoDownloads(_ sender: Any?) {
         mainWindowController?.performAction {
             $0.activePane.navigate(to: URL(fileURLWithPath: UserPaths.homeDirectoryPath + "/Downloads", isDirectory: true))
+        }
+    }
+
+    @objc private func menuGoApplications(_ sender: Any?) {
+        mainWindowController?.performAction {
+            $0.activePane.navigate(to: URL(fileURLWithPath: "/Applications", isDirectory: true))
         }
     }
 
