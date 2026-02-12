@@ -301,7 +301,7 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
         let response = alert.runModal()
 
         if response == .alertFirstButtonReturn, let newSequence = recordedNewSequence {
-            if let conflict = findConflict(sequence: newSequence, mode: bindingMode, excludingRow: row) {
+            if let conflict = findConflict(sequence: newSequence, mode: bindingMode, excludingSequence: binding.sequence) {
                 let conflictAlert = NSAlert()
                 conflictAlert.alertStyle = .warning
                 conflictAlert.messageText = "Key Conflict"
@@ -318,10 +318,10 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
         }
     }
 
-    private func findConflict(sequence: String, mode: String, excludingRow: Int) -> String? {
+    private func findConflict(sequence: String, mode: String, excludingSequence: String) -> String? {
         guard let bindings = allBindings[mode] else { return nil }
-        for (index, binding) in bindings.enumerated() where index != excludingRow {
-            if binding.sequence == sequence {
+        for binding in bindings {
+            if binding.sequence == sequence && binding.sequence != excludingSequence {
                 return binding.action
             }
         }
