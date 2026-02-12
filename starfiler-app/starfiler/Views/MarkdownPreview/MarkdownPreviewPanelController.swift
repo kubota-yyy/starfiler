@@ -38,13 +38,9 @@ final class MarkdownPreviewPanelController {
         }
 
         let windowFrame = window.frame
-        let panelWidth = CGFloat(960)
-        let panelHeight = CGFloat(640)
-        let panelX = windowFrame.midX - panelWidth / 2
-        let panelY = windowFrame.midY - panelHeight / 2
 
         let panel = NSPanel(
-            contentRect: NSRect(x: panelX, y: panelY, width: panelWidth, height: panelHeight),
+            contentRect: windowFrame,
             styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false
@@ -66,22 +62,22 @@ final class MarkdownPreviewPanelController {
         }
         panel.contentView = contentView
 
-        let contentBounds = contentView.bounds
-        let halfWidth = contentBounds.width / 2
+        let contentSize = panel.contentRect(forFrameRect: panel.frame).size
+        let halfWidth = contentSize.width / 2
 
-        let splitView = NSSplitView(frame: contentBounds)
+        let splitView = NSSplitView(frame: NSRect(origin: .zero, size: contentSize))
         splitView.autoresizingMask = [.width, .height]
         splitView.isVertical = true
         splitView.dividerStyle = .thin
 
-        let rawTextScrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: halfWidth, height: contentBounds.height))
+        let rawTextScrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: halfWidth, height: contentSize.height))
         rawTextScrollView.hasVerticalScroller = true
         rawTextScrollView.hasHorizontalScroller = false
         rawTextScrollView.autohidesScrollers = true
         rawTextScrollView.drawsBackground = true
         rawTextScrollView.backgroundColor = palette.previewBackgroundColor
 
-        let rawTextView = NSTextView(frame: NSRect(x: 0, y: 0, width: halfWidth, height: contentBounds.height))
+        let rawTextView = NSTextView(frame: NSRect(x: 0, y: 0, width: halfWidth, height: contentSize.height))
         rawTextView.isEditable = false
         rawTextView.isSelectable = true
         rawTextView.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
@@ -95,7 +91,7 @@ final class MarkdownPreviewPanelController {
         rawTextView.string = markdownText
         rawTextScrollView.documentView = rawTextView
 
-        let webView = WKWebView(frame: NSRect(x: halfWidth, y: 0, width: halfWidth, height: contentBounds.height))
+        let webView = WKWebView(frame: NSRect(x: halfWidth, y: 0, width: halfWidth, height: contentSize.height))
         self.webView = webView
 
         let delegate = MarkdownWebViewDelegate()
@@ -146,7 +142,7 @@ final class MarkdownPreviewPanelController {
             return
         }
 
-        guard let jsonData = try? JSONSerialization.data(withJSONObject: markdownText, options: []),
+        guard let jsonData = try? JSONEncoder().encode(markdownText),
               let jsonString = String(data: jsonData, encoding: .utf8) else {
             return
         }

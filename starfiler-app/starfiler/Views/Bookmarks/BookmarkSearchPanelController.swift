@@ -48,7 +48,7 @@ final class BookmarkSearchPanelController: NSObject, NSTableViewDataSource, NSTa
         contentView.addSubview(scrollView)
 
         NSLayoutConstraint.activate([
-            searchField.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
+            searchField.topAnchor.constraint(equalTo: contentView.safeAreaLayoutGuide.topAnchor, constant: 8),
             searchField.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
             searchField.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
             searchField.heightAnchor.constraint(equalToConstant: 28),

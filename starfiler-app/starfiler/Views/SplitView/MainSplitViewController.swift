@@ -4,6 +4,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     private static let defaultSidebarWidth = CGFloat(260)
     private static let defaultPreviewWidth = CGFloat(320)
     private static let sidebarWidthRange: ClosedRange<CGFloat> = CGFloat(AppConfig.sidebarWidthRange.lowerBound) ... CGFloat(AppConfig.sidebarWidthRange.upperBound)
+    private static var lastSelectedBookmarkGroupIndex: Int = 0
 
     private struct PaneStatus {
         var path: String
@@ -1272,15 +1273,20 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     }
 
     private func presentAddBookmarkAlert() {
-        let currentDirectory = viewModel.activePane.paneState.currentDirectory.standardizedFileURL
-        let defaultDisplayName = currentDirectory.lastPathComponent.isEmpty
-            ? currentDirectory.path
-            : currentDirectory.lastPathComponent
+        let targetURL: URL
+        if let selectedItem = viewModel.activePane.selectedItem {
+            targetURL = selectedItem.url.standardizedFileURL
+        } else {
+            targetURL = viewModel.activePane.paneState.currentDirectory.standardizedFileURL
+        }
+        let defaultDisplayName = targetURL.lastPathComponent.isEmpty
+            ? targetURL.path
+            : targetURL.lastPathComponent
 
         let alert = NSAlert()
         alert.alertStyle = .informational
         alert.messageText = "Add Bookmark"
-        alert.informativeText = currentDirectory.path
+        alert.informativeText = targetURL.path
         alert.addButton(withTitle: "Save")
         alert.addButton(withTitle: "Cancel")
 
@@ -1289,6 +1295,10 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         let groupPopup = NSPopUpButton(frame: NSRect(x: 0, y: 104, width: 340, height: 26), pullsDown: false)
         groupPopup.addItems(withTitles: bookmarksConfig.groups.map(\.name))
         groupPopup.addItem(withTitle: "New Group")
+        let lastIndex = Self.lastSelectedBookmarkGroupIndex
+        if lastIndex >= 0, lastIndex < groupPopup.numberOfItems {
+            groupPopup.selectItem(at: lastIndex)
+        }
 
         let newGroupField = NSTextField(frame: NSRect(x: 0, y: 78, width: 260, height: 24))
         newGroupField.placeholderString = "New group name"
@@ -1317,11 +1327,15 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         accessoryContainer.addSubview(shortcutField)
         alert.accessoryView = accessoryContainer
 
+        alert.window.initialFirstResponder = shortcutField
+
         guard alert.runModal() == .alertFirstButtonReturn else {
             return
         }
 
         let selectedGroupIndex = groupPopup.indexOfSelectedItem
+        Self.lastSelectedBookmarkGroupIndex = selectedGroupIndex
+
         let selectedGroupName: String
         var groupShortcutKey: String?
         if selectedGroupIndex >= 0, selectedGroupIndex < bookmarksConfig.groups.count {
@@ -1345,7 +1359,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         saveBookmark(
             entry: BookmarkEntry(
                 displayName: resolvedDisplayName,
-                path: currentDirectory.path,
+                path: targetURL.path,
                 shortcutKey: entryShortcutKey
             ),
             groupName: selectedGroupName,

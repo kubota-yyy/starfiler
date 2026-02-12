@@ -136,11 +136,9 @@ final class SidebarViewModel {
             let isCurrent = index == currentIndex
             let icon: String
             if isCurrent {
-                icon = "smallcircle.filled.circle"
-            } else if index < currentIndex {
-                icon = "arrowshape.turn.up.left.circle"
+                icon = "folder.fill"
             } else {
-                icon = "arrowshape.turn.up.right.circle"
+                icon = "folder"
             }
             return SidebarEntry(
                 displayName: name,

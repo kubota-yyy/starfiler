@@ -604,17 +604,15 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         cell.imageView?.image = NSImage(systemSymbolName: entry.iconName, accessibilityDescription: nil)
             ?? NSImage(systemSymbolName: "folder", accessibilityDescription: nil)
 
+        highlightBar.isHidden = true
         if entry.isCurrentPosition {
             cell.textField?.font = .systemFont(ofSize: 13, weight: .semibold)
             cell.textField?.textColor = palette.starAccentColor
             cell.imageView?.contentTintColor = palette.starAccentColor
-            highlightBar.layer?.backgroundColor = palette.starAccentColor.cgColor
-            highlightBar.isHidden = false
         } else {
             cell.textField?.font = .systemFont(ofSize: 13)
             cell.textField?.textColor = palette.sidebarEntryTextColor
             cell.imageView?.contentTintColor = palette.sidebarIconTintColor
-            highlightBar.isHidden = true
         }
 
         shortcutLabel.stringValue = entry.shortcutHint ?? ""
