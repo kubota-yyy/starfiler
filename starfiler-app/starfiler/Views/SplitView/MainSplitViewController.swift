@@ -30,7 +30,7 @@ private final class ActionToastPresenter {
             let toastFrame = toastView.frame
             let burstPoint = CGPoint(x: toastFrame.minX + 6, y: toastFrame.midY)
             let glowColor = palette?.starGlowColor ?? .controlAccentColor
-            StarSparkleAnimator.burst(count: 4, in: layer, at: burstPoint, color: glowColor, size: 7, duration: 0.35)
+            StarSparkleAnimator.burst(count: 8, in: layer, at: burstPoint, color: glowColor, size: 10, duration: 0.5)
         }
 
         currentToast = toastView
@@ -82,8 +82,8 @@ private final class ActionToastPresenter {
         NSLayoutConstraint.activate([
             sparkleImageView.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 10),
             sparkleImageView.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            sparkleImageView.widthAnchor.constraint(equalToConstant: 14),
-            sparkleImageView.heightAnchor.constraint(equalToConstant: 14),
+            sparkleImageView.widthAnchor.constraint(equalToConstant: 18),
+            sparkleImageView.heightAnchor.constraint(equalToConstant: 18),
 
             label.leadingAnchor.constraint(equalTo: sparkleImageView.trailingAnchor, constant: 6),
             label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
@@ -97,6 +97,7 @@ private final class ActionToastPresenter {
 
 final class MainSplitViewController: NSSplitViewController {
     private static let defaultSidebarWidth = CGFloat(260)
+    private static let defaultPreviewWidth = CGFloat(320)
     private static let sidebarWidthRange: ClosedRange<CGFloat> = CGFloat(AppConfig.sidebarWidthRange.lowerBound) ... CGFloat(AppConfig.sidebarWidthRange.upperBound)
 
     private struct PaneStatus {
@@ -130,6 +131,7 @@ final class MainSplitViewController: NSSplitViewController {
     private let initialSidebarWidth: CGFloat
     private var hasAppliedInitialSidebarWidth = false
     private var lastReportedSidebarWidth: CGFloat
+    private var lastReportedPreviewWidth: CGFloat
     private let toastPresenter = ActionToastPresenter()
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
@@ -153,6 +155,7 @@ final class MainSplitViewController: NSSplitViewController {
         self.fileIconSize = fileIconSize
         self.initialSidebarWidth = clampedSidebarWidth
         self.lastReportedSidebarWidth = clampedSidebarWidth
+        self.lastReportedPreviewWidth = Self.defaultPreviewWidth
 
         self.sidebarViewModel = SidebarViewModel(
             configManager: configManager,
@@ -198,6 +201,8 @@ final class MainSplitViewController: NSSplitViewController {
         applySidebarVisibility(animated: false)
         applyPaneVisibility(leftVisible: initialLeftPaneVisible, rightVisible: initialRightPaneVisible, animated: false)
         applyPreviewPaneVisibility(animated: false)
+        previewPaneViewController.setPreferredFitViewportWidth(lastReportedPreviewWidth)
+        reportPreviewWidthIfNeeded(force: true)
 
         propagateBookmarksConfig()
         setSpotlightSearchScope(viewModel.leftPane.spotlightSearchScope)
@@ -216,6 +221,7 @@ final class MainSplitViewController: NSSplitViewController {
     override func splitViewDidResizeSubviews(_ notification: Notification) {
         super.splitViewDidResizeSubviews(notification)
         reportSidebarWidthIfNeeded(force: false)
+        reportPreviewWidthIfNeeded(force: false)
     }
 
     func focusActivePane() {
@@ -339,6 +345,7 @@ final class MainSplitViewController: NSSplitViewController {
         previewSplitItem.minimumThickness = 260
         previewSplitItem.canCollapse = true
         addSplitViewItem(previewSplitItem)
+        lastReportedPreviewWidth = max(lastReportedPreviewWidth, previewSplitItem.minimumThickness)
     }
 
     private func bindPaneControllers() {
@@ -598,13 +605,22 @@ final class MainSplitViewController: NSSplitViewController {
             return
         }
 
+        if shouldCollapse {
+            captureCurrentPreviewWidthIfNeeded()
+        } else {
+            previewPaneViewController.setPreferredFitViewportWidth(lastReportedPreviewWidth)
+        }
+
         if animated {
-            NSAnimationContext.runAnimationGroup { context in
+            NSAnimationContext.runAnimationGroup({ context in
                 context.duration = 0.18
                 previewSplitItem.animator().isCollapsed = shouldCollapse
-            }
+            }, completionHandler: { [weak self] in
+                self?.reportPreviewWidthIfNeeded(force: true)
+            })
         } else {
             previewSplitItem.isCollapsed = shouldCollapse
+            reportPreviewWidthIfNeeded(force: true)
         }
     }
 
@@ -734,6 +750,40 @@ final class MainSplitViewController: NSSplitViewController {
 
         lastReportedSidebarWidth = width
         onSidebarWidthChanged?(width)
+    }
+
+    private func captureCurrentPreviewWidthIfNeeded() {
+        guard !previewSplitItem.isCollapsed else {
+            return
+        }
+
+        let width = max(previewPaneViewController.view.frame.width, previewSplitItem.minimumThickness)
+        guard width > 0 else {
+            return
+        }
+
+        lastReportedPreviewWidth = width
+        previewPaneViewController.setPreferredFitViewportWidth(width)
+    }
+
+    private func reportPreviewWidthIfNeeded(force: Bool) {
+        if previewSplitItem.isCollapsed {
+            previewPaneViewController.setPreferredFitViewportWidth(lastReportedPreviewWidth)
+            return
+        }
+
+        let width = max(previewPaneViewController.view.frame.width, previewSplitItem.minimumThickness)
+        guard width > 0 else {
+            return
+        }
+
+        guard force || abs(width - lastReportedPreviewWidth) >= 1 else {
+            previewPaneViewController.setPreferredFitViewportWidth(lastReportedPreviewWidth)
+            return
+        }
+
+        lastReportedPreviewWidth = width
+        previewPaneViewController.setPreferredFitViewportWidth(width)
     }
 
     private static func clampedSidebarWidth(_ width: CGFloat) -> CGFloat {

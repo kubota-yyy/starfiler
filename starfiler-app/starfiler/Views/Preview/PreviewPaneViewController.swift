@@ -34,6 +34,7 @@ final class PreviewPaneViewController: NSViewController {
     private var currentMediaURLs: [URL] = []
     private var currentMediaURL: URL?
     private var isFitModeActive = true
+    private var preferredFitViewportWidth: CGFloat = 320
     private var imageLoadTask: Task<Void, Never>?
     private var currentPlayer: AVPlayer?
     private let imageCache = NSCache<NSURL, NSImage>()
@@ -76,6 +77,17 @@ final class PreviewPaneViewController: NSViewController {
     func setStarEffectsEnabled(_ enabled: Bool) {
         starEffectsEnabled = enabled
         emptyStarImageView.isHidden = !enabled
+    }
+
+    func setPreferredFitViewportWidth(_ width: CGFloat) {
+        guard width > 0 else {
+            return
+        }
+
+        preferredFitViewportWidth = width
+        if isFitModeActive {
+            fitImageToView()
+        }
     }
 
     override func viewDidLayout() {
@@ -162,7 +174,7 @@ final class PreviewPaneViewController: NSViewController {
         emptyStarImageView.translatesAutoresizingMaskIntoConstraints = false
         emptyStarImageView.image = NSImage(systemSymbolName: "star", accessibilityDescription: nil)
         emptyStarImageView.imageScaling = .scaleProportionallyUpOrDown
-        emptyStarImageView.contentTintColor = currentTheme.palette.starAccentColor.withAlphaComponent(0.08)
+        emptyStarImageView.contentTintColor = currentTheme.palette.starAccentColor.withAlphaComponent(0.25)
         emptyStarImageView.isHidden = !starEffectsEnabled
     }
 
@@ -219,8 +231,8 @@ final class PreviewPaneViewController: NSViewController {
 
             emptyStarImageView.centerXAnchor.constraint(equalTo: contentContainerView.centerXAnchor),
             emptyStarImageView.centerYAnchor.constraint(equalTo: contentContainerView.centerYAnchor, constant: -20),
-            emptyStarImageView.widthAnchor.constraint(equalToConstant: 48),
-            emptyStarImageView.heightAnchor.constraint(equalToConstant: 48),
+            emptyStarImageView.widthAnchor.constraint(equalToConstant: 64),
+            emptyStarImageView.heightAnchor.constraint(equalToConstant: 64),
 
             emptyStateLabel.leadingAnchor.constraint(equalTo: contentContainerView.leadingAnchor, constant: 18),
             emptyStateLabel.trailingAnchor.constraint(equalTo: contentContainerView.trailingAnchor, constant: -18),
@@ -435,19 +447,20 @@ final class PreviewPaneViewController: NSViewController {
         contentContainerView.layer?.backgroundColor = palette.previewBackgroundColor.applyingBackgroundOpacity(backgroundOpacity).cgColor
         scrollView.backgroundColor = palette.previewBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
         emptyStateLabel.textColor = palette.secondaryTextColor
-        emptyStarImageView.contentTintColor = palette.starAccentColor.withAlphaComponent(0.08)
+        emptyStarImageView.contentTintColor = palette.starAccentColor.withAlphaComponent(0.25)
         emptyStarImageView.isHidden = !starEffectsEnabled
         positionLabel.textColor = palette.secondaryTextColor
         zoomLabel.textColor = palette.secondaryTextColor
     }
 
-    private func setZoomScale(_ scale: CGFloat) {
+    private func setZoomScale(_ scale: CGFloat, centeredAt anchorPoint: NSPoint? = nil) {
         guard imageView.image != nil, !scrollView.isHidden else {
             return
         }
 
         let clamped = min(max(scale, CGFloat(zoomSlider.minValue)), CGFloat(zoomSlider.maxValue))
-        scrollView.setMagnification(clamped, centeredAt: NSPoint(x: imageView.bounds.midX, y: imageView.bounds.midY))
+        let centerPoint = anchorPoint ?? NSPoint(x: imageView.bounds.midX, y: imageView.bounds.midY)
+        scrollView.setMagnification(clamped, centeredAt: centerPoint)
         zoomSlider.doubleValue = Double(clamped)
         let percentValue = clamped * 100
         if percentValue < 10 {
@@ -463,14 +476,42 @@ final class PreviewPaneViewController: NSViewController {
         }
 
         let viewportSize = scrollView.contentView.bounds.size
-        guard viewportSize.width > 0, viewportSize.height > 0 else {
+        let targetWidth = max(viewportSize.width, preferredFitViewportWidth)
+        guard targetWidth > 0 else {
             return
         }
 
-        let widthScale = viewportSize.width / image.size.width
-        let heightScale = viewportSize.height / image.size.height
-        let fitScale = min(widthScale, heightScale)
-        setZoomScale(fitScale)
+        let scrollerInset = estimatedVerticalScrollerInset(image: image, viewportSize: viewportSize, targetWidth: targetWidth)
+        let availableWidth = max(targetWidth - scrollerInset, 1)
+        let fitScale = availableWidth / image.size.width
+        setZoomScale(fitScale, centeredAt: NSPoint(x: imageView.bounds.minX, y: imageView.bounds.midY))
+        alignFitToLeadingEdge()
+    }
+
+    private func estimatedVerticalScrollerInset(image: NSImage, viewportSize: NSSize, targetWidth: CGFloat) -> CGFloat {
+        guard
+            viewportSize.height > 0,
+            scrollView.hasVerticalScroller,
+            scrollView.scrollerStyle == .legacy
+        else {
+            return 0
+        }
+
+        let scaleWithoutInset = targetWidth / image.size.width
+        let scaledHeight = image.size.height * scaleWithoutInset
+        guard scaledHeight > viewportSize.height else {
+            return 0
+        }
+
+        return NSScroller.scrollerWidth(for: .regular, scrollerStyle: scrollView.scrollerStyle)
+    }
+
+    private func alignFitToLeadingEdge() {
+        let clipView = scrollView.contentView
+        var origin = clipView.bounds.origin
+        origin.x = clipView.documentRect.minX
+        clipView.scroll(to: origin)
+        scrollView.reflectScrolledClipView(clipView)
     }
 
     private func applyDefaultFitForLoadedImage() {

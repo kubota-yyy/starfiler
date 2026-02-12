@@ -14,7 +14,7 @@ final class StarSparkleAnimator: NSObject, CAAnimationDelegate {
             layer.addSublayer(starLayer)
 
             let angle = CGFloat.random(in: 0 ..< .pi * 2)
-            let distance = CGFloat.random(in: 20 ... 40)
+            let distance = CGFloat.random(in: 30 ... 60)
             let endPoint = CGPoint(
                 x: point.x + cos(angle) * distance,
                 y: point.y + sin(angle) * distance

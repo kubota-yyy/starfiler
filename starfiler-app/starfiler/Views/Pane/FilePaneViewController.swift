@@ -99,8 +99,8 @@ private final class FileNameCellView: NSTableCellView {
 
             markStarView.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 3),
             markStarView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            markStarView.widthAnchor.constraint(equalToConstant: 8),
-            markStarView.heightAnchor.constraint(equalToConstant: 8),
+            markStarView.widthAnchor.constraint(equalToConstant: 12),
+            markStarView.heightAnchor.constraint(equalToConstant: 12),
 
             nameLabel.leadingAnchor.constraint(equalTo: markStarView.trailingAnchor, constant: 3),
             nameLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
@@ -388,7 +388,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private var searchMenuScopeItems: [SpotlightSearchScope: NSMenuItem] = [:]
     private var currentDisplayMode: PaneDisplayMode = .browser
     private var starEffectsEnabled = true
-    private var headerStarImageView: NSImageView?
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
     var onSelectionChanged: ((FileItem?) -> Void)?
@@ -449,15 +448,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         isPaneActive = active
         updateActiveAppearance()
 
-        // Star pulse animation on activation
-        if active && wasInactive && starEffectsEnabled, let starView = headerStarImageView, let layer = starView.layer {
-            let pulse = CAKeyframeAnimation(keyPath: "transform.scale")
-            pulse.values = [1.0, 1.3, 1.0]
-            pulse.keyTimes = [0, 0.5, 1.0]
-            pulse.duration = 0.18
-            pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            layer.add(pulse, forKey: "starPulse")
-        }
     }
 
     func updateBookmarksConfig(_ config: BookmarksConfig) {
@@ -482,7 +472,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     func setStarEffectsEnabled(_ enabled: Bool) {
         starEffectsEnabled = enabled
-        headerStarImageView?.isHidden = !enabled || !isPaneActive
         tableView.reloadData()
         mediaCollectionView.reloadData()
         updateActiveAppearance()
@@ -705,21 +694,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private func configureStarEffects() {
-        // Header star icon
-        let starImage = NSImage(systemSymbolName: "star.fill", accessibilityDescription: "Active")
-        let starView = NSImageView(image: starImage ?? NSImage())
-        starView.translatesAutoresizingMaskIntoConstraints = false
-        starView.contentTintColor = filerTheme.palette.starAccentColor
-        starView.isHidden = true
-        headerView.addSubview(starView)
-        NSLayoutConstraint.activate([
-            starView.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 3),
-            starView.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
-            starView.widthAnchor.constraint(equalToConstant: 10),
-            starView.heightAnchor.constraint(equalToConstant: 10),
-        ])
-        headerStarImageView = starView
-
     }
 
     private func configureTableView() {
@@ -998,15 +972,11 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         scrollView.alphaValue = isPaneActive ? palette.activePaneAlpha : palette.inactivePaneAlpha
         bookmarkJumpOverlayView.applyPalette(palette, backgroundOpacity: backgroundOpacity)
 
-        // Star effects: header star icon
-        headerStarImageView?.isHidden = !starEffectsEnabled || !isPaneActive
-        headerStarImageView?.contentTintColor = palette.starAccentColor
-
         // Star effects: glow shadow on active pane border
         if isPaneActive && starEffectsEnabled {
             view.layer?.shadowColor = palette.starAccentColor.cgColor
-            view.layer?.shadowRadius = 4
-            view.layer?.shadowOpacity = 0.3
+            view.layer?.shadowRadius = 8
+            view.layer?.shadowOpacity = 0.6
             view.layer?.shadowOffset = .zero
         } else {
             view.layer?.shadowOpacity = 0

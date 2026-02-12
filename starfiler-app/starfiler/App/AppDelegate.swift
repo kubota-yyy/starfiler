@@ -175,6 +175,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editMenu.addItem(withTitle: "Undo", action: #selector(menuUndo(_:)), keyEquivalent: "z")
         editMenu.addItem(NSMenuItem.separator())
         editMenu.addItem(withTitle: "Copy", action: #selector(menuCopy(_:)), keyEquivalent: "c")
+        let copyItemPathItem = editMenu.addItem(withTitle: "Copy File/Folder Path", action: #selector(menuCopySelectedItemPath(_:)), keyEquivalent: "c")
+        copyItemPathItem.keyEquivalentModifierMask = [.command, .option]
         editMenu.addItem(withTitle: "Paste", action: #selector(menuPaste(_:)), keyEquivalent: "v")
         editMenu.addItem(NSMenuItem.separator())
         editMenu.addItem(withTitle: "Move to Trash", action: #selector(menuDelete(_:)), keyEquivalent: "\u{08}")
@@ -273,6 +275,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func menuCopy(_ sender: Any?) {
         mainWindowController?.performAction { $0.copyMarked() }
+    }
+
+    @objc private func menuCopySelectedItemPath(_ sender: Any?) {
+        mainWindowController?.performAction { vm in
+            guard let selectedURL = vm.activePane.selectedItem?.url.standardizedFileURL else {
+                NSSound.beep()
+                return
+            }
+
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.setString(selectedURL.path, forType: .string)
+        }
     }
 
     @objc private func menuPaste(_ sender: Any?) {
