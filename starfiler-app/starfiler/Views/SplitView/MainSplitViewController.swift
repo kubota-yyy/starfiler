@@ -498,6 +498,9 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         sidebarViewController.onNavigateRequested = { [weak self] url in
             self?.navigateActivePane(to: url)
         }
+        sidebarViewController.onNavigateAndRevealRequested = { [weak self] directory, itemURL in
+            self?.navigateActivePane(to: directory, selecting: itemURL)
+        }
         sidebarViewController.onNavigationFailed = { [weak self] message in
             self?.presentErrorAlert(
                 title: "Failed to open path",
@@ -1167,7 +1170,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         return value
     }
 
-    private func navigateActivePane(to destination: URL) {
+    private func navigateActivePane(to destination: URL, selecting itemURL: URL? = nil) {
         let normalizedDestination = destination.standardizedFileURL
         Task { [weak self] in
             guard let self else {
@@ -1178,7 +1181,11 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
                 try await self.viewModel.securityScopedBookmarkService.startAccessing(normalizedDestination)
                 await self.viewModel.securityScopedBookmarkService.stopAccessing(normalizedDestination)
                 await MainActor.run {
-                    self.viewModel.activePane.navigate(to: normalizedDestination)
+                    if let itemURL {
+                        self.viewModel.activePane.navigate(to: normalizedDestination, selecting: itemURL)
+                    } else {
+                        self.viewModel.activePane.navigate(to: normalizedDestination)
+                    }
                 }
             } catch let bookmarkError as SecurityScopedBookmarkError {
                 switch bookmarkError {

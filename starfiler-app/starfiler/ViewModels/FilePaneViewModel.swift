@@ -143,6 +143,21 @@ final class FilePaneViewModel {
         loadDirectory(at: destination, previousDirectory: currentDirectory)
     }
 
+    func navigate(to directory: URL, selecting itemURL: URL) {
+        let destination = directory.standardizedFileURL
+        let normalizedItemURL = itemURL.standardizedFileURL
+
+        if destination == paneState.currentDirectory {
+            if let index = directoryContents.displayedItems.firstIndex(where: { $0.url.standardizedFileURL == normalizedItemURL }) {
+                paneState.cursorIndex = index
+            }
+            return
+        }
+
+        pendingRevealURL = normalizedItemURL
+        navigate(to: destination)
+    }
+
     func goBack() {
         if isSpotlightSearchActive {
             endSpotlightSearch(restoringDirectoryContents: false)

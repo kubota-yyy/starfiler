@@ -26,6 +26,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     private var lastKnownSidebarHeight: CGFloat = 0
 
     var onNavigateRequested: ((URL) -> Void)?
+    var onNavigateAndRevealRequested: ((URL, URL) -> Void)?
     var onNavigationFailed: ((String) -> Void)?
     var onHistoryJumpRequested: ((Int) -> Void)?
 
@@ -376,6 +377,21 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
             if !entry.isCurrentPosition {
                 onHistoryJumpRequested?(position)
             }
+            return
+        }
+
+        if sourceOutlineView !== recentOutlineView,
+           let sectionTitle = sourceOutlineView.parent(forItem: entry) as? String,
+           let section = regularSections.first(where: { $0.title == sectionTitle }),
+           section.kind == .pinned {
+            let resolvedPath = UserPaths.resolveBookmarkPath(entry.path)
+            let itemURL = URL(fileURLWithPath: resolvedPath).standardizedFileURL
+            let parentURL = itemURL.deletingLastPathComponent().standardizedFileURL
+            guard FileManager.default.fileExists(atPath: itemURL.path) else {
+                onNavigationFailed?("Path not found:\n\(resolvedPath)")
+                return
+            }
+            onNavigateAndRevealRequested?(parentURL, itemURL)
             return
         }
 
