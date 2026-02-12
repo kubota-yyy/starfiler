@@ -12,6 +12,11 @@ enum KeyAction: String, Codable, CaseIterable, Sendable {
     case goBack
     case goForward
     case goToParent
+    case goHome
+    case goDesktop
+    case goDocuments
+    case goDownloads
+    case goApplications
     case enterDirectory
     case switchPane
     case toggleMark
@@ -20,6 +25,7 @@ enum KeyAction: String, Codable, CaseIterable, Sendable {
     case enterVisualMode
     case exitVisualMode
     case copy
+    case copySelectedItemPath
     case paste
     case move
     case delete

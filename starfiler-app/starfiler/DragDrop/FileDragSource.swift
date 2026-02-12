@@ -1,28 +1,46 @@
 import AppKit
 
 final class FileDragSource: NSObject, NSDraggingSource {
-    func beginDragging(from tableView: NSTableView, with event: NSEvent, urls: [URL]) -> Bool {
+    func beginDragging(from sourceView: NSView, with event: NSEvent, urls: [URL], draggingFrame: NSRect? = nil) -> Bool {
         let normalizedURLs = urls.map(\.standardizedFileURL)
         guard !normalizedURLs.isEmpty else {
             return false
         }
+
+        let frame = draggingFrame ?? defaultDraggingFrame(in: sourceView)
 
         let draggingItems = normalizedURLs.map { url in
             let draggingItem = NSDraggingItem(pasteboardWriter: url as NSURL)
             let icon = NSWorkspace.shared.icon(forFile: url.path)
             icon.size = NSSize(width: 18, height: 18)
 
-            let rowRect = tableView.selectedRow >= 0
-                ? tableView.rect(ofRow: tableView.selectedRow)
-                : NSRect(x: 0, y: 0, width: tableView.bounds.width, height: tableView.rowHeight)
-
-            draggingItem.setDraggingFrame(rowRect, contents: icon)
+            draggingItem.setDraggingFrame(frame, contents: icon)
             return draggingItem
         }
 
-        let session = tableView.beginDraggingSession(with: draggingItems, event: event, source: self)
+        let session = sourceView.beginDraggingSession(with: draggingItems, event: event, source: self)
         session.animatesToStartingPositionsOnCancelOrFail = true
         return true
+    }
+
+    private func defaultDraggingFrame(in sourceView: NSView) -> NSRect {
+        if let tableView = sourceView as? NSTableView {
+            if tableView.selectedRow >= 0 {
+                return tableView.rect(ofRow: tableView.selectedRow)
+            }
+
+            return NSRect(x: 0, y: 0, width: max(tableView.bounds.width, 120), height: max(tableView.rowHeight, 24))
+        }
+
+        if let collectionView = sourceView as? NSCollectionView,
+           let selectedIndexPath = collectionView.selectionIndexPaths.first,
+           let attributes = collectionView.layoutAttributesForItem(at: selectedIndexPath) {
+            return attributes.frame
+        }
+
+        let centerX = sourceView.bounds.midX - 60
+        let centerY = sourceView.bounds.midY - 12
+        return NSRect(x: centerX, y: centerY, width: 120, height: 24)
     }
 
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {

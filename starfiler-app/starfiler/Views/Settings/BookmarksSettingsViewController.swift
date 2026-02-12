@@ -24,17 +24,31 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         let shortcutKey: String?
     }
 
+    private struct BookmarkSelectionTarget {
+        let groupName: String
+        let displayName: String
+        let path: String
+    }
+
+    private struct BookmarkPosition {
+        let groupIndex: Int
+        let entryIndex: Int
+    }
+
     private let configManager: ConfigManager
 
     private let descriptionLabel = NSTextField(
         wrappingLabelWithString:
             "Configure group shortcut keys and folder shortcut keys separately. " +
-            "Set group keys with the group actions, then assign each folder to a group."
+            "Set group keys with the group actions, then assign each folder to a group. " +
+            "Use Move buttons to reorder groups and folders."
     )
     private let groupActionsStack = NSStackView()
     private let addGroupButton = NSButton(title: "Add Group", target: nil, action: nil)
     private let editGroupButton = NSButton(title: "Edit Group", target: nil, action: nil)
     private let deleteGroupButton = NSButton(title: "Delete Group", target: nil, action: nil)
+    private let moveGroupUpButton = NSButton(title: "Move Group Up", target: nil, action: nil)
+    private let moveGroupDownButton = NSButton(title: "Move Group Down", target: nil, action: nil)
 
     private let scrollView = NSScrollView()
     private let tableView = NSTableView()
@@ -42,6 +56,8 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
     private let addButton = NSButton(title: "Add Folder", target: nil, action: nil)
     private let editButton = NSButton(title: "Edit Folder", target: nil, action: nil)
     private let deleteButton = NSButton(title: "Delete Folder", target: nil, action: nil)
+    private let moveUpButton = NSButton(title: "Move Up", target: nil, action: nil)
+    private let moveDownButton = NSButton(title: "Move Down", target: nil, action: nil)
     private let reloadButton = NSButton(title: "Reload", target: nil, action: nil)
     private let openConfigButton = NSButton(title: "Open Config File", target: nil, action: nil)
 
@@ -95,9 +111,21 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         deleteGroupButton.target = self
         deleteGroupButton.action = #selector(deleteGroup(_:))
 
+        moveGroupUpButton.translatesAutoresizingMaskIntoConstraints = false
+        moveGroupUpButton.bezelStyle = .rounded
+        moveGroupUpButton.target = self
+        moveGroupUpButton.action = #selector(moveGroupUp(_:))
+
+        moveGroupDownButton.translatesAutoresizingMaskIntoConstraints = false
+        moveGroupDownButton.bezelStyle = .rounded
+        moveGroupDownButton.target = self
+        moveGroupDownButton.action = #selector(moveGroupDown(_:))
+
         groupActionsStack.addArrangedSubview(addGroupButton)
         groupActionsStack.addArrangedSubview(editGroupButton)
         groupActionsStack.addArrangedSubview(deleteGroupButton)
+        groupActionsStack.addArrangedSubview(moveGroupUpButton)
+        groupActionsStack.addArrangedSubview(moveGroupDownButton)
 
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.delegate = self
@@ -152,6 +180,16 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         deleteButton.target = self
         deleteButton.action = #selector(deleteBookmark(_:))
 
+        moveUpButton.translatesAutoresizingMaskIntoConstraints = false
+        moveUpButton.bezelStyle = .rounded
+        moveUpButton.target = self
+        moveUpButton.action = #selector(moveBookmarkUp(_:))
+
+        moveDownButton.translatesAutoresizingMaskIntoConstraints = false
+        moveDownButton.bezelStyle = .rounded
+        moveDownButton.target = self
+        moveDownButton.action = #selector(moveBookmarkDown(_:))
+
         reloadButton.translatesAutoresizingMaskIntoConstraints = false
         reloadButton.bezelStyle = .rounded
         reloadButton.target = self
@@ -170,6 +208,8 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         view.addSubview(addButton)
         view.addSubview(editButton)
         view.addSubview(deleteButton)
+        view.addSubview(moveUpButton)
+        view.addSubview(moveDownButton)
         view.addSubview(reloadButton)
         view.addSubview(openConfigButton)
 
@@ -195,6 +235,12 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
 
             deleteButton.leadingAnchor.constraint(equalTo: editButton.trailingAnchor, constant: 8),
             deleteButton.centerYAnchor.constraint(equalTo: addButton.centerYAnchor),
+
+            moveUpButton.leadingAnchor.constraint(equalTo: deleteButton.trailingAnchor, constant: 8),
+            moveUpButton.centerYAnchor.constraint(equalTo: addButton.centerYAnchor),
+
+            moveDownButton.leadingAnchor.constraint(equalTo: moveUpButton.trailingAnchor, constant: 8),
+            moveDownButton.centerYAnchor.constraint(equalTo: addButton.centerYAnchor),
 
             openConfigButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
             openConfigButton.centerYAnchor.constraint(equalTo: addButton.centerYAnchor),
@@ -234,11 +280,16 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         let hasSelection = selectedRow != nil
         editButton.isEnabled = hasSelection
         deleteButton.isEnabled = hasSelection
+        moveUpButton.isEnabled = canMoveSelectedBookmarkUp
+        moveDownButton.isEnabled = canMoveSelectedBookmarkDown
         addButton.isEnabled = !bookmarksConfig.groups.isEmpty
 
         let hasGroups = !bookmarksConfig.groups.isEmpty
         editGroupButton.isEnabled = hasGroups
         deleteGroupButton.isEnabled = bookmarksConfig.groups.contains { !$0.isDefault }
+        let canMoveGroups = bookmarksConfig.groups.count > 1
+        moveGroupUpButton.isEnabled = canMoveGroups
+        moveGroupDownButton.isEnabled = canMoveGroups
     }
 
     private var selectedRow: BookmarkRow? {
@@ -247,6 +298,37 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
             return nil
         }
         return rows[row]
+    }
+
+    private var canMoveSelectedBookmarkUp: Bool {
+        guard let selectedRow, let position = position(for: selectedRow) else {
+            return false
+        }
+        return position.entryIndex > 0
+    }
+
+    private var canMoveSelectedBookmarkDown: Bool {
+        guard let selectedRow, let position = position(for: selectedRow) else {
+            return false
+        }
+        return position.entryIndex + 1 < bookmarksConfig.groups[position.groupIndex].entries.count
+    }
+
+    private func position(for row: BookmarkRow) -> BookmarkPosition? {
+        guard let groupIndex = bookmarksConfig.groups.firstIndex(where: { $0.name == row.groupName }) else {
+            return nil
+        }
+
+        let entries = bookmarksConfig.groups[groupIndex].entries
+        guard let entryIndex = entries.firstIndex(where: { entry in
+            entry.path == row.path &&
+                entry.displayName == row.displayName &&
+                entry.shortcutKey == row.shortcutKey
+        }) else {
+            return nil
+        }
+
+        return BookmarkPosition(groupIndex: groupIndex, entryIndex: entryIndex)
     }
 
     @objc
@@ -272,7 +354,7 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
                 isDefault: false
             )
         )
-        persist(BookmarksConfig(groups: normalizeGroups(groups)))
+        persist(BookmarksConfig(groups: groups))
     }
 
     @objc
@@ -301,9 +383,20 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
             return
         }
 
+        let oldName = groups[groupIndex].name
         groups[groupIndex].name = result.name
         groups[groupIndex].shortcutKey = result.shortcutKey
-        persist(BookmarksConfig(groups: normalizeGroups(groups)))
+        let selectionTarget: BookmarkSelectionTarget?
+        if let selectedRow, selectedRow.groupName == oldName {
+            selectionTarget = BookmarkSelectionTarget(
+                groupName: result.name,
+                displayName: selectedRow.displayName,
+                path: selectedRow.path
+            )
+        } else {
+            selectionTarget = nil
+        }
+        persist(BookmarksConfig(groups: groups), selecting: selectionTarget)
     }
 
     @objc
@@ -338,7 +431,47 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
 
         var groups = bookmarksConfig.groups
         groups.remove(at: groupIndex)
-        persist(BookmarksConfig(groups: normalizeGroups(groups)))
+        persist(BookmarksConfig(groups: groups))
+    }
+
+    @objc
+    private func moveGroupUp(_ sender: Any?) {
+        moveGroup(by: -1)
+    }
+
+    @objc
+    private func moveGroupDown(_ sender: Any?) {
+        moveGroup(by: 1)
+    }
+
+    private func moveGroup(by delta: Int) {
+        guard bookmarksConfig.groups.count > 1 else {
+            return
+        }
+
+        guard let groupIndex = selectGroupIndex(
+            title: delta < 0 ? "Move Group Up" : "Move Group Down",
+            informativeText: "Choose a group to move.",
+            allowDefault: true,
+            preferredGroupName: selectedRow?.groupName
+        ) else {
+            return
+        }
+
+        let destinationIndex = groupIndex + delta
+        guard bookmarksConfig.groups.indices.contains(destinationIndex) else {
+            NSSound.beep()
+            return
+        }
+
+        var groups = bookmarksConfig.groups
+        groups.swapAt(groupIndex, destinationIndex)
+
+        let movedGroup = groups[destinationIndex]
+        let selectionTarget = movedGroup.entries.first.map {
+            BookmarkSelectionTarget(groupName: movedGroup.name, displayName: $0.displayName, path: $0.path)
+        }
+        persist(BookmarksConfig(groups: groups), selecting: selectionTarget)
     }
 
     @objc
@@ -385,7 +518,39 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
             entry.path == selectedRow.path && entry.displayName == selectedRow.displayName
         }
 
-        persist(BookmarksConfig(groups: normalizeGroups(groups)))
+        persist(BookmarksConfig(groups: groups))
+    }
+
+    @objc
+    private func moveBookmarkUp(_ sender: Any?) {
+        moveSelectedBookmark(by: -1)
+    }
+
+    @objc
+    private func moveBookmarkDown(_ sender: Any?) {
+        moveSelectedBookmark(by: 1)
+    }
+
+    private func moveSelectedBookmark(by delta: Int) {
+        guard let selectedRow, let position = position(for: selectedRow) else {
+            return
+        }
+
+        var groups = bookmarksConfig.groups
+        let destinationIndex = position.entryIndex + delta
+        guard groups[position.groupIndex].entries.indices.contains(destinationIndex) else {
+            NSSound.beep()
+            return
+        }
+
+        groups[position.groupIndex].entries.swapAt(position.entryIndex, destinationIndex)
+        let movedEntry = groups[position.groupIndex].entries[destinationIndex]
+        let selectionTarget = BookmarkSelectionTarget(
+            groupName: groups[position.groupIndex].name,
+            displayName: movedEntry.displayName,
+            path: movedEntry.path
+        )
+        persist(BookmarksConfig(groups: groups), selecting: selectionTarget)
     }
 
     @objc
@@ -655,26 +820,7 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
             )
         }
 
-        persist(BookmarksConfig(groups: normalizeGroups(groups)))
-    }
-
-    private func normalizeGroups(_ groups: [BookmarkGroup]) -> [BookmarkGroup] {
-        var normalized = groups.map { group in
-            var updated = group
-            updated.entries.sort { lhs, rhs in
-                lhs.displayName.localizedStandardCompare(rhs.displayName) == .orderedAscending
-            }
-            return updated
-        }
-
-        normalized.sort { lhs, rhs in
-            if lhs.isDefault != rhs.isDefault {
-                return lhs.isDefault
-            }
-            return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
-        }
-
-        return normalized
+        persist(BookmarksConfig(groups: groups))
     }
 
     private func hasGroup(named name: String, in groups: [BookmarkGroup], excludingIndex: Int? = nil) -> Bool {
@@ -695,12 +841,15 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         alert.runModal()
     }
 
-    private func persist(_ config: BookmarksConfig) {
+    private func persist(_ config: BookmarksConfig, selecting selectionTarget: BookmarkSelectionTarget? = nil) {
         do {
             try configManager.saveBookmarksConfig(config)
             bookmarksConfig = config
             rows = flattenRows(from: config)
             tableView.reloadData()
+            if let selectionTarget {
+                selectRow(matching: selectionTarget)
+            }
             updateButtonState()
             onBookmarksChanged?()
         } catch {
@@ -711,6 +860,19 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
             alert.addButton(withTitle: "OK")
             alert.runModal()
         }
+    }
+
+    private func selectRow(matching target: BookmarkSelectionTarget) {
+        guard let rowIndex = rows.firstIndex(where: { row in
+            row.groupName == target.groupName &&
+                row.displayName == target.displayName &&
+                row.path == target.path
+        }) else {
+            return
+        }
+
+        tableView.selectRowIndexes(IndexSet(integer: rowIndex), byExtendingSelection: false)
+        tableView.scrollRowToVisible(rowIndex)
     }
 
     func numberOfRows(in tableView: NSTableView) -> Int {
