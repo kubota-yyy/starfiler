@@ -444,7 +444,9 @@ final class FilePaneViewModelTests: XCTestCase {
 
     func testClearFilterRestoresAllItems() async {
         let sut = makeSUT()
-        await waitForLoad()
+        await waitForCondition(timeout: 2.0, description: "Items loaded") {
+            sut.directoryContents.displayedItems.count == 5
+        }
 
         sut.setFilterText("alpha")
         XCTAssertEqual(sut.directoryContents.displayedItems.count, 1)
