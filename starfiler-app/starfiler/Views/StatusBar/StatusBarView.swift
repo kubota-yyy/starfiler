@@ -5,6 +5,8 @@ final class StatusBarView: NSView {
     private let countLabel = NSTextField(labelWithString: "")
     private var currentTheme: FilerTheme = .system
     private var backgroundOpacity: CGFloat = 1.0
+    private var previousMarkedCount: Int = 0
+    private var starEffectsEnabled = true
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -22,11 +24,37 @@ final class StatusBarView: NSView {
         } else {
             pathLabel.stringValue = path
         }
+
+        let oldMarkedCount = previousMarkedCount
+        previousMarkedCount = markedCount
+
         if markedCount > 0 {
             countLabel.stringValue = "\(itemCount) items | \(markedCount) marked"
         } else {
             countLabel.stringValue = "\(itemCount) items"
         }
+
+        if starEffectsEnabled {
+            countLabel.wantsLayer = true
+            let transition = CATransition()
+            transition.type = .push
+            transition.subtype = .fromTop
+            transition.duration = 0.15
+            countLabel.layer?.add(transition, forKey: "countChange")
+
+            if markedCount > oldMarkedCount {
+                let palette = currentTheme.palette
+                let originalColor = countLabel.textColor
+                countLabel.textColor = palette.starAccentColor
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                    self?.countLabel.textColor = originalColor
+                }
+            }
+        }
+    }
+
+    func setStarEffectsEnabled(_ enabled: Bool) {
+        starEffectsEnabled = enabled
     }
 
     func applyTheme(_ theme: FilerTheme, backgroundOpacity: CGFloat = 1.0) {

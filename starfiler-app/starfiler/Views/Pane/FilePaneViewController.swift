@@ -176,7 +176,6 @@ protocol MediaKeyActionDelegate: AnyObject {
 final class MediaCollectionView: NSCollectionView {
     weak var keyActionDelegate: MediaKeyActionDelegate?
     var didBecomeFirstResponderHandler: (() -> Void)?
-    var inlineFilterKeyHandler: ((NSEvent) -> Bool)?
     var dragSourceHandler: FileDragSource?
     var dragURLsProvider: (() -> [URL])?
     private var keyInterpreter = KeyInterpreter()
@@ -193,11 +192,6 @@ final class MediaCollectionView: NSCollectionView {
 
         guard let keyEvent = event.keyEvent else {
             super.keyDown(with: event)
-            return
-        }
-
-        if inlineFilterKeyHandler?(event) == true {
-            keyInterpreter.clearPendingSequence()
             return
         }
 
@@ -443,6 +437,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private var searchMenuScopeItems: [SpotlightSearchScope: NSMenuItem] = [:]
     private var currentDisplayMode: PaneDisplayMode = .browser
     private var starEffectsEnabled = true
+    private weak var lastCursorRippleLayer: CALayer?
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
     var onSelectionChanged: ((FileItem?) -> Void)?
@@ -504,6 +499,22 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         isPaneActive = active
         updateActiveAppearance()
 
+        if active && wasInactive && starEffectsEnabled {
+            let palette = filerTheme.palette
+            let glowLayer = CALayer()
+            glowLayer.frame = headerView.bounds
+            glowLayer.backgroundColor = palette.starGlowColor.withAlphaComponent(0.3).cgColor
+            headerView.layer?.addSublayer(glowLayer)
+
+            let fadeOut = CABasicAnimation(keyPath: "opacity")
+            fadeOut.fromValue = 1.0
+            fadeOut.toValue = 0.0
+            fadeOut.duration = 0.25
+            fadeOut.isRemovedOnCompletion = false
+            fadeOut.fillMode = .forwards
+            fadeOut.delegate = StarSparkleAnimator.makeRemovalDelegate(for: glowLayer)
+            glowLayer.add(fadeOut, forKey: "activePulse")
+        }
     }
 
     func updateBookmarksConfig(_ config: BookmarksConfig) {
@@ -549,11 +560,39 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private func showBookmarkJumpHint(_ hint: BookmarkJumpHint) {
         bookmarkJumpOverlayView.update(with: hint)
         bookmarkJumpOverlayView.isHidden = false
+
+        if starEffectsEnabled {
+            bookmarkJumpOverlayView.alphaValue = 0
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.12
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                self.bookmarkJumpOverlayView.animator().alphaValue = 1
+            }
+            if let layer = bookmarkJumpOverlayView.layer {
+                let scale = CABasicAnimation(keyPath: "transform.scale")
+                scale.fromValue = 0.92
+                scale.toValue = 1.0
+                scale.duration = 0.12
+                scale.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                layer.add(scale, forKey: "scaleIn")
+            }
+        }
+
         onStatusChanged?(hint.statusText, viewModel.directoryContents.displayedItems.count, viewModel.markedCount)
     }
 
     private func hideBookmarkJumpHint() {
-        bookmarkJumpOverlayView.isHidden = true
+        if starEffectsEnabled && !bookmarkJumpOverlayView.isHidden {
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = 0.1
+                self.bookmarkJumpOverlayView.animator().alphaValue = 0
+            }, completionHandler: {
+                self.bookmarkJumpOverlayView.isHidden = true
+                self.bookmarkJumpOverlayView.alphaValue = 1
+            })
+        } else {
+            bookmarkJumpOverlayView.isHidden = true
+        }
     }
 
     func applyTheme(_ theme: FilerTheme, backgroundOpacity: CGFloat = 1.0) {
@@ -641,6 +680,14 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             nextAscending = !currentSortDescriptor.ascending
         } else {
             nextAscending = true
+        }
+
+        if starEffectsEnabled {
+            let transition = CATransition()
+            transition.type = .fade
+            transition.duration = 0.2
+            transition.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            scrollView.layer?.add(transition, forKey: "sortTransition")
         }
 
         viewModel.setSortDescriptor(.init(column: targetSortColumn, ascending: nextAscending))
@@ -757,9 +804,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         tableView.intercellSpacing = NSSize(width: 8, height: 0)
         tableView.keyActionDelegate = self
         tableView.setVimMode(vimModeState.mode)
-        tableView.inlineFilterKeyHandler = { [weak self] event in
-            self?.handleInlineFilteringKeyDown(event) ?? false
-        }
         tableView.target = self
         tableView.doubleAction = #selector(handleDoubleClick(_:))
         tableView.backgroundColor = filerTheme.palette.tableBackgroundColor
@@ -812,9 +856,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         mediaCollectionView.register(MediaCollectionItem.self, forItemWithIdentifier: MediaCollectionItem.identifier)
         mediaCollectionView.keyActionDelegate = self
         mediaCollectionView.setVimMode(vimModeState.mode)
-        mediaCollectionView.inlineFilterKeyHandler = { [weak self] event in
-            self?.handleInlineFilteringKeyDown(event) ?? false
-        }
         mediaCollectionView.didBecomeFirstResponderHandler = { [weak self] in
             self?.onDidRequestActivate?()
         }
@@ -920,11 +961,23 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             }
             self.isDropTargetHighlighted = highlighted
             self.updateActiveAppearance()
+            if highlighted {
+                self.startDropPulse()
+            } else {
+                self.stopDropPulse()
+            }
         }
 
         fileDropTarget.onDropCompleted = { [weak self] operation, itemCount in
-            self?.viewModel.refreshCurrentDirectory()
-            self?.onDropOperationCompleted?(operation, itemCount)
+            guard let self else { return }
+            self.stopDropPulse()
+            if self.starEffectsEnabled, let layer = self.view.layer {
+                let center = CGPoint(x: layer.bounds.midX, y: layer.bounds.midY)
+                StarSparkleAnimator.burst(count: 6, in: layer, at: center,
+                    color: self.filerTheme.palette.starGlowColor, size: 8, duration: 0.4)
+            }
+            self.viewModel.refreshCurrentDirectory()
+            self.onDropOperationCompleted?(operation, itemCount)
         }
 
         fileDropTarget.onDropFailed = { [weak self] message in
@@ -951,8 +1004,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         viewModel.onCursorChanged = { [weak self] _ in
-            self?.syncSelectionFromViewModel()
-            self?.publishSelection()
+            guard let self else { return }
+            self.syncSelectionFromViewModel()
+            self.publishSelection()
+
+            if self.starEffectsEnabled, self.currentDisplayMode == .browser {
+                self.animateCursorRipple(at: self.viewModel.paneState.cursorIndex)
+            }
         }
 
         viewModel.onMarkedIndicesChanged = { [weak self] _ in
@@ -1266,75 +1324,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         onTabPressed?() ?? false
     }
 
-    private func handleInlineFilteringKeyDown(_ event: NSEvent) -> Bool {
-        guard let keyEvent = event.keyEvent else {
-            return false
-        }
-
-        if keyEvent.key == "Escape" {
-            guard !searchField.stringValue.isEmpty else {
-                return false
-            }
-            applyInlineFilterQuery("")
-            return true
-        }
-
-        let modifiers = keyEvent.modifiers
-        let isOptionModified = modifiers.contains(.option)
-        let hasDisallowedModifier = modifiers.contains(.command) || modifiers.contains(.control)
-        guard isOptionModified, !hasDisallowedModifier else {
-            return false
-        }
-
-        let singleEventSequence = [keyEvent]
-        if keybindingManager.lookup(sequence: singleEventSequence, mode: vimModeState.mode) != nil {
-            return false
-        }
-        if keybindingManager.hasPrefix(sequence: singleEventSequence, mode: vimModeState.mode) {
-            return false
-        }
-
-        switch keyEvent.key {
-        case "Backspace", "Delete":
-            guard !searchField.stringValue.isEmpty else {
-                return false
-            }
-            let updated = String(searchField.stringValue.dropLast())
-            applyInlineFilterQuery(updated)
-            return true
-        case "Tab", "Return", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown", "Home", "End":
-            return false
-        default:
-            break
-        }
-
-        guard let rawCharacters = event.charactersIgnoringModifiers, !rawCharacters.isEmpty else {
-            return false
-        }
-
-        let scalarView = String.UnicodeScalarView(
-            rawCharacters.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) }
-        )
-        let appendedText = String(scalarView)
-        guard !appendedText.isEmpty else {
-            return false
-        }
-
-        applyInlineFilterQuery(searchField.stringValue + appendedText)
-        return true
-    }
-
-    private func applyInlineFilterQuery(_ query: String) {
-        if selectedSearchMode != .filter {
-            currentSearchMode = .filter
-            updateSearchModeUI()
-        }
-
-        searchField.stringValue = query
-        viewModel.exitSpotlightSearchMode()
-        viewModel.setFilterText(query)
-    }
-
     private var selectedSearchMode: SearchMode {
         currentSearchMode
     }
@@ -1353,6 +1342,24 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         if let editor = searchField.currentEditor() {
             editor.selectAll(nil)
         }
+
+        if starEffectsEnabled {
+            let palette = filerTheme.palette
+            searchField.wantsLayer = true
+            searchField.layer?.shadowColor = palette.starAccentColor.cgColor
+            searchField.layer?.shadowRadius = 6
+            searchField.layer?.shadowOffset = .zero
+            searchField.layer?.shadowOpacity = 0
+
+            let glow = CAKeyframeAnimation(keyPath: "shadowOpacity")
+            glow.values = [0.0, 0.6, 0.2]
+            glow.keyTimes = [0, 0.5, 1.0]
+            glow.duration = 0.3
+            glow.isRemovedOnCompletion = false
+            glow.fillMode = .forwards
+            searchField.layer?.shadowOpacity = 0.2
+            searchField.layer?.add(glow, forKey: "searchGlow")
+        }
     }
 
     private func clearSearchAndReturnToTable() {
@@ -1361,6 +1368,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         updateSearchModeUI()
         viewModel.clearFilter()
         viewModel.exitSpotlightSearchMode()
+
+        searchField.layer?.removeAnimation(forKey: "searchGlow")
+        searchField.layer?.shadowOpacity = 0
 
         vimModeState.enterNormalMode()
         tableView.setVimMode(vimModeState.mode)
@@ -1415,9 +1425,11 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             viewModel.moveCursorDown()
             handled = true
         case .cursorLeft:
+            addSlideTransition(direction: .fromLeft)
             viewModel.goToParent()
             handled = true
         case .cursorRight:
+            addSlideTransition(direction: .fromRight)
             viewModel.enterSelected()
             handled = true
         case .pageUp:
@@ -1466,8 +1478,14 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             handled = true
         case .markAll:
             viewModel.markAll()
+            if starEffectsEnabled {
+                animateMarkCascade(topToBottom: true)
+            }
             handled = true
         case .clearMarks:
+            if starEffectsEnabled {
+                animateMarkCascade(topToBottom: false)
+            }
             viewModel.clearMarks()
             handled = true
         case .enterVisualMode:
@@ -1476,6 +1494,11 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
                 tableView.setVimMode(vimModeState.mode)
                 mediaCollectionView.setVimMode(vimModeState.mode)
                 viewModel.enterVisualMode()
+
+                if starEffectsEnabled {
+                    flashRow(at: viewModel.paneState.cursorIndex,
+                        color: filerTheme.palette.starAccentColor.withAlphaComponent(0.4), duration: 0.3)
+                }
             }
             handled = true
         case .exitVisualMode:
@@ -1542,8 +1565,19 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private func performToggleMarkAction() {
         let itemCount = viewModel.directoryContents.displayedItems.count
         let cursorIndexBeforeToggle = viewModel.paneState.cursorIndex
+        let wasMarked = viewModel.paneState.markedIndices.contains(cursorIndexBeforeToggle)
 
         viewModel.toggleMark()
+
+        if starEffectsEnabled, !wasMarked,
+           let rowView = tableView.rowView(atRow: cursorIndexBeforeToggle, makeIfNecessary: false),
+           let viewLayer = view.layer {
+            let palette = filerTheme.palette
+            let starLocalCenter = CGPoint(x: 4 + fileIconSize + 3 + 6, y: rowView.bounds.midY)
+            let starCenter = rowView.convert(starLocalCenter, to: view)
+            StarSparkleAnimator.burst(count: 4, in: viewLayer, at: starCenter,
+                color: palette.starGlowColor, size: 4, duration: 0.25)
+        }
 
         guard shouldAdvanceCursorAfterSpaceMark(
             itemCount: itemCount,
@@ -2006,5 +2040,95 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         return viewModel.selectedItem != nil
+    }
+
+    // MARK: - Animation Helpers
+
+    private func addSlideTransition(direction: CATransitionSubtype) {
+        guard starEffectsEnabled else { return }
+        let transition = CATransition()
+        transition.type = .push
+        transition.subtype = direction
+        transition.duration = 0.18
+        transition.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        scrollView.layer?.add(transition, forKey: "directoryTransition")
+    }
+
+    private func flashRow(at row: Int, color: NSColor, duration: CFTimeInterval) {
+        guard let rowView = tableView.rowView(atRow: row, makeIfNecessary: false) else { return }
+        rowView.wantsLayer = true
+        let flash = CALayer()
+        flash.frame = rowView.bounds
+        flash.backgroundColor = color.cgColor
+        flash.cornerRadius = 2
+        rowView.layer?.addSublayer(flash)
+
+        let fadeOut = CABasicAnimation(keyPath: "opacity")
+        fadeOut.fromValue = 1.0
+        fadeOut.toValue = 0.0
+        fadeOut.duration = duration
+        fadeOut.isRemovedOnCompletion = false
+        fadeOut.fillMode = .forwards
+        fadeOut.delegate = StarSparkleAnimator.makeRemovalDelegate(for: flash)
+        flash.add(fadeOut, forKey: "rowFlash")
+    }
+
+    private func animateCursorRipple(at row: Int) {
+        lastCursorRippleLayer?.removeFromSuperlayer()
+        lastCursorRippleLayer = nil
+
+        guard let rowView = tableView.rowView(atRow: row, makeIfNecessary: false) else { return }
+        rowView.wantsLayer = true
+
+        let palette = filerTheme.palette
+        let alpha: CGFloat = vimModeState.mode == .visual ? 0.3 : 0.15
+        let duration: CFTimeInterval = vimModeState.mode == .visual ? 0.25 : 0.2
+
+        let ripple = CALayer()
+        ripple.frame = rowView.bounds
+        ripple.backgroundColor = palette.starAccentColor.withAlphaComponent(alpha).cgColor
+        ripple.cornerRadius = 2
+        rowView.layer?.addSublayer(ripple)
+        lastCursorRippleLayer = ripple
+
+        let fadeOut = CABasicAnimation(keyPath: "opacity")
+        fadeOut.fromValue = 1.0
+        fadeOut.toValue = 0.0
+        fadeOut.duration = duration
+        fadeOut.isRemovedOnCompletion = false
+        fadeOut.fillMode = .forwards
+        fadeOut.delegate = StarSparkleAnimator.makeRemovalDelegate(for: ripple)
+        ripple.add(fadeOut, forKey: "cursorRipple")
+    }
+
+    private func animateMarkCascade(topToBottom: Bool) {
+        let visibleRange = tableView.rows(in: tableView.visibleRect)
+        guard visibleRange.length > 0 else { return }
+
+        let rows = Array(visibleRange.location ..< NSMaxRange(visibleRange))
+        let orderedRows = topToBottom ? rows : rows.reversed()
+        let palette = filerTheme.palette
+
+        for (i, row) in orderedRows.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.02) { [weak self] in
+                guard let self else { return }
+                self.flashRow(at: row, color: palette.starGlowColor.withAlphaComponent(0.25), duration: 0.3)
+            }
+        }
+    }
+
+    private func startDropPulse() {
+        guard starEffectsEnabled else { return }
+        let pulse = CABasicAnimation(keyPath: "borderWidth")
+        pulse.fromValue = 1.0
+        pulse.toValue = 2.5
+        pulse.duration = 0.8
+        pulse.autoreverses = true
+        pulse.repeatCount = .infinity
+        view.layer?.add(pulse, forKey: "dropPulse")
+    }
+
+    private func stopDropPulse() {
+        view.layer?.removeAnimation(forKey: "dropPulse")
     }
 }

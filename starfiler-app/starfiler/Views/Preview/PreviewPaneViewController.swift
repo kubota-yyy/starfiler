@@ -412,6 +412,23 @@ final class PreviewPaneViewController: NSViewController {
     }
 
     private func displayLoadedImage(_ image: NSImage) {
+        if starEffectsEnabled, let oldImage = imageView.image, let containerLayer = contentContainerView.layer {
+            let snapshot = CALayer()
+            snapshot.contents = oldImage
+            snapshot.frame = scrollView.frame
+            snapshot.contentsGravity = .resizeAspect
+            containerLayer.addSublayer(snapshot)
+
+            let fadeOut = CABasicAnimation(keyPath: "opacity")
+            fadeOut.fromValue = 1.0
+            fadeOut.toValue = 0.0
+            fadeOut.duration = 0.2
+            fadeOut.isRemovedOnCompletion = false
+            fadeOut.fillMode = .forwards
+            fadeOut.delegate = StarSparkleAnimator.makeRemovalDelegate(for: snapshot)
+            snapshot.add(fadeOut, forKey: "crossfade")
+        }
+
         scrollView.alphaValue = 0
         imageView.image = image
         imageView.frame = NSRect(origin: .zero, size: image.size)

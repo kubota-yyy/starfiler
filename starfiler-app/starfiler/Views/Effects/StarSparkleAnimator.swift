@@ -104,6 +104,12 @@ final class StarSparkleAnimator: NSObject, CAAnimationDelegate {
         return path
     }
 
+    static func makeRemovalDelegate(for layer: CALayer) -> StarSparkleAnimator {
+        let instance = StarSparkleAnimator()
+        instance.layerToRemove = layer
+        return instance
+    }
+
     private var layerToRemove: CALayer?
 
     func animationDidStop(_ anim: CAAnimation, finished flag: Bool) {

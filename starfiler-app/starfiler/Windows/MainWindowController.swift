@@ -98,6 +98,31 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             attachWindowControlButtons(to: window)
         }
         mainSplitViewController.focusActivePane()
+
+        if starEffectsEnabled, let contentView = window?.contentView {
+            contentView.wantsLayer = true
+            contentView.alphaValue = 0
+
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = 0.25
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                contentView.animator().alphaValue = 1
+            }, completionHandler: { [weak self] in
+                guard let self, self.starEffectsEnabled, let layer = contentView.layer else { return }
+                let palette = self.filerTheme.palette
+                let center = CGPoint(x: layer.bounds.midX, y: layer.bounds.maxY - 20)
+                StarSparkleAnimator.singleStar(in: layer, at: center, color: palette.starGlowColor, size: 14)
+            })
+
+            if let layer = contentView.layer {
+                let scale = CABasicAnimation(keyPath: "transform.scale")
+                scale.fromValue = 0.97
+                scale.toValue = 1.0
+                scale.duration = 0.25
+                scale.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                layer.add(scale, forKey: "introScale")
+            }
+        }
     }
 
     func windowWillClose(_ notification: Notification) {

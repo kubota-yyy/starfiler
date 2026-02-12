@@ -554,6 +554,8 @@ final class FilePaneViewModel {
 
                 var updatedContents = self.directoryContents
                 updatedContents.allItems = items
+                // Directory change resets text filtering.
+                updatedContents.filterText = ""
                 updatedContents.contentFilter = self.displayMode == .media ? .mediaOnly : .allFiles
                 updatedContents.recompute()
                 self.directoryContents = updatedContents
@@ -619,6 +621,7 @@ final class FilePaneViewModel {
 
                 var updatedContents = self.directoryContents
                 updatedContents.allItems = items
+                updatedContents.filterText = ""
                 updatedContents.contentFilter = self.displayMode == .media ? .mediaOnly : .allFiles
                 updatedContents.recompute()
                 self.directoryContents = updatedContents
