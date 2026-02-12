@@ -16,7 +16,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         actionFeedbackEnabled: actionFeedbackEnabled,
         fileIconSize: fileIconSize
     )
-    private let statusBarView = StatusBarView()
     private let appUndoManager = UndoManager()
     private weak var containerView: NSView?
 
@@ -232,22 +231,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         splitView.translatesAutoresizingMaskIntoConstraints = false
 
         containerView.addSubview(splitView)
-        containerView.addSubview(statusBarView)
 
         NSLayoutConstraint.activate([
             splitView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
             splitView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
-            splitView.topAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.topAnchor),
-            splitView.bottomAnchor.constraint(equalTo: statusBarView.topAnchor),
-
-            statusBarView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
-            statusBarView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
-            statusBarView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
+            splitView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            splitView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
         ])
 
-        mainSplitViewController.onStatusChanged = { [weak self] path, itemCount, markedCount in
-            self?.statusBarView.update(path: path, itemCount: itemCount, markedCount: markedCount)
-        }
         mainSplitViewController.onSpotlightSearchScopeChanged = { [weak self] scope in
             self?.updateSpotlightSearchScope(scope)
         }
@@ -255,11 +246,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             self?.imagePreviewRecursiveMode = enabled
             self?.persistAppConfig()
         }
-        statusBarView.update(
-            path: mainViewModel.activePane.paneState.currentDirectory.path,
-            itemCount: mainViewModel.activePane.directoryContents.displayedItems.count,
-            markedCount: mainViewModel.activePane.markedCount
-        )
 
         applyCurrentAppearance()
         window.contentViewController = containerViewController
@@ -274,7 +260,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         let opacity = backgroundOpacity
 
         mainSplitViewController.setFilerTheme(filerTheme, backgroundOpacity: opacity)
-        statusBarView.applyTheme(filerTheme, backgroundOpacity: opacity)
 
         containerView?.layer?.backgroundColor = palette.windowBackgroundColor.applyingBackgroundOpacity(opacity).cgColor
 

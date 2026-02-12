@@ -91,10 +91,79 @@ private final class FileNameCellView: NSTableCellView {
     }
 }
 
+private final class BookmarkJumpOverlayView: NSView {
+    private let titleLabel = NSTextField(labelWithString: "")
+    private let candidatesLabel = NSTextField(wrappingLabelWithString: "")
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        configureView()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        configureView()
+    }
+
+    func update(with hint: BookmarkJumpHint) {
+        titleLabel.stringValue = hint.title
+        candidatesLabel.stringValue = hint.candidates
+            .map { "[\($0.key)] \($0.label)" }
+            .joined(separator: "\n")
+    }
+
+    func applyPalette(_ palette: FilerThemePalette, backgroundOpacity: CGFloat) {
+        _ = backgroundOpacity
+        layer?.backgroundColor = palette.windowBackgroundColor.cgColor
+        layer?.borderColor = palette.filterBarBorderColor.cgColor
+        titleLabel.textColor = palette.primaryTextColor
+        candidatesLabel.textColor = palette.secondaryTextColor
+    }
+
+    private func configureView() {
+        translatesAutoresizingMaskIntoConstraints = false
+        wantsLayer = true
+        layer?.cornerRadius = 8
+        layer?.borderWidth = 1
+        layer?.masksToBounds = true
+
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.font = .systemFont(ofSize: 12, weight: .semibold)
+
+        candidatesLabel.translatesAutoresizingMaskIntoConstraints = false
+        candidatesLabel.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+        candidatesLabel.maximumNumberOfLines = 12
+        candidatesLabel.lineBreakMode = .byTruncatingMiddle
+
+        addSubview(titleLabel)
+        addSubview(candidatesLabel)
+
+        NSLayoutConstraint.activate([
+            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+
+            candidatesLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            candidatesLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            candidatesLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 6),
+            candidatesLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
+        ])
+    }
+}
+
 final class FilePaneViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate, KeyActionDelegate, NSTextFieldDelegate, NSSearchFieldDelegate {
     private enum SearchMode: Int {
         case filter = 0
         case spotlight = 1
+
+        var menuTitle: String {
+            switch self {
+            case .filter:
+                return "Filter (Current Folder)"
+            case .spotlight:
+                return "Spotlight Search"
+            }
+        }
 
         var placeholder: String {
             switch self {
@@ -134,10 +203,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private let headerView = NSView()
     private let pathControl = NSPathControl()
     private let searchControlsStackView = NSStackView()
-    private let searchModeControl = NSSegmentedControl(labels: ["Filter", "Spotlight"], trackingMode: .selectOne, target: nil, action: nil)
     private let searchField = NSSearchField()
-    private let spotlightScopePopUpButton = NSPopUpButton()
     private let scrollView = NSScrollView()
+    private let bookmarkJumpOverlayView = BookmarkJumpOverlayView()
     private let tableView = FileTableView()
     private let fileDragSource = FileDragSource()
 
@@ -154,7 +222,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private let iconCache = NSCache<NSString, NSImage>()
     private let thumbnailCache = NSCache<NSString, NSImage>()
     private var thumbnailTasks: [NSString: Task<Void, Never>] = [:]
-    private var isUpdatingSearchControls = false
+    private var currentSearchMode: SearchMode = .filter
+    private var searchMenuModeItems: [SearchMode: NSMenuItem] = [:]
+    private var searchMenuScopeItems: [SpotlightSearchScope: NSMenuItem] = [:]
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
     var onSelectionChanged: ((FileItem?) -> Void)?
@@ -211,10 +281,14 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     func updateBookmarksConfig(_ config: BookmarksConfig) {
         tableView.setBookmarkJumpConfig(config)
         tableView.onBookmarkJump = { [weak self] path in
+            self?.hideBookmarkJumpHint()
             self?.onBookmarkJump?(path)
         }
         tableView.onBookmarkJumpPending = { [weak self] hint in
             self?.showBookmarkJumpHint(hint)
+        }
+        tableView.onBookmarkJumpEnded = { [weak self] in
+            self?.hideBookmarkJumpHint()
         }
     }
 
@@ -228,7 +302,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         guard isViewLoaded else {
             return
         }
-        selectSpotlightScope(scope)
+        updateSearchMenuSelectionStates()
 
         let trimmed = searchField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         if selectedSearchMode == .spotlight, !trimmed.isEmpty {
@@ -237,7 +311,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private func showBookmarkJumpHint(_ hint: BookmarkJumpHint) {
+        bookmarkJumpOverlayView.update(with: hint)
+        bookmarkJumpOverlayView.isHidden = false
         onStatusChanged?(hint.statusText, viewModel.directoryContents.displayedItems.count, viewModel.markedCount)
+    }
+
+    private func hideBookmarkJumpHint() {
+        bookmarkJumpOverlayView.isHidden = true
     }
 
     func applyTheme(_ theme: FilerTheme, backgroundOpacity: CGFloat = 1.0) {
@@ -353,15 +433,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         searchControlsStackView.setContentHuggingPriority(.required, for: .horizontal)
         searchControlsStackView.setContentCompressionResistancePriority(.required, for: .horizontal)
 
-        searchModeControl.translatesAutoresizingMaskIntoConstraints = false
-        searchModeControl.segmentStyle = .rounded
-        searchModeControl.selectedSegment = SearchMode.filter.rawValue
-        searchModeControl.target = self
-        searchModeControl.action = #selector(searchModeChanged(_:))
-        searchModeControl.setWidth(74, forSegment: 0)
-        searchModeControl.setWidth(94, forSegment: 1)
-
         searchField.translatesAutoresizingMaskIntoConstraints = false
+        searchField.controlSize = .small
         searchField.placeholderString = SearchMode.filter.placeholder
         searchField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         searchField.delegate = self
@@ -369,14 +442,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         searchField.sendsWholeSearchString = true
         searchField.setContentHuggingPriority(.defaultLow, for: .horizontal)
         searchField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        configureSearchFieldMenuTemplate()
 
-        spotlightScopePopUpButton.translatesAutoresizingMaskIntoConstraints = false
-        spotlightScopePopUpButton.target = self
-        spotlightScopePopUpButton.action = #selector(spotlightScopeChanged(_:))
-        spotlightScopePopUpButton.addItems(withTitles: SpotlightSearchScope.allCases.map(\.displayName))
-        spotlightScopePopUpButton.setContentHuggingPriority(.required, for: .horizontal)
-        spotlightScopePopUpButton.setContentCompressionResistancePriority(.required, for: .horizontal)
-        spotlightScopePopUpButton.isHidden = true
+        bookmarkJumpOverlayView.isHidden = true
     }
 
     private func configureTableView() {
@@ -427,18 +495,17 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private func configureLayout() {
         view.addSubview(headerView)
         view.addSubview(scrollView)
+        view.addSubview(bookmarkJumpOverlayView)
 
         headerView.addSubview(pathControl)
         headerView.addSubview(searchControlsStackView)
-        searchControlsStackView.addArrangedSubview(searchModeControl)
         searchControlsStackView.addArrangedSubview(searchField)
-        searchControlsStackView.addArrangedSubview(spotlightScopePopUpButton)
 
         NSLayoutConstraint.activate([
             headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             headerView.topAnchor.constraint(equalTo: view.topAnchor),
-            headerView.heightAnchor.constraint(equalToConstant: 34),
+            headerView.heightAnchor.constraint(equalToConstant: 30),
 
             pathControl.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 10),
             pathControl.trailingAnchor.constraint(lessThanOrEqualTo: searchControlsStackView.leadingAnchor, constant: -10),
@@ -447,19 +514,24 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             searchControlsStackView.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -10),
             searchControlsStackView.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
             searchControlsStackView.leadingAnchor.constraint(greaterThanOrEqualTo: headerView.leadingAnchor, constant: 260),
-            searchField.widthAnchor.constraint(greaterThanOrEqualToConstant: 160),
-            searchField.widthAnchor.constraint(lessThanOrEqualToConstant: 340),
+            searchField.widthAnchor.constraint(greaterThanOrEqualToConstant: 132),
+            searchField.widthAnchor.constraint(lessThanOrEqualToConstant: 240),
 
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: headerView.bottomAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            bookmarkJumpOverlayView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            bookmarkJumpOverlayView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            bookmarkJumpOverlayView.widthAnchor.constraint(greaterThanOrEqualToConstant: 240),
+            bookmarkJumpOverlayView.widthAnchor.constraint(lessThanOrEqualToConstant: 520)
         ])
     }
 
     private func configureSearchControls() {
-        selectSpotlightScope(viewModel.spotlightSearchScope)
         updateSearchModeUI()
+        updateSearchMenuSelectionStates()
     }
 
     private func configureContextMenu() {
@@ -574,10 +646,10 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         pathControl.alphaValue = isPaneActive ? 1.0 : 0.82
         searchField.textColor = palette.primaryTextColor
         searchField.backgroundColor = palette.filterBarBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
-        spotlightScopePopUpButton.contentTintColor = isPaneActive ? palette.activePathTextColor : palette.inactivePathTextColor
         tableView.backgroundColor = palette.tableBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
         scrollView.backgroundColor = palette.tableBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
         scrollView.alphaValue = isPaneActive ? palette.activePaneAlpha : palette.inactivePaneAlpha
+        bookmarkJumpOverlayView.applyPalette(palette, backgroundOpacity: backgroundOpacity)
     }
 
     @objc
@@ -758,12 +830,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private var selectedSearchMode: SearchMode {
-        SearchMode(rawValue: searchModeControl.selectedSegment) ?? .filter
+        currentSearchMode
     }
 
     private func focusSearch(mode: SearchMode) {
         if selectedSearchMode != mode {
-            searchModeControl.selectedSegment = mode.rawValue
+            currentSearchMode = mode
             updateSearchModeUI()
         }
 
@@ -778,7 +850,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     private func clearSearchAndReturnToTable() {
         searchField.stringValue = ""
-        searchModeControl.selectedSegment = SearchMode.filter.rawValue
+        currentSearchMode = .filter
         updateSearchModeUI()
         viewModel.clearFilter()
         viewModel.exitSpotlightSearchMode()
@@ -791,17 +863,17 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private func updateSearchModeUI() {
         let mode = selectedSearchMode
         searchField.placeholderString = mode.placeholder
-        spotlightScopePopUpButton.isHidden = mode != .spotlight
+        updateSearchMenuSelectionStates()
     }
 
-    private func selectSpotlightScope(_ scope: SpotlightSearchScope) {
-        guard let index = SpotlightSearchScope.allCases.firstIndex(of: scope) else {
-            return
+    private func updateSearchMenuSelectionStates() {
+        for (mode, item) in searchMenuModeItems {
+            item.state = selectedSearchMode == mode ? .on : .off
         }
 
-        isUpdatingSearchControls = true
-        spotlightScopePopUpButton.selectItem(at: index)
-        isUpdatingSearchControls = false
+        for (scope, item) in searchMenuScopeItems {
+            item.state = viewModel.spotlightSearchScope == scope ? .on : .off
+        }
     }
 
     private func applySearchFromHeader() {
@@ -821,33 +893,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
                 viewModel.updateSpotlightSearchQuery(trimmed)
             }
         }
-    }
-
-    @objc
-    private func searchModeChanged(_ sender: NSSegmentedControl) {
-        guard SearchMode(rawValue: sender.selectedSegment) != nil else {
-            return
-        }
-
-        updateSearchModeUI()
-        applySearchFromHeader()
-    }
-
-    @objc
-    private func spotlightScopeChanged(_ sender: NSPopUpButton) {
-        guard !isUpdatingSearchControls else {
-            return
-        }
-
-        let index = sender.indexOfSelectedItem
-        guard SpotlightSearchScope.allCases.indices.contains(index) else {
-            return
-        }
-
-        let scope = SpotlightSearchScope.allCases[index]
-        viewModel.setSpotlightSearchScope(scope)
-        onSpotlightSearchScopeChanged?(scope)
-        applySearchFromHeader()
     }
 
     @discardableResult
@@ -1028,7 +1073,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
                 viewModel.enterSelected()
                 viewModel.exitSpotlightSearchMode()
                 searchField.stringValue = ""
-                searchModeControl.selectedSegment = SearchMode.filter.rawValue
+                currentSearchMode = .filter
                 updateSearchModeUI()
             }
 
@@ -1039,6 +1084,65 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         return false
+    }
+
+    private func configureSearchFieldMenuTemplate() {
+        let menu = NSMenu(title: "Search Options")
+        searchMenuModeItems.removeAll(keepingCapacity: true)
+        searchMenuScopeItems.removeAll(keepingCapacity: true)
+
+        let modeHeader = NSMenuItem(title: "Search Mode", action: nil, keyEquivalent: "")
+        modeHeader.isEnabled = false
+        menu.addItem(modeHeader)
+
+        for mode in [SearchMode.filter, .spotlight] {
+            let item = NSMenuItem(title: mode.menuTitle, action: #selector(handleSearchModeMenuSelection(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = mode.rawValue
+            menu.addItem(item)
+            searchMenuModeItems[mode] = item
+        }
+
+        menu.addItem(NSMenuItem.separator())
+
+        let scopeHeader = NSMenuItem(title: "Spotlight Scope", action: nil, keyEquivalent: "")
+        scopeHeader.isEnabled = false
+        menu.addItem(scopeHeader)
+
+        for scope in SpotlightSearchScope.allCases {
+            let item = NSMenuItem(title: scope.displayName, action: #selector(handleSpotlightScopeMenuSelection(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = scope.rawValue
+            menu.addItem(item)
+            searchMenuScopeItems[scope] = item
+        }
+
+        searchField.searchMenuTemplate = menu
+        updateSearchMenuSelectionStates()
+    }
+
+    @objc
+    private func handleSearchModeMenuSelection(_ sender: NSMenuItem) {
+        guard let mode = SearchMode(rawValue: sender.tag), selectedSearchMode != mode else {
+            return
+        }
+
+        currentSearchMode = mode
+        updateSearchModeUI()
+        applySearchFromHeader()
+    }
+
+    @objc
+    private func handleSpotlightScopeMenuSelection(_ sender: NSMenuItem) {
+        guard let rawValue = sender.representedObject as? String,
+              let scope = SpotlightSearchScope(rawValue: rawValue) else {
+            return
+        }
+
+        viewModel.setSpotlightSearchScope(scope)
+        onSpotlightSearchScopeChanged?(scope)
+        updateSearchMenuSelectionStates()
+        applySearchFromHeader()
     }
 
     // MARK: - Context Menu

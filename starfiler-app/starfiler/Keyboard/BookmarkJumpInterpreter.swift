@@ -33,21 +33,17 @@ struct BookmarkJumpInterpreter: Sendable {
 
     private let leaderKey: String = "'"
     private var bookmarksConfig: BookmarksConfig
-    private let timeout: TimeInterval = 0.8
     private(set) var state: State = .idle
-    private var lastInputDate: Date?
 
     init(bookmarksConfig: BookmarksConfig) {
         self.bookmarksConfig = bookmarksConfig
     }
 
     mutating func interpret(_ event: KeyEvent, now: Date = Date()) -> BookmarkJumpResult {
+        _ = now
         if !event.modifiers.isEmpty {
-            reset()
-            return .unhandled
+            return currentPendingResult() ?? .unhandled
         }
-
-        expireIfNeeded(now: now)
 
         switch state {
         case .idle:
@@ -59,7 +55,6 @@ struct BookmarkJumpInterpreter: Sendable {
                 }
 
                 state = .awaitingTarget
-                lastInputDate = now
                 return .pending(
                     hint: BookmarkJumpHint(title: "Project key", candidates: projectCandidates)
                 )
@@ -78,7 +73,6 @@ struct BookmarkJumpInterpreter: Sendable {
                     }
 
                     state = .awaitingProjectEntry(groupIndex: index)
-                    lastInputDate = now
                     return .pending(
                         hint: BookmarkJumpHint(
                             title: "Folder key (\(group.name))",
@@ -88,8 +82,7 @@ struct BookmarkJumpInterpreter: Sendable {
                 }
             }
 
-            reset()
-            return .unhandled
+            return .pending(hint: BookmarkJumpHint(title: "Project key", candidates: keyedProjectCandidates()))
 
         case .awaitingProjectEntry(let groupIndex):
             guard bookmarksConfig.groups.indices.contains(groupIndex) else {
@@ -105,8 +98,12 @@ struct BookmarkJumpInterpreter: Sendable {
                 return .jumpTo(path: entry.path)
             }
 
-            reset()
-            return .unhandled
+            return .pending(
+                hint: BookmarkJumpHint(
+                    title: "Folder key (\(group.name))",
+                    candidates: keyedEntryCandidates(in: group)
+                )
+            )
         }
     }
 
@@ -117,14 +114,31 @@ struct BookmarkJumpInterpreter: Sendable {
 
     mutating func reset() {
         state = .idle
-        lastInputDate = nil
     }
 
-    private mutating func expireIfNeeded(now: Date) {
-        guard let lastInputDate, now.timeIntervalSince(lastInputDate) >= timeout else {
-            return
+    private func currentPendingResult() -> BookmarkJumpResult? {
+        switch state {
+        case .idle:
+            return nil
+        case .awaitingTarget:
+            return .pending(
+                hint: BookmarkJumpHint(
+                    title: "Project key",
+                    candidates: keyedProjectCandidates()
+                )
+            )
+        case .awaitingProjectEntry(let groupIndex):
+            guard bookmarksConfig.groups.indices.contains(groupIndex) else {
+                return nil
+            }
+            let group = bookmarksConfig.groups[groupIndex]
+            return .pending(
+                hint: BookmarkJumpHint(
+                    title: "Folder key (\(group.name))",
+                    candidates: keyedEntryCandidates(in: group)
+                )
+            )
         }
-        reset()
     }
 
     private func keyedProjectCandidates() -> [BookmarkJumpHintCandidate] {
