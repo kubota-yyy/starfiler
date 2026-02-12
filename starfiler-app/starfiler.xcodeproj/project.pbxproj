@@ -7,6 +7,36 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		EE0000000000000000000001 /* NavigationHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000001 /* NavigationHistoryTests.swift */; };
+		EE0000000000000000000002 /* DirectoryContentsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000002 /* DirectoryContentsTests.swift */; };
+		EE0000000000000000000003 /* PaneStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000003 /* PaneStateTests.swift */; };
+		EE0000000000000000000004 /* VimModeStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000004 /* VimModeStateTests.swift */; };
+		EE0000000000000000000005 /* FileOperationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000005 /* FileOperationTests.swift */; };
+		EE0000000000000000000006 /* BatchRenameServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000006 /* BatchRenameServiceTests.swift */; };
+		EE0000000000000000000007 /* KeyInterpreterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000007 /* KeyInterpreterTests.swift */; };
+		EE0000000000000000000008 /* MockFileSystemService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000008 /* MockFileSystemService.swift */; };
+		EE0000000000000000000010 /* MockSecurityScopedBookmarkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000010 /* MockSecurityScopedBookmarkService.swift */; };
+		EE0000000000000000000011 /* MockDirectoryMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000011 /* MockDirectoryMonitor.swift */; };
+		EE0000000000000000000012 /* MockSpotlightSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000012 /* MockSpotlightSearchService.swift */; };
+		EE0000000000000000000013 /* MockFileOperationExecuting.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000013 /* MockFileOperationExecuting.swift */; };
+		EE0000000000000000000014 /* MockDirectoryComparing.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000014 /* MockDirectoryComparing.swift */; };
+		EE0000000000000000000015 /* MockSyncExecuting.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000015 /* MockSyncExecuting.swift */; };
+		EE0000000000000000000016 /* MockBatchRenameComputing.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000016 /* MockBatchRenameComputing.swift */; };
+		EE0000000000000000000017 /* MockVisitHistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000017 /* MockVisitHistoryService.swift */; };
+		EE0000000000000000000018 /* MockTerminalSessionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000018 /* MockTerminalSessionService.swift */; };
+		EE0000000000000000000020 /* PreviewViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000020 /* PreviewViewModelTests.swift */; };
+		EE0000000000000000000021 /* BookmarkSearchViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000021 /* BookmarkSearchViewModelTests.swift */; };
+		EE0000000000000000000022 /* BatchRenameViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000022 /* BatchRenameViewModelTests.swift */; };
+		EE0000000000000000000023 /* FilePaneViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000023 /* FilePaneViewModelTests.swift */; };
+		EE0000000000000000000024 /* MainViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000024 /* MainViewModelTests.swift */; };
+		EE0000000000000000000025 /* SidebarViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000025 /* SidebarViewModelTests.swift */; };
+		EE0000000000000000000026 /* SyncViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000026 /* SyncViewModelTests.swift */; };
+		EE0000000000000000000027 /* TerminalSessionListViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000027 /* TerminalSessionListViewModelTests.swift */; };
+		EE0000000000000000000028 /* FileOperationQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000028 /* FileOperationQueueTests.swift */; };
+		EE0000000000000000000029 /* ConfigManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000029 /* ConfigManagerTests.swift */; };
+		EE000000000000000000A001 /* FileItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A001 /* FileItemFactory.swift */; };
+		EE000000000000000000A002 /* TestURLFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A002 /* TestURLFactory.swift */; };
+		EE000000000000000000A003 /* AsyncTestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A003 /* AsyncTestHelpers.swift */; };
 		CC0000000000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000001 /* AppDelegate.swift */; };
 		CC0000000000000000000002 /* MainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000002 /* MainWindowController.swift */; };
 		CC0000000000000000000003 /* FilePaneViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* FilePaneViewController.swift */; };
@@ -198,6 +228,37 @@
 		BB000000000000000000005E /* BorderlessSplitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BorderlessSplitView.swift; sourceTree = "<group>"; };
 		BB000000000000000000005F /* PaneHighlightOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneHighlightOverlayView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000060 /* GoToPathPopoverViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoToPathPopoverViewController.swift; sourceTree = "<group>"; };
+		FF0000000000000000000001 /* NavigationHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationHistoryTests.swift; sourceTree = "<group>"; };
+		FF0000000000000000000002 /* DirectoryContentsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectoryContentsTests.swift; sourceTree = "<group>"; };
+		FF0000000000000000000003 /* PaneStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneStateTests.swift; sourceTree = "<group>"; };
+		FF0000000000000000000004 /* VimModeStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VimModeStateTests.swift; sourceTree = "<group>"; };
+		FF0000000000000000000005 /* FileOperationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileOperationTests.swift; sourceTree = "<group>"; };
+		FF0000000000000000000006 /* BatchRenameServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchRenameServiceTests.swift; sourceTree = "<group>"; };
+		FF0000000000000000000007 /* KeyInterpreterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyInterpreterTests.swift; sourceTree = "<group>"; };
+		FF0000000000000000000008 /* MockFileSystemService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockFileSystemService.swift; sourceTree = "<group>"; };
+		FF0000000000000000000010 /* MockSecurityScopedBookmarkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSecurityScopedBookmarkService.swift; sourceTree = "<group>"; };
+		FF0000000000000000000011 /* MockDirectoryMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDirectoryMonitor.swift; sourceTree = "<group>"; };
+		FF0000000000000000000012 /* MockSpotlightSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSpotlightSearchService.swift; sourceTree = "<group>"; };
+		FF0000000000000000000013 /* MockFileOperationExecuting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockFileOperationExecuting.swift; sourceTree = "<group>"; };
+		FF0000000000000000000014 /* MockDirectoryComparing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDirectoryComparing.swift; sourceTree = "<group>"; };
+		FF0000000000000000000015 /* MockSyncExecuting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSyncExecuting.swift; sourceTree = "<group>"; };
+		FF0000000000000000000016 /* MockBatchRenameComputing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockBatchRenameComputing.swift; sourceTree = "<group>"; };
+		FF0000000000000000000017 /* MockVisitHistoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockVisitHistoryService.swift; sourceTree = "<group>"; };
+		FF0000000000000000000018 /* MockTerminalSessionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockTerminalSessionService.swift; sourceTree = "<group>"; };
+		FF0000000000000000000020 /* PreviewViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewViewModelTests.swift; sourceTree = "<group>"; };
+		FF0000000000000000000021 /* BookmarkSearchViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkSearchViewModelTests.swift; sourceTree = "<group>"; };
+		FF0000000000000000000022 /* BatchRenameViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchRenameViewModelTests.swift; sourceTree = "<group>"; };
+		FF0000000000000000000023 /* FilePaneViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePaneViewModelTests.swift; sourceTree = "<group>"; };
+		FF0000000000000000000024 /* MainViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewModelTests.swift; sourceTree = "<group>"; };
+		FF0000000000000000000025 /* SidebarViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarViewModelTests.swift; sourceTree = "<group>"; };
+		FF0000000000000000000026 /* SyncViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncViewModelTests.swift; sourceTree = "<group>"; };
+		FF0000000000000000000027 /* TerminalSessionListViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionListViewModelTests.swift; sourceTree = "<group>"; };
+		FF0000000000000000000028 /* FileOperationQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileOperationQueueTests.swift; sourceTree = "<group>"; };
+		FF0000000000000000000029 /* ConfigManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigManagerTests.swift; sourceTree = "<group>"; };
+		FF0000000000000000000009 /* StarfilerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StarfilerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FF000000000000000000A001 /* FileItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileItemFactory.swift; sourceTree = "<group>"; };
+		FF000000000000000000A002 /* TestURLFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestURLFactory.swift; sourceTree = "<group>"; };
+		FF000000000000000000A003 /* AsyncTestHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AsyncTestHelpers.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -210,15 +271,142 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AA00000000000000000000F2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXContainerItemProxy section */
+		EE00000000000000000000C1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA0000000000000000000000 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA0000000000000000000010;
+			remoteInfo = starfiler;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		EE00000000000000000000D1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA0000000000000000000010 /* starfiler */;
+			targetProxy = EE00000000000000000000C1 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXGroup section */
 		AA0000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
 				AA0000000000000000000002 /* starfiler */,
+				AA00000000000000000000E0 /* starfilerTests */,
 				AA0000000000000000000003 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		AA00000000000000000000E0 /* starfilerTests */ = {
+			isa = PBXGroup;
+			children = (
+				AA00000000000000000000E1 /* Models */,
+				AA00000000000000000000E6 /* ViewModels */,
+				AA00000000000000000000E2 /* Services */,
+				AA00000000000000000000E3 /* Keyboard */,
+				AA00000000000000000000E4 /* TestSupport */,
+			);
+			path = starfilerTests;
+			sourceTree = "<group>";
+		};
+		AA00000000000000000000E6 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				FF0000000000000000000020 /* PreviewViewModelTests.swift */,
+				FF0000000000000000000021 /* BookmarkSearchViewModelTests.swift */,
+				FF0000000000000000000022 /* BatchRenameViewModelTests.swift */,
+				FF0000000000000000000023 /* FilePaneViewModelTests.swift */,
+				FF0000000000000000000024 /* MainViewModelTests.swift */,
+				FF0000000000000000000025 /* SidebarViewModelTests.swift */,
+				FF0000000000000000000026 /* SyncViewModelTests.swift */,
+				FF0000000000000000000027 /* TerminalSessionListViewModelTests.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		AA00000000000000000000E1 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				FF0000000000000000000001 /* NavigationHistoryTests.swift */,
+				FF0000000000000000000002 /* DirectoryContentsTests.swift */,
+				FF0000000000000000000003 /* PaneStateTests.swift */,
+				FF0000000000000000000004 /* VimModeStateTests.swift */,
+				FF0000000000000000000005 /* FileOperationTests.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		AA00000000000000000000E2 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				FF0000000000000000000006 /* BatchRenameServiceTests.swift */,
+				FF0000000000000000000028 /* FileOperationQueueTests.swift */,
+				FF0000000000000000000029 /* ConfigManagerTests.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		AA00000000000000000000E3 /* Keyboard */ = {
+			isa = PBXGroup;
+			children = (
+				FF0000000000000000000007 /* KeyInterpreterTests.swift */,
+			);
+			path = Keyboard;
+			sourceTree = "<group>";
+		};
+		AA00000000000000000000E4 /* TestSupport */ = {
+			isa = PBXGroup;
+			children = (
+				AA00000000000000000000E5 /* Mocks */,
+				AA000000000000000000A001 /* Factories */,
+				AA000000000000000000A002 /* Helpers */,
+			);
+			path = TestSupport;
+			sourceTree = "<group>";
+		};
+		AA000000000000000000A001 /* Factories */ = {
+			isa = PBXGroup;
+			children = (
+				FF000000000000000000A001 /* FileItemFactory.swift */,
+				FF000000000000000000A002 /* TestURLFactory.swift */,
+			);
+			path = Factories;
+			sourceTree = "<group>";
+		};
+		AA000000000000000000A002 /* Helpers */ = {
+			isa = PBXGroup;
+			children = (
+				FF000000000000000000A003 /* AsyncTestHelpers.swift */,
+			);
+			path = Helpers;
+			sourceTree = "<group>";
+		};
+		AA00000000000000000000E5 /* Mocks */ = {
+			isa = PBXGroup;
+			children = (
+				FF0000000000000000000008 /* MockFileSystemService.swift */,
+				FF0000000000000000000010 /* MockSecurityScopedBookmarkService.swift */,
+				FF0000000000000000000011 /* MockDirectoryMonitor.swift */,
+				FF0000000000000000000012 /* MockSpotlightSearchService.swift */,
+				FF0000000000000000000013 /* MockFileOperationExecuting.swift */,
+				FF0000000000000000000014 /* MockDirectoryComparing.swift */,
+				FF0000000000000000000015 /* MockSyncExecuting.swift */,
+				FF0000000000000000000016 /* MockBatchRenameComputing.swift */,
+				FF0000000000000000000017 /* MockVisitHistoryService.swift */,
+				FF0000000000000000000018 /* MockTerminalSessionService.swift */,
+			);
+			path = Mocks;
 			sourceTree = "<group>";
 		};
 		AA0000000000000000000002 /* starfiler */ = {
@@ -247,6 +435,7 @@
 			isa = PBXGroup;
 			children = (
 				BB000000000000000000000F /* Starfiler.app */,
+				FF0000000000000000000009 /* StarfilerTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -553,6 +742,23 @@
 			productReference = BB000000000000000000000F /* Starfiler.app */;
 			productType = "com.apple.product-type.application";
 		};
+		AA00000000000000000000F0 /* starfilerTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA00000000000000000000F5 /* Build configuration list for PBXNativeTarget "starfilerTests" */;
+			buildPhases = (
+				AA00000000000000000000F1 /* Sources */,
+				AA00000000000000000000F2 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EE00000000000000000000D1 /* PBXTargetDependency */,
+			);
+			name = starfilerTests;
+			productName = starfilerTests;
+			productReference = FF0000000000000000000009 /* StarfilerTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -565,6 +771,10 @@
 				TargetAttributes = {
 					AA0000000000000000000010 = {
 						CreatedOnToolsVersion = 16.0;
+					};
+					AA00000000000000000000F0 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = AA0000000000000000000010;
 					};
 				};
 			};
@@ -585,6 +795,7 @@
 			projectRoot = "";
 			targets = (
 				AA0000000000000000000010 /* starfiler */,
+				AA00000000000000000000F0 /* starfilerTests */,
 			);
 		};
 /* End PBXProject section */
@@ -698,6 +909,43 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AA00000000000000000000F1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EE0000000000000000000001 /* NavigationHistoryTests.swift in Sources */,
+				EE0000000000000000000002 /* DirectoryContentsTests.swift in Sources */,
+				EE0000000000000000000003 /* PaneStateTests.swift in Sources */,
+				EE0000000000000000000004 /* VimModeStateTests.swift in Sources */,
+				EE0000000000000000000005 /* FileOperationTests.swift in Sources */,
+				EE0000000000000000000006 /* BatchRenameServiceTests.swift in Sources */,
+				EE0000000000000000000007 /* KeyInterpreterTests.swift in Sources */,
+				EE0000000000000000000008 /* MockFileSystemService.swift in Sources */,
+				EE0000000000000000000010 /* MockSecurityScopedBookmarkService.swift in Sources */,
+				EE0000000000000000000011 /* MockDirectoryMonitor.swift in Sources */,
+				EE0000000000000000000012 /* MockSpotlightSearchService.swift in Sources */,
+				EE0000000000000000000013 /* MockFileOperationExecuting.swift in Sources */,
+				EE0000000000000000000014 /* MockDirectoryComparing.swift in Sources */,
+				EE0000000000000000000015 /* MockSyncExecuting.swift in Sources */,
+				EE0000000000000000000016 /* MockBatchRenameComputing.swift in Sources */,
+				EE0000000000000000000017 /* MockVisitHistoryService.swift in Sources */,
+				EE0000000000000000000018 /* MockTerminalSessionService.swift in Sources */,
+				EE0000000000000000000020 /* PreviewViewModelTests.swift in Sources */,
+				EE0000000000000000000021 /* BookmarkSearchViewModelTests.swift in Sources */,
+				EE0000000000000000000022 /* BatchRenameViewModelTests.swift in Sources */,
+				EE0000000000000000000023 /* FilePaneViewModelTests.swift in Sources */,
+				EE0000000000000000000024 /* MainViewModelTests.swift in Sources */,
+				EE0000000000000000000025 /* SidebarViewModelTests.swift in Sources */,
+				EE0000000000000000000026 /* SyncViewModelTests.swift in Sources */,
+				EE0000000000000000000027 /* TerminalSessionListViewModelTests.swift in Sources */,
+				EE0000000000000000000028 /* FileOperationQueueTests.swift in Sources */,
+				EE0000000000000000000029 /* ConfigManagerTests.swift in Sources */,
+				EE000000000000000000A001 /* FileItemFactory.swift in Sources */,
+				EE000000000000000000A002 /* TestURLFactory.swift in Sources */,
+				EE000000000000000000A003 /* AsyncTestHelpers.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
@@ -805,6 +1053,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_TESTABILITY = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = starfiler/App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -845,6 +1094,42 @@
 			};
 			name = Release;
 		};
+		AA00000000000000000000F6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nilone.starfilerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Starfiler.app/Contents/MacOS/Starfiler";
+			};
+			name = Debug;
+		};
+		AA00000000000000000000F7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nilone.starfilerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Starfiler.app/Contents/MacOS/Starfiler";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -862,6 +1147,15 @@
 			buildConfigurations = (
 				AA0000000000000000000018 /* Debug */,
 				AA0000000000000000000019 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA00000000000000000000F5 /* Build configuration list for PBXNativeTarget "starfilerTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA00000000000000000000F6 /* Debug */,
+				AA00000000000000000000F7 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

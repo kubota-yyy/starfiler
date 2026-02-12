@@ -49,10 +49,10 @@ final class SidebarViewModel {
     var onSectionsChanged: (([SidebarSection]) -> Void)?
 
     private let configManager: ConfigManager
-    private let visitHistoryService: VisitHistoryService?
+    private let visitHistoryService: (any VisitHistoryProviding)?
     private var navigationHistorySection: SidebarSection?
 
-    init(configManager: ConfigManager, visitHistoryService: VisitHistoryService? = nil) {
+    init(configManager: ConfigManager, visitHistoryService: (any VisitHistoryProviding)? = nil) {
         self.configManager = configManager
         self.visitHistoryService = visitHistoryService
         reloadSections()

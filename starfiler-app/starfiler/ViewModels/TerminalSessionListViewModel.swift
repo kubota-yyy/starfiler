@@ -4,7 +4,7 @@ import Observation
 @MainActor
 @Observable
 final class TerminalSessionListViewModel {
-    private let service: TerminalSessionService
+    private let service: any TerminalSessionProviding
 
     private(set) var sessions: [TerminalSession] = []
     var activeSessionId: UUID?
@@ -15,7 +15,7 @@ final class TerminalSessionListViewModel {
     var onActiveSessionChanged: ((UUID?) -> Void)?
     var onPanelVisibilityChanged: ((Bool) -> Void)?
 
-    init(service: TerminalSessionService = TerminalSessionService(), initialPanelVisible: Bool = false) {
+    init(service: any TerminalSessionProviding = TerminalSessionService(), initialPanelVisible: Bool = false) {
         self.service = service
         self.terminalPanelVisible = initialPanelVisible
     }
