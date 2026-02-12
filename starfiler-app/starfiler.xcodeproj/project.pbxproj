@@ -96,6 +96,10 @@
 		CC0000000000000000000058 /* BookmarkJumpOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000005A /* BookmarkJumpOverlayView.swift */; };
 		CC0000000000000000000059 /* MediaKeyActionDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000005B /* MediaKeyActionDelegate.swift */; };
 		CC000000000000000000005A /* MediaCollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000005C /* MediaCollectionView.swift */; };
+		CC000000000000000000005B /* ActionToastPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000005D /* ActionToastPresenter.swift */; };
+		CC000000000000000000005C /* BorderlessSplitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000005E /* BorderlessSplitView.swift */; };
+		CC000000000000000000005D /* PaneHighlightOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000005F /* PaneHighlightOverlayView.swift */; };
+		CC000000000000000000005E /* GoToPathPopoverViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000060 /* GoToPathPopoverViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -190,6 +194,10 @@
 		BB000000000000000000005A /* BookmarkJumpOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkJumpOverlayView.swift; sourceTree = "<group>"; };
 		BB000000000000000000005B /* MediaKeyActionDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaKeyActionDelegate.swift; sourceTree = "<group>"; };
 		BB000000000000000000005C /* MediaCollectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaCollectionView.swift; sourceTree = "<group>"; };
+		BB000000000000000000005D /* ActionToastPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionToastPresenter.swift; sourceTree = "<group>"; };
+		BB000000000000000000005E /* BorderlessSplitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BorderlessSplitView.swift; sourceTree = "<group>"; };
+		BB000000000000000000005F /* PaneHighlightOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneHighlightOverlayView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000060 /* GoToPathPopoverViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoToPathPopoverViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -323,6 +331,10 @@
 			children = (
 				BB0000000000000000000012 /* MainSplitViewController.swift */,
 				BB0000000000000000000055 /* MainContainerViewController.swift */,
+				BB000000000000000000005D /* ActionToastPresenter.swift */,
+				BB000000000000000000005E /* BorderlessSplitView.swift */,
+				BB000000000000000000005F /* PaneHighlightOverlayView.swift */,
+				BB0000000000000000000060 /* GoToPathPopoverViewController.swift */,
 			);
 			path = SplitView;
 			sourceTree = "<group>";
@@ -679,6 +691,10 @@
 				CC0000000000000000000058 /* BookmarkJumpOverlayView.swift in Sources */,
 				CC0000000000000000000059 /* MediaKeyActionDelegate.swift in Sources */,
 				CC000000000000000000005A /* MediaCollectionView.swift in Sources */,
+				CC000000000000000000005B /* ActionToastPresenter.swift in Sources */,
+				CC000000000000000000005C /* BorderlessSplitView.swift in Sources */,
+				CC000000000000000000005D /* PaneHighlightOverlayView.swift in Sources */,
+				CC000000000000000000005E /* GoToPathPopoverViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

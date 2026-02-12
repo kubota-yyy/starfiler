@@ -47,7 +47,8 @@ final class StatusBarView: NSView {
                 let palette = currentTheme.palette
                 let originalColor = countLabel.textColor
                 countLabel.textColor = palette.starAccentColor
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                Task { @MainActor [weak self] in
+                    try? await Task.sleep(for: .milliseconds(300))
                     self?.countLabel.textColor = originalColor
                 }
             }

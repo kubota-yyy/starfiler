@@ -167,7 +167,8 @@ final class TerminalPanelViewController: NSViewController {
     private func closeSession(id: UUID) {
         if let vc = sessionViewControllers[id], vc.isProcessRunning {
             vc.sendInterrupt()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(500))
                 self?.listViewModel.removeSession(id: id)
             }
         } else {

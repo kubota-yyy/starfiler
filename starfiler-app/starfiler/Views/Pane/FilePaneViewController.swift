@@ -1884,7 +1884,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         let palette = filerTheme.palette
 
         for (i, row) in orderedRows.enumerated() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.02) { [weak self] in
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(Int(i) * 20))
                 guard let self else { return }
                 self.flashRow(at: row, color: palette.starGlowColor.withAlphaComponent(0.25), duration: 0.3)
             }

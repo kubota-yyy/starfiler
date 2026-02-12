@@ -1,246 +1,5 @@
 import AppKit
 
-private final class ActionToastPresenter {
-    private weak var currentToast: NSView?
-    private var dismissWorkItem: DispatchWorkItem?
-    var starEffectsEnabled = true
-    var palette: FilerThemePalette?
-
-    func show(message: String, in hostView: NSView) {
-        dismissWorkItem?.cancel()
-        currentToast?.removeFromSuperview()
-
-        let toastView = makeToastView(message: message)
-        toastView.alphaValue = 0
-        hostView.addSubview(toastView)
-
-        NSLayoutConstraint.activate([
-            toastView.trailingAnchor.constraint(equalTo: hostView.trailingAnchor, constant: -16),
-            toastView.bottomAnchor.constraint(equalTo: hostView.bottomAnchor, constant: -16),
-            toastView.widthAnchor.constraint(lessThanOrEqualToConstant: 380)
-        ])
-
-        hostView.layoutSubtreeIfNeeded()
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.14
-            toastView.animator().alphaValue = 1
-        }
-
-        if starEffectsEnabled, let layer = hostView.layer {
-            let toastFrame = toastView.frame
-            let burstPoint = CGPoint(x: toastFrame.minX + 6, y: toastFrame.midY)
-            let glowColor = palette?.starGlowColor ?? .controlAccentColor
-            StarSparkleAnimator.burst(count: 8, in: layer, at: burstPoint, color: glowColor, size: 10, duration: 0.5)
-        }
-
-        currentToast = toastView
-        let dismiss = DispatchWorkItem { [weak self, weak toastView] in
-            guard let self, let toastView else {
-                return
-            }
-
-            NSAnimationContext.runAnimationGroup({ context in
-                context.duration = 0.16
-                toastView.animator().alphaValue = 0
-            }, completionHandler: {
-                toastView.removeFromSuperview()
-                if self.currentToast === toastView {
-                    self.currentToast = nil
-                }
-            })
-        }
-        dismissWorkItem = dismiss
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4, execute: dismiss)
-    }
-
-    private func makeToastView(message: String) -> NSView {
-        let container = NSVisualEffectView()
-        container.translatesAutoresizingMaskIntoConstraints = false
-        container.material = .hudWindow
-        container.blendingMode = .withinWindow
-        container.state = .active
-        container.wantsLayer = true
-        container.layer?.cornerRadius = 10
-        container.layer?.masksToBounds = true
-        container.layer?.borderWidth = 1
-        container.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.35).cgColor
-
-        let sparkleImageView = NSImageView()
-        sparkleImageView.translatesAutoresizingMaskIntoConstraints = false
-        sparkleImageView.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: nil)
-        sparkleImageView.contentTintColor = palette?.starGlowColor ?? .controlAccentColor
-        sparkleImageView.isHidden = !starEffectsEnabled
-
-        let label = NSTextField(wrappingLabelWithString: message)
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.textColor = .labelColor
-        label.font = .systemFont(ofSize: 12, weight: .medium)
-        label.maximumNumberOfLines = 3
-
-        container.addSubview(sparkleImageView)
-        container.addSubview(label)
-        NSLayoutConstraint.activate([
-            sparkleImageView.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 10),
-            sparkleImageView.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            sparkleImageView.widthAnchor.constraint(equalToConstant: 18),
-            sparkleImageView.heightAnchor.constraint(equalToConstant: 18),
-
-            label.leadingAnchor.constraint(equalTo: sparkleImageView.trailingAnchor, constant: 6),
-            label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
-            label.topAnchor.constraint(equalTo: container.topAnchor, constant: 10),
-            label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -10)
-        ])
-
-        return container
-    }
-}
-
-private final class BorderlessSplitView: NSSplitView {
-    override var dividerThickness: CGFloat {
-        1
-    }
-
-    override var dividerColor: NSColor {
-        NSColor.separatorColor.withAlphaComponent(0.72)
-    }
-
-    override func drawDivider(in rect: NSRect) {
-        dividerColor.setFill()
-        NSBezierPath(rect: rect.integral).fill()
-    }
-}
-
-private final class PaneHighlightOverlayView: NSView {
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        nil
-    }
-}
-
-private final class GoToPathPopoverViewController: NSViewController, NSTextFieldDelegate {
-    private let accentColor: NSColor
-    private let onSubmit: (String) -> Void
-    private let onCancel: () -> Void
-
-    private let iconView = NSImageView()
-    private let titleLabel = NSTextField(labelWithString: "")
-    private let pathField = NSTextField(string: "")
-    private let hintLabel = NSTextField(labelWithString: "Enter: Go   Esc: Cancel")
-    private let errorLabel = NSTextField(labelWithString: "")
-
-    init(
-        currentPath: String,
-        accentColor: NSColor,
-        onSubmit: @escaping (String) -> Void,
-        onCancel: @escaping () -> Void
-    ) {
-        self.accentColor = accentColor
-        self.onSubmit = onSubmit
-        self.onCancel = onCancel
-        super.init(nibName: nil, bundle: nil)
-
-        titleLabel.stringValue = "Go to File or Folder"
-        pathField.placeholderString = currentPath
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func loadView() {
-        let rootView = NSView(frame: NSRect(x: 0, y: 0, width: 430, height: 112))
-        rootView.translatesAutoresizingMaskIntoConstraints = false
-
-        iconView.translatesAutoresizingMaskIntoConstraints = false
-        iconView.image = NSImage(systemSymbolName: "scope", accessibilityDescription: nil)
-        iconView.contentTintColor = accentColor
-
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = .systemFont(ofSize: 12, weight: .semibold)
-        titleLabel.textColor = accentColor
-
-        pathField.translatesAutoresizingMaskIntoConstraints = false
-        pathField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
-        pathField.delegate = self
-        pathField.focusRingType = .default
-
-        hintLabel.translatesAutoresizingMaskIntoConstraints = false
-        hintLabel.font = .systemFont(ofSize: 11, weight: .regular)
-        hintLabel.textColor = .secondaryLabelColor
-
-        errorLabel.translatesAutoresizingMaskIntoConstraints = false
-        errorLabel.font = .systemFont(ofSize: 11, weight: .medium)
-        errorLabel.textColor = .systemRed
-        errorLabel.isHidden = true
-
-        rootView.addSubview(iconView)
-        rootView.addSubview(titleLabel)
-        rootView.addSubview(pathField)
-        rootView.addSubview(hintLabel)
-        rootView.addSubview(errorLabel)
-
-        NSLayoutConstraint.activate([
-            iconView.leadingAnchor.constraint(equalTo: rootView.leadingAnchor, constant: 12),
-            iconView.topAnchor.constraint(equalTo: rootView.topAnchor, constant: 12),
-            iconView.widthAnchor.constraint(equalToConstant: 14),
-            iconView.heightAnchor.constraint(equalToConstant: 14),
-
-            titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 6),
-            titleLabel.centerYAnchor.constraint(equalTo: iconView.centerYAnchor),
-            titleLabel.trailingAnchor.constraint(equalTo: rootView.trailingAnchor, constant: -12),
-
-            pathField.leadingAnchor.constraint(equalTo: rootView.leadingAnchor, constant: 12),
-            pathField.trailingAnchor.constraint(equalTo: rootView.trailingAnchor, constant: -12),
-            pathField.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
-
-            hintLabel.leadingAnchor.constraint(equalTo: rootView.leadingAnchor, constant: 12),
-            hintLabel.topAnchor.constraint(equalTo: pathField.bottomAnchor, constant: 8),
-
-            errorLabel.leadingAnchor.constraint(equalTo: hintLabel.trailingAnchor, constant: 12),
-            errorLabel.centerYAnchor.constraint(equalTo: hintLabel.centerYAnchor),
-            errorLabel.trailingAnchor.constraint(lessThanOrEqualTo: rootView.trailingAnchor, constant: -12)
-        ])
-
-        view = rootView
-    }
-
-    override func viewDidAppear() {
-        super.viewDidAppear()
-        focusInputField()
-    }
-
-    func focusInputField() {
-        view.window?.makeFirstResponder(pathField)
-        pathField.selectText(nil)
-    }
-
-    func showValidationError(_ message: String) {
-        errorLabel.stringValue = message
-        errorLabel.isHidden = false
-        NSSound.beep()
-        focusInputField()
-    }
-
-    func controlTextDidChange(_ obj: Notification) {
-        if !errorLabel.isHidden {
-            errorLabel.isHidden = true
-        }
-    }
-
-    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
-        if commandSelector == #selector(NSResponder.insertNewline(_:)) {
-            onSubmit(pathField.stringValue)
-            return true
-        }
-
-        if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
-            onCancel()
-            return true
-        }
-
-        return false
-    }
-}
-
 final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     private static let defaultSidebarWidth = CGFloat(260)
     private static let defaultPreviewWidth = CGFloat(320)
@@ -683,85 +442,8 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     }
 
     private func bindPaneControllers() {
-        leftPaneViewController.onTabPressed = { [weak self] in
-            self?.handleTabSwitch() ?? false
-        }
-        rightPaneViewController.onTabPressed = { [weak self] in
-            self?.handleTabSwitch() ?? false
-        }
-
-        leftPaneViewController.onDidRequestActivate = { [weak self] in
-            self?.setActivePane(.left)
-        }
-        rightPaneViewController.onDidRequestActivate = { [weak self] in
-            self?.setActivePane(.right)
-        }
-
-        leftPaneViewController.onSelectionChanged = { [weak self] _ in
-            self?.viewModel.updatePreviewSelection(for: .left)
-        }
-        rightPaneViewController.onSelectionChanged = { [weak self] _ in
-            self?.viewModel.updatePreviewSelection(for: .right)
-        }
-
-        leftPaneViewController.onStatusChanged = { [weak self] path, itemCount, markedCount in
-            self?.updatePaneStatus(side: .left, path: path, itemCount: itemCount, markedCount: markedCount)
-        }
-        rightPaneViewController.onStatusChanged = { [weak self] path, itemCount, markedCount in
-            self?.updatePaneStatus(side: .right, path: path, itemCount: itemCount, markedCount: markedCount)
-        }
-
-        leftPaneViewController.onFileOperationRequested = { [weak self] action in
-            self?.handleGlobalAction(action) ?? false
-        }
-        rightPaneViewController.onFileOperationRequested = { [weak self] action in
-            self?.handleGlobalAction(action) ?? false
-        }
-
-        leftPaneViewController.onBookmarkJump = { [weak self] path in
-            self?.navigateToSearchResult(BookmarkSearchViewModel.SearchResult(
-                groupName: "", displayName: "", path: path, shortcutHint: nil
-            ))
-        }
-        rightPaneViewController.onBookmarkJump = { [weak self] path in
-            self?.navigateToSearchResult(BookmarkSearchViewModel.SearchResult(
-                groupName: "", displayName: "", path: path, shortcutHint: nil
-            ))
-        }
-
-        leftPaneViewController.onDirectoryLoadFailed = { [weak self] directory, error in
-            self?.presentNavigationErrorAlert(for: directory, error: error)
-        }
-        rightPaneViewController.onDirectoryLoadFailed = { [weak self] directory, error in
-            self?.presentNavigationErrorAlert(for: directory, error: error)
-        }
-
-        leftPaneViewController.onDropOperationCompleted = { [weak self] operation, itemCount in
-            self?.handleDropOperationCompleted(operation: operation, itemCount: itemCount)
-        }
-        rightPaneViewController.onDropOperationCompleted = { [weak self] operation, itemCount in
-            self?.handleDropOperationCompleted(operation: operation, itemCount: itemCount)
-        }
-
-        leftPaneViewController.onSpotlightSearchScopeChanged = { [weak self] scope in
-            self?.handleSpotlightSearchScopeChanged(scope)
-        }
-        rightPaneViewController.onSpotlightSearchScopeChanged = { [weak self] scope in
-            self?.handleSpotlightSearchScopeChanged(scope)
-        }
-        leftPaneViewController.onFileIconSizeChanged = { [weak self] size in
-            self?.handleFileIconSizeChanged(size)
-        }
-        rightPaneViewController.onFileIconSizeChanged = { [weak self] size in
-            self?.handleFileIconSizeChanged(size)
-        }
-
-        leftPaneViewController.onMarkdownPreviewRequested = { [weak self] url in
-            self?.presentMarkdownPreview(for: url)
-        }
-        rightPaneViewController.onMarkdownPreviewRequested = { [weak self] url in
-            self?.presentMarkdownPreview(for: url)
-        }
+        bindPaneCallbacks(for: leftPaneViewController, side: .left)
+        bindPaneCallbacks(for: rightPaneViewController, side: .right)
 
         previewPaneViewController.onImageSelectionChanged = { [weak self] selectedURL in
             self?.viewModel.previewPane.setSelectedFileURL(selectedURL)
@@ -769,6 +451,44 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
 
         previewPaneViewController.onNavigateRequested = { [weak self] destination in
             self?.viewModel.activePane.navigate(to: destination)
+        }
+    }
+
+    private func bindPaneCallbacks(for pane: FilePaneViewController, side: PaneSide) {
+        pane.onTabPressed = { [weak self] in
+            self?.handleTabSwitch() ?? false
+        }
+        pane.onDidRequestActivate = { [weak self] in
+            self?.setActivePane(side)
+        }
+        pane.onSelectionChanged = { [weak self] _ in
+            self?.viewModel.updatePreviewSelection(for: side)
+        }
+        pane.onStatusChanged = { [weak self] path, itemCount, markedCount in
+            self?.updatePaneStatus(side: side, path: path, itemCount: itemCount, markedCount: markedCount)
+        }
+        pane.onFileOperationRequested = { [weak self] action in
+            self?.handleGlobalAction(action) ?? false
+        }
+        pane.onBookmarkJump = { [weak self] path in
+            self?.navigateToSearchResult(BookmarkSearchViewModel.SearchResult(
+                groupName: "", displayName: "", path: path, shortcutHint: nil
+            ))
+        }
+        pane.onDirectoryLoadFailed = { [weak self] directory, error in
+            self?.presentNavigationErrorAlert(for: directory, error: error)
+        }
+        pane.onDropOperationCompleted = { [weak self] operation, itemCount in
+            self?.handleDropOperationCompleted(operation: operation, itemCount: itemCount)
+        }
+        pane.onSpotlightSearchScopeChanged = { [weak self] scope in
+            self?.handleSpotlightSearchScopeChanged(scope)
+        }
+        pane.onFileIconSizeChanged = { [weak self] size in
+            self?.handleFileIconSizeChanged(size)
+        }
+        pane.onMarkdownPreviewRequested = { [weak self] url in
+            self?.presentMarkdownPreview(for: url)
         }
     }
 
