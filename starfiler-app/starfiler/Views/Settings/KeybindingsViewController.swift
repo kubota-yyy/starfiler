@@ -6,13 +6,15 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
     private let scrollView = NSScrollView()
     private let tableView = NSTableView()
     private let segmentedControl = NSSegmentedControl()
+    private let searchField = NSSearchField()
     private let resetButton = NSButton(title: "Reset to Defaults", target: nil, action: nil)
     private let openConfigButton = NSButton(title: "Open Config File", target: nil, action: nil)
 
-    private static let modes = ["normal", "visual", "filter", "menu"]
+    private static let modes = ["all", "normal", "visual", "filter", "menu"]
 
-    private var currentMode: String = "normal"
-    private var displayedBindings: [(sequence: String, action: String, isReadOnly: Bool)] = []
+    private var filterText: String = ""
+    private var currentMode: String = "all"
+    private var displayedBindings: [(sequence: String, action: String, isReadOnly: Bool, mode: String)] = []
     private var allBindings: [String: [(sequence: String, action: String, isReadOnly: Bool)]] = [:]
 
     override func loadView() {
@@ -128,6 +130,12 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
         segmentedControl.target = self
         segmentedControl.action = #selector(modeChanged(_:))
 
+        searchField.translatesAutoresizingMaskIntoConstraints = false
+        searchField.placeholderString = "Filter keybindings..."
+        searchField.target = self
+        searchField.action = #selector(filterChanged(_:))
+        searchField.sendsSearchStringImmediately = true
+
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.delegate = self
         tableView.dataSource = self
@@ -167,6 +175,7 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
 
     private func configureLayout() {
         view.addSubview(segmentedControl)
+        view.addSubview(searchField)
         view.addSubview(scrollView)
         view.addSubview(resetButton)
         view.addSubview(openConfigButton)
@@ -175,7 +184,11 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
             segmentedControl.topAnchor.constraint(equalTo: view.topAnchor, constant: 12),
             segmentedControl.centerXAnchor.constraint(equalTo: view.centerXAnchor),
 
-            scrollView.topAnchor.constraint(equalTo: segmentedControl.bottomAnchor, constant: 8),
+            searchField.topAnchor.constraint(equalTo: segmentedControl.bottomAnchor, constant: 8),
+            searchField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            searchField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+
+            scrollView.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 8),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
             scrollView.bottomAnchor.constraint(equalTo: resetButton.topAnchor, constant: -8),
@@ -189,7 +202,44 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
     }
 
     private func reloadTable() {
-        displayedBindings = allBindings[currentMode] ?? []
+        let modeColumn = tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("mode"))
+        if currentMode == "all" {
+            if modeColumn == nil {
+                let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("mode"))
+                col.title = "Mode"
+                col.width = 80
+                col.minWidth = 60
+                tableView.addTableColumn(col)
+            }
+        } else {
+            if let col = modeColumn {
+                tableView.removeTableColumn(col)
+            }
+        }
+
+        var entries: [(sequence: String, action: String, isReadOnly: Bool, mode: String)]
+        if currentMode == "all" {
+            entries = []
+            for mode in Self.modes where mode != "all" {
+                for binding in allBindings[mode] ?? [] {
+                    entries.append((binding.sequence, binding.action, binding.isReadOnly, mode))
+                }
+            }
+            entries.sort { $0.action < $1.action }
+        } else {
+            entries = (allBindings[currentMode] ?? []).map { ($0.sequence, $0.action, $0.isReadOnly, currentMode) }
+        }
+
+        if !filterText.isEmpty {
+            let query = filterText.lowercased()
+            entries = entries.filter { entry in
+                formatSequence(entry.sequence).lowercased().contains(query)
+                    || formatAction(entry.action).lowercased().contains(query)
+                    || entry.mode.lowercased().contains(query)
+            }
+        }
+
+        displayedBindings = entries
         tableView.reloadData()
     }
 
@@ -201,6 +251,12 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
             return
         }
         currentMode = modes[index]
+        reloadTable()
+    }
+
+    @objc
+    private func filterChanged(_ sender: NSSearchField) {
+        filterText = sender.stringValue
         reloadTable()
     }
 
@@ -221,6 +277,7 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
 
     private func presentKeyRecorder(forRow row: Int) {
         let binding = displayedBindings[row]
+        let bindingMode = binding.mode
 
         let alert = NSAlert()
         alert.alertStyle = .informational
@@ -244,17 +301,17 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
         let response = alert.runModal()
 
         if response == .alertFirstButtonReturn, let newSequence = recordedNewSequence {
-            if let conflict = findConflict(sequence: newSequence, mode: currentMode, excludingRow: row) {
+            if let conflict = findConflict(sequence: newSequence, mode: bindingMode, excludingRow: row) {
                 let conflictAlert = NSAlert()
                 conflictAlert.alertStyle = .warning
                 conflictAlert.messageText = "Key Conflict"
-                conflictAlert.informativeText = "\"\(formatSequence(newSequence))\" is already bound to \"\(formatAction(conflict))\" in \(currentMode) mode."
+                conflictAlert.informativeText = "\"\(formatSequence(newSequence))\" is already bound to \"\(formatAction(conflict))\" in \(bindingMode) mode."
                 conflictAlert.addButton(withTitle: "OK")
                 conflictAlert.runModal()
                 return
             }
 
-            saveKeybinding(oldSequence: binding.sequence, newSequence: newSequence, action: binding.action, mode: currentMode)
+            saveKeybinding(oldSequence: binding.sequence, newSequence: newSequence, action: binding.action, mode: bindingMode)
             loadBindings()
             loadMenuBindings()
             reloadTable()
@@ -391,6 +448,9 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
             cell.textField?.textColor = textColor
         case "action":
             cell.textField?.stringValue = formatAction(binding.action)
+            cell.textField?.textColor = textColor
+        case "mode":
+            cell.textField?.stringValue = binding.mode.capitalized
             cell.textField?.textColor = textColor
         default:
             cell.textField?.stringValue = ""
