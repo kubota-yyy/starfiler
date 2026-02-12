@@ -124,6 +124,7 @@ struct AppConfig: Codable, Sendable {
     var leftPaneVisible: Bool
     var rightPaneVisible: Bool
     var starEffectsEnabled: Bool
+    var animationEffectSettings: AnimationEffectSettings
 
     init(
         showHiddenFiles: Bool = true,
@@ -149,7 +150,8 @@ struct AppConfig: Codable, Sendable {
         rightPaneMediaRecursiveEnabled: Bool = false,
         leftPaneVisible: Bool = true,
         rightPaneVisible: Bool = true,
-        starEffectsEnabled: Bool = true
+        starEffectsEnabled: Bool = true,
+        animationEffectSettings: AnimationEffectSettings = .allEnabled
     ) {
         self.showHiddenFiles = showHiddenFiles
         self.defaultSortColumn = defaultSortColumn
@@ -175,6 +177,7 @@ struct AppConfig: Codable, Sendable {
         self.leftPaneVisible = leftPaneVisible
         self.rightPaneVisible = rightPaneVisible
         self.starEffectsEnabled = starEffectsEnabled
+        self.animationEffectSettings = animationEffectSettings
     }
 
     enum CodingKeys: String, CodingKey {
@@ -202,6 +205,7 @@ struct AppConfig: Codable, Sendable {
         case leftPaneVisible
         case rightPaneVisible
         case starEffectsEnabled
+        case animationEffectSettings
     }
 
     init(from decoder: Decoder) throws {
@@ -232,6 +236,7 @@ struct AppConfig: Codable, Sendable {
         leftPaneVisible = try container.decodeIfPresent(Bool.self, forKey: .leftPaneVisible) ?? true
         rightPaneVisible = try container.decodeIfPresent(Bool.self, forKey: .rightPaneVisible) ?? true
         starEffectsEnabled = try container.decodeIfPresent(Bool.self, forKey: .starEffectsEnabled) ?? true
+        animationEffectSettings = try container.decodeIfPresent(AnimationEffectSettings.self, forKey: .animationEffectSettings) ?? .allEnabled
     }
 
     private static func clampedSidebarRecentItemsLimit(_ value: Int) -> Int {

@@ -211,12 +211,19 @@ final class MainViewModel {
     }
 
     func deleteMarked() {
-        let urls = activePane.markedOrSelectedURLs()
-        guard !urls.isEmpty else {
+        delete(urls: activePane.markedOrSelectedURLs())
+    }
+
+    func delete(urls: [URL]) {
+        let normalizedURLs = urls.map(\.standardizedFileURL)
+        var seen: Set<URL> = []
+        let uniqueURLs = normalizedURLs.filter { seen.insert($0).inserted }
+
+        guard !uniqueURLs.isEmpty else {
             return
         }
 
-        execute(operation: .trash(items: urls), registerUndoWithManager: true, clearCutClipboardOnSuccess: false)
+        execute(operation: .trash(items: uniqueURLs), registerUndoWithManager: true, clearCutClipboardOnSuccess: false)
     }
 
     func rename() {

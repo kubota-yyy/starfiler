@@ -302,7 +302,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func menuDelete(_ sender: Any?) {
-        mainWindowController?.performAction { $0.deleteMarked() }
+        mainWindowController?.requestDeleteFromActivePane()
     }
 
     @objc private func menuRename(_ sender: Any?) {
@@ -450,6 +450,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let currentSidebarFavoritesVisible = mainWindowController?.isSidebarFavoritesVisible ?? true
         let currentSidebarRecentItemsLimit = mainWindowController?.currentSidebarRecentItemsLimit ?? 10
         let currentStarEffectsEnabled = mainWindowController?.isStarEffectsEnabled ?? true
+        let currentAnimationEffectSettings = mainWindowController?.currentAnimationEffectSettings ?? .allEnabled
 
         let appearanceVC = AppearanceSettingsViewController(
             selectedTheme: currentTheme,
@@ -460,7 +461,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             initialFileIconSize: currentFileIconSize,
             initialSidebarFavoritesVisible: currentSidebarFavoritesVisible,
             initialSidebarRecentItemsLimit: currentSidebarRecentItemsLimit,
-            initialStarEffectsEnabled: currentStarEffectsEnabled
+            initialStarEffectsEnabled: currentStarEffectsEnabled,
+            initialAnimationEffectSettings: currentAnimationEffectSettings
         )
         appearanceVC.onThemeChanged = { [weak self] theme in
             self?.mainWindowController?.updateFilerTheme(theme)
@@ -488,6 +490,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         appearanceVC.onStarEffectsChanged = { [weak self] enabled in
             self?.mainWindowController?.updateStarEffectsEnabled(enabled)
+        }
+        appearanceVC.onAnimationEffectSettingsChanged = { [weak self] settings in
+            self?.mainWindowController?.updateAnimationEffectSettings(settings)
         }
 
         let keybindingsVC = KeybindingsViewController()

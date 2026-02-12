@@ -75,6 +75,8 @@
 		CC0000000000000000000043 /* BookmarksSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000046 /* BookmarksSettingsViewController.swift */; };
 		CC0000000000000000000044 /* AdvancedSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000047 /* AdvancedSettingsViewController.swift */; };
 		CC0000000000000000000045 /* StarSparkleAnimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000048 /* StarSparkleAnimator.swift */; };
+		CC0000000000000000000046 /* AnimationEffectSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000049 /* AnimationEffectSettings.swift */; };
+		CC0000000000000000000047 /* ApplicationRelatedItemLocatorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000004A /* ApplicationRelatedItemLocatorService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -149,6 +151,8 @@
 		BB0000000000000000000046 /* BookmarksSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarksSettingsViewController.swift; sourceTree = "<group>"; };
 		BB0000000000000000000047 /* AdvancedSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedSettingsViewController.swift; sourceTree = "<group>"; };
 		BB0000000000000000000048 /* StarSparkleAnimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StarSparkleAnimator.swift; sourceTree = "<group>"; };
+		BB0000000000000000000049 /* AnimationEffectSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationEffectSettings.swift; sourceTree = "<group>"; };
+		BB000000000000000000004A /* ApplicationRelatedItemLocatorService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationRelatedItemLocatorService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -349,6 +353,7 @@
 				BB0000000000000000000036 /* DirectoryComparisonService.swift */,
 				BB0000000000000000000037 /* SyncExecutionService.swift */,
 				BB000000000000000000003E /* VisitHistoryService.swift */,
+				BB000000000000000000004A /* ApplicationRelatedItemLocatorService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -396,6 +401,7 @@
 		AA0000000000000000000021 /* Config */ = {
 			isa = PBXGroup;
 			children = (
+				BB0000000000000000000049 /* AnimationEffectSettings.swift */,
 				BB0000000000000000000020 /* AppConfig.swift */,
 				BB0000000000000000000021 /* BookmarksConfig.swift */,
 				BB0000000000000000000022 /* ConfigManager.swift */,
@@ -575,6 +581,8 @@
 				CC0000000000000000000043 /* BookmarksSettingsViewController.swift in Sources */,
 				CC0000000000000000000044 /* AdvancedSettingsViewController.swift in Sources */,
 				CC0000000000000000000045 /* StarSparkleAnimator.swift in Sources */,
+				CC0000000000000000000046 /* AnimationEffectSettings.swift in Sources */,
+				CC0000000000000000000047 /* ApplicationRelatedItemLocatorService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

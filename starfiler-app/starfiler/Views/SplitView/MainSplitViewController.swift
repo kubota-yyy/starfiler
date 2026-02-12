@@ -274,11 +274,13 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     private var actionFeedbackEnabled: Bool
     private var fileIconSize: CGFloat
     private var starEffectsEnabled = true
+    private var animationEffectSettings = AnimationEffectSettings.allEnabled
     private let initialSidebarWidth: CGFloat
     private var hasAppliedInitialSidebarWidth = false
     private var lastReportedSidebarWidth: CGFloat
     private var lastReportedPreviewWidth: CGFloat
     private let toastPresenter = ActionToastPresenter()
+    private let applicationRelatedItemLocator: any ApplicationRelatedItemLocating = ApplicationRelatedItemLocatorService()
     private var goToPathPopover: NSPopover?
     private weak var goToPathHighlightView: NSView?
     private var shouldRefocusAfterGoToPathDismiss = true
@@ -476,6 +478,23 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         rightPaneViewController.reloadKeybindings()
     }
 
+    func requestDeleteFromActivePane() {
+        let selectedURLs = viewModel.activePane.markedOrSelectedURLs()
+            .map(\.standardizedFileURL)
+        guard !selectedURLs.isEmpty else {
+            return
+        }
+
+        let appBundleURLs = selectedURLs.filter(Self.isApplicationBundleUnderApplications)
+
+        guard !appBundleURLs.isEmpty else {
+            viewModel.delete(urls: selectedURLs)
+            return
+        }
+
+        presentApplicationDeletionDialog(selectedURLs: selectedURLs, appBundleURLs: appBundleURLs)
+    }
+
     func presentGoToPathPrompt() {
         let activePaneSide = viewModel.activePaneSide
         let currentPath = viewModel.activePane.paneState.currentDirectory.path
@@ -599,6 +618,13 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         leftPaneViewController.setStarEffectsEnabled(enabled)
         rightPaneViewController.setStarEffectsEnabled(enabled)
         previewPaneViewController.setStarEffectsEnabled(enabled)
+    }
+
+    func setAnimationEffectSettings(_ settings: AnimationEffectSettings) {
+        animationEffectSettings = settings
+        leftPaneViewController.setAnimationEffectSettings(settings)
+        rightPaneViewController.setAnimationEffectSettings(settings)
+        previewPaneViewController.setAnimationEffectSettings(settings)
     }
 
     func setSpotlightSearchScope(_ scope: SpotlightSearchScope) {
@@ -738,6 +764,9 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
                 informativeText: message
             )
         }
+        sidebarViewController.onHistoryJumpRequested = { [weak self] position in
+            self?.viewModel.activePane.jumpToHistoryPosition(position)
+        }
     }
 
     private func handleTabSwitch() -> Bool {
@@ -767,7 +796,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
             viewModel.cutMarked()
             return true
         case .delete:
-            viewModel.deleteMarked()
+            requestDeleteFromActivePane()
             return true
         case .rename:
             viewModel.rename()
@@ -814,6 +843,132 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         default:
             return false
         }
+    }
+
+    private struct DeletionChecklistRow {
+        let url: URL
+        let title: String
+    }
+
+    private func presentApplicationDeletionDialog(selectedURLs: [URL], appBundleURLs: [URL]) {
+        let relatedItems = applicationRelatedItemLocator.relatedItems(forApplicationsAt: appBundleURLs)
+
+        var rows: [DeletionChecklistRow] = []
+        var seenPaths: Set<String> = []
+
+        for url in selectedURLs {
+            let path = url.standardizedFileURL.path
+            guard seenPaths.insert(path).inserted else {
+                continue
+            }
+            let prefix = Self.isApplicationBundleUnderApplications(url) ? "App" : "Selected"
+            rows.append(
+                DeletionChecklistRow(
+                    url: url,
+                    title: "[\(prefix)] \(url.lastPathComponent)  (\(path))"
+                )
+            )
+        }
+
+        for related in relatedItems {
+            let normalizedURL = related.url.standardizedFileURL
+            let path = normalizedURL.path
+            guard seenPaths.insert(path).inserted else {
+                continue
+            }
+
+            let appName = related.appURL.deletingPathExtension().lastPathComponent
+            rows.append(
+                DeletionChecklistRow(
+                    url: normalizedURL,
+                    title: "[\(related.category): \(appName)] \(path)"
+                )
+            )
+        }
+
+        guard !rows.isEmpty else {
+            viewModel.delete(urls: selectedURLs)
+            return
+        }
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Delete app and related files?"
+        alert.informativeText = "Checked items will be moved to Trash."
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+
+        let accessory = makeDeletionChecklistAccessory(rows: rows)
+        alert.accessoryView = accessory.container
+
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            focusActivePane()
+            return
+        }
+
+        let urlsToDelete = accessory.selections.compactMap { selection in
+            selection.checkbox.state == .on ? selection.url : nil
+        }
+
+        guard !urlsToDelete.isEmpty else {
+            focusActivePane()
+            return
+        }
+
+        viewModel.delete(urls: urlsToDelete)
+    }
+
+    private func makeDeletionChecklistAccessory(
+        rows: [DeletionChecklistRow]
+    ) -> (container: NSView, selections: [(checkbox: NSButton, url: URL)]) {
+        var selections: [(checkbox: NSButton, url: URL)] = []
+        let contentWidth = CGFloat(620)
+        let rowHeight = CGFloat(24)
+        let contentHeight = CGFloat(rows.count) * rowHeight
+        let documentView = NSView(frame: NSRect(x: 0, y: 0, width: contentWidth, height: max(contentHeight, rowHeight)))
+
+        var y = documentView.frame.height - rowHeight
+        for row in rows {
+            let checkbox = NSButton(checkboxWithTitle: row.title, target: nil, action: nil)
+            checkbox.state = .on
+            checkbox.font = .systemFont(ofSize: 12)
+            checkbox.lineBreakMode = .byTruncatingMiddle
+            checkbox.frame = NSRect(x: 8, y: y, width: contentWidth - 16, height: rowHeight)
+            documentView.addSubview(checkbox)
+            selections.append((checkbox: checkbox, url: row.url))
+            y -= rowHeight
+        }
+
+        let scrollView = NSScrollView()
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.drawsBackground = false
+        scrollView.borderType = .bezelBorder
+        scrollView.documentView = documentView
+
+        let visibleRowCount = min(max(rows.count, 1), 12)
+        let height = CGFloat(visibleRowCount) * rowHeight + 10
+
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 640, height: height))
+        container.addSubview(scrollView)
+        NSLayoutConstraint.activate([
+            scrollView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: container.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            scrollView.widthAnchor.constraint(equalToConstant: 640),
+            scrollView.heightAnchor.constraint(equalToConstant: height)
+        ])
+
+        return (container: container, selections: selections)
+    }
+
+    private static func isApplicationBundleUnderApplications(_ url: URL) -> Bool {
+        let normalizedURL = url.standardizedFileURL
+        return normalizedURL.pathExtension.caseInsensitiveCompare("app") == .orderedSame
+            && normalizedURL.path.hasPrefix("/Applications/")
     }
 
     private func handleFileOperationCompleted(_ record: FileOperationRecord, context: FileOperationCompletionContext) {
@@ -895,6 +1050,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         }
 
         publishActivePaneStatus()
+        updateSidebarNavigationHistory()
     }
 
     private func applySidebarVisibility(animated: Bool) {
@@ -1132,11 +1288,24 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         viewModel.leftPane.onDirectoryChanged = { [weak self] url in
             self?.viewModel.visitHistoryService.recordVisit(to: url)
             self?.sidebarViewModel.reloadSections()
+            self?.updateSidebarNavigationHistory()
         }
         viewModel.rightPane.onDirectoryChanged = { [weak self] url in
             self?.viewModel.visitHistoryService.recordVisit(to: url)
             self?.sidebarViewModel.reloadSections()
+            self?.updateSidebarNavigationHistory()
         }
+    }
+
+    private func updateSidebarNavigationHistory() {
+        let activePane = viewModel.activePane
+        let history = activePane.navigationHistory
+        sidebarViewModel.updateNavigationHistory(
+            backStack: history.backStack,
+            currentURL: activePane.paneState.currentDirectory,
+            forwardStack: history.forwardStack,
+            paneSide: viewModel.activePaneSide
+        )
     }
 
     private func propagateBookmarksConfig() {

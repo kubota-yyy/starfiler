@@ -30,6 +30,7 @@ final class PreviewPaneViewController: NSViewController {
 
     private let emptyStarImageView = NSImageView()
     private var starEffectsEnabled = true
+    private var animationEffectSettings = AnimationEffectSettings.allEnabled
     private var currentState: PreviewViewModel.State = .default
     private var currentMediaURLs: [URL] = []
     private var currentMediaURL: URL?
@@ -77,6 +78,10 @@ final class PreviewPaneViewController: NSViewController {
     func setStarEffectsEnabled(_ enabled: Bool) {
         starEffectsEnabled = enabled
         emptyStarImageView.isHidden = !enabled
+    }
+
+    func setAnimationEffectSettings(_ settings: AnimationEffectSettings) {
+        animationEffectSettings = settings
     }
 
     func setPreferredFitViewportWidth(_ width: CGFloat) {

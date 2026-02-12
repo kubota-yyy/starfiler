@@ -407,7 +407,10 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private let viewModel: FilePaneViewModel
     private var keybindingManager = KeybindingManager()
     private let headerView = NSView()
+    private let navigationStackView = NSStackView()
+    private let backPeekButton = NSButton(title: "", target: nil, action: nil)
     private let pathControl = NSPathControl()
+    private let forwardPeekButton = NSButton(title: "", target: nil, action: nil)
     private let searchControlsStackView = NSStackView()
     private let displayModeControl = NSSegmentedControl(labels: ["Files", "Media"], trackingMode: .selectOne, target: nil, action: nil)
     private let mediaRecursiveButton = NSButton(checkboxWithTitle: "Recursive", target: nil, action: nil)
@@ -437,6 +440,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private var searchMenuScopeItems: [SpotlightSearchScope: NSMenuItem] = [:]
     private var currentDisplayMode: PaneDisplayMode = .browser
     private var starEffectsEnabled = true
+    private var animationEffectSettings = AnimationEffectSettings.allEnabled
     private weak var lastCursorRippleLayer: CALayer?
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
@@ -542,6 +546,10 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         tableView.reloadData()
         mediaCollectionView.reloadData()
         updateActiveAppearance()
+    }
+
+    func setAnimationEffectSettings(_ settings: AnimationEffectSettings) {
+        animationEffectSettings = settings
     }
 
     func setSpotlightSearchScope(_ scope: SpotlightSearchScope) {
@@ -753,6 +761,32 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         headerView.translatesAutoresizingMaskIntoConstraints = false
         headerView.wantsLayer = true
 
+        navigationStackView.translatesAutoresizingMaskIntoConstraints = false
+        navigationStackView.orientation = .horizontal
+        navigationStackView.alignment = .centerY
+        navigationStackView.spacing = 4
+        navigationStackView.distribution = .fill
+
+        backPeekButton.translatesAutoresizingMaskIntoConstraints = false
+        backPeekButton.isBordered = false
+        backPeekButton.font = .systemFont(ofSize: 10)
+        backPeekButton.contentTintColor = .secondaryLabelColor
+        backPeekButton.target = self
+        backPeekButton.action = #selector(handleBackPeekClick(_:))
+        backPeekButton.isHidden = true
+        backPeekButton.setContentHuggingPriority(.required, for: .horizontal)
+        backPeekButton.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+
+        forwardPeekButton.translatesAutoresizingMaskIntoConstraints = false
+        forwardPeekButton.isBordered = false
+        forwardPeekButton.font = .systemFont(ofSize: 10)
+        forwardPeekButton.contentTintColor = .secondaryLabelColor
+        forwardPeekButton.target = self
+        forwardPeekButton.action = #selector(handleForwardPeekClick(_:))
+        forwardPeekButton.isHidden = true
+        forwardPeekButton.setContentHuggingPriority(.required, for: .horizontal)
+        forwardPeekButton.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+
         pathControl.translatesAutoresizingMaskIntoConstraints = false
         pathControl.pathStyle = .standard
         pathControl.controlSize = .small
@@ -870,11 +904,17 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         view.addSubview(scrollView)
         view.addSubview(bookmarkJumpOverlayView)
 
-        headerView.addSubview(pathControl)
+        navigationStackView.addArrangedSubview(backPeekButton)
+        navigationStackView.addArrangedSubview(pathControl)
+        navigationStackView.addArrangedSubview(forwardPeekButton)
+
+        headerView.addSubview(navigationStackView)
         headerView.addSubview(searchControlsStackView)
         searchControlsStackView.addArrangedSubview(displayModeControl)
         searchControlsStackView.addArrangedSubview(mediaRecursiveButton)
         searchControlsStackView.addArrangedSubview(searchField)
+
+        pathControl.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         NSLayoutConstraint.activate([
             headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -882,9 +922,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             headerView.topAnchor.constraint(equalTo: view.topAnchor),
             headerView.heightAnchor.constraint(equalToConstant: 30),
 
-            pathControl.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 10),
-            pathControl.trailingAnchor.constraint(lessThanOrEqualTo: searchControlsStackView.leadingAnchor, constant: -10),
-            pathControl.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
+            navigationStackView.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 10),
+            navigationStackView.trailingAnchor.constraint(lessThanOrEqualTo: searchControlsStackView.leadingAnchor, constant: -10),
+            navigationStackView.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
 
             searchControlsStackView.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -10),
             searchControlsStackView.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
@@ -1069,6 +1109,36 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         let directoryURL = viewModel.paneState.currentDirectory.standardizedFileURL
         pathControl.url = directoryURL
         onStatusChanged?(directoryURL.path, viewModel.directoryContents.displayedItems.count, viewModel.markedCount)
+        updateNavigationPeekLabels()
+    }
+
+    private func updateNavigationPeekLabels() {
+        let history = viewModel.navigationHistory
+        if let backURL = history.backStack.last {
+            let name = backURL.lastPathComponent.isEmpty ? backURL.path : backURL.lastPathComponent
+            backPeekButton.title = "\u{2190} \(name)"
+            backPeekButton.isHidden = false
+        } else {
+            backPeekButton.isHidden = true
+        }
+
+        if let forwardURL = history.forwardStack.last {
+            let name = forwardURL.lastPathComponent.isEmpty ? forwardURL.path : forwardURL.lastPathComponent
+            forwardPeekButton.title = "\(name) \u{2192}"
+            forwardPeekButton.isHidden = false
+        } else {
+            forwardPeekButton.isHidden = true
+        }
+    }
+
+    @objc
+    private func handleBackPeekClick(_ sender: Any?) {
+        viewModel.goBack()
+    }
+
+    @objc
+    private func handleForwardPeekClick(_ sender: Any?) {
+        viewModel.goForward()
     }
 
     private func publishSelection() {

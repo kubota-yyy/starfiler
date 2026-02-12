@@ -166,6 +166,18 @@ final class FilePaneViewModel {
         loadDirectory(at: destination, previousDirectory: currentDirectory)
     }
 
+    func jumpToHistoryPosition(_ position: Int) {
+        if isSpotlightSearchActive {
+            endSpotlightSearch(restoringDirectoryContents: false)
+        }
+
+        let currentDirectory = paneState.currentDirectory
+        guard let destination = navigationHistory.jumpToTimelinePosition(position, from: currentDirectory) else {
+            return
+        }
+        loadDirectory(at: destination, previousDirectory: currentDirectory)
+    }
+
     func goToParent() {
         if isSpotlightSearchActive {
             endSpotlightSearch(restoringDirectoryContents: false)

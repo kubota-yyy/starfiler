@@ -7,7 +7,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     private let scrollView = NSScrollView()
     private let outlineView = NSOutlineView()
     private let recentSeparatorView = NSView()
-    private let recentHeaderLabel = NSTextField(labelWithString: "Recent")
+    private let recentHeaderLabel = NSTextField(labelWithString: "History")
     private let recentScrollView = NSScrollView()
     private let recentOutlineView = NSOutlineView()
     private var scrollViewBottomToRecent: NSLayoutConstraint!
@@ -24,6 +24,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
     var onNavigateRequested: ((URL) -> Void)?
     var onNavigationFailed: ((String) -> Void)?
+    var onHistoryJumpRequested: ((Int) -> Void)?
 
     init(viewModel: SidebarViewModel) {
         self.viewModel = viewModel
@@ -271,9 +272,22 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
             return
         }
 
+        recentHeaderLabel.stringValue = recentSection?.title ?? "History"
+
         let scrollHeight = CGFloat(recentCount) * entryRowHeight
         recentScrollViewHeightConstraint.constant = scrollHeight
         recentScrollView.hasVerticalScroller = false
+
+        scrollToCurrentPosition()
+    }
+
+    private func scrollToCurrentPosition() {
+        guard let items = recentSection?.items else {
+            return
+        }
+        if let currentIndex = items.firstIndex(where: { $0.isCurrentPosition }) {
+            recentOutlineView.scrollRowToVisible(currentIndex)
+        }
     }
 
     // MARK: - Actions
@@ -291,6 +305,13 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
         let item = sourceOutlineView.item(atRow: clickedRow)
         guard let entry = item as? SidebarViewModel.SidebarEntry else {
+            return
+        }
+
+        if sourceOutlineView === recentOutlineView, let position = entry.timelinePosition {
+            if !entry.isCurrentPosition {
+                onHistoryJumpRequested?(position)
+            }
             return
         }
 
@@ -390,7 +411,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     private func makeSectionHeaderView(title: String, in outlineView: NSOutlineView) -> NSView {
         let cellIdentifier = NSUserInterfaceItemIdentifier("sectionHeader")
         let palette = currentTheme.palette
-        let isFavorites = title == "Favorites"
+        let isFavorites = isFavoritesSectionTitle(title)
 
         if let existing = outlineView.makeView(withIdentifier: cellIdentifier, owner: self) as? NSTableCellView {
             existing.textField?.stringValue = title
@@ -435,18 +456,39 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         return cell
     }
 
+    private func isFavoritesSectionTitle(_ title: String) -> Bool {
+        guard let section = regularSections.first(where: { $0.title == title }) else {
+            return false
+        }
+        if case .favorites = section.kind {
+            return true
+        }
+        return false
+    }
+
     private func makeEntryView(entry: SidebarViewModel.SidebarEntry, in outlineView: NSOutlineView) -> NSView {
         let cellIdentifier = NSUserInterfaceItemIdentifier("entryCell")
         let cell: NSTableCellView
         let shortcutLabel: NSTextField
+        let highlightBar: NSView
+
+        let shortcutIdentifier = NSUserInterfaceItemIdentifier("shortcutLabel")
+        let barIdentifier = NSUserInterfaceItemIdentifier("highlightBar")
 
         if let existing = outlineView.makeView(withIdentifier: cellIdentifier, owner: self) as? NSTableCellView,
-           let existingShortcut = existing.viewWithTag(100) as? NSTextField {
+           let existingShortcut = existing.subviews.first(where: { $0.identifier == shortcutIdentifier }) as? NSTextField,
+           let existingBar = existing.subviews.first(where: { $0.identifier == barIdentifier }) {
             cell = existing
             shortcutLabel = existingShortcut
+            highlightBar = existingBar
         } else {
             cell = NSTableCellView()
             cell.identifier = cellIdentifier
+
+            highlightBar = NSView()
+            highlightBar.translatesAutoresizingMaskIntoConstraints = false
+            highlightBar.wantsLayer = true
+            highlightBar.identifier = barIdentifier
 
             let imageView = NSImageView()
             imageView.translatesAutoresizingMaskIntoConstraints = false
@@ -462,17 +504,23 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
             shortcutLabel.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
             shortcutLabel.textColor = .tertiaryLabelColor
             shortcutLabel.alignment = .right
-            shortcutLabel.tag = 100
+            shortcutLabel.identifier = shortcutIdentifier
             shortcutLabel.setContentHuggingPriority(.required, for: .horizontal)
             shortcutLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
 
             cell.imageView = imageView
             cell.textField = textField
+            cell.addSubview(highlightBar)
             cell.addSubview(imageView)
             cell.addSubview(textField)
             cell.addSubview(shortcutLabel)
 
             NSLayoutConstraint.activate([
+                highlightBar.leadingAnchor.constraint(equalTo: cell.leadingAnchor),
+                highlightBar.topAnchor.constraint(equalTo: cell.topAnchor, constant: 2),
+                highlightBar.bottomAnchor.constraint(equalTo: cell.bottomAnchor, constant: -2),
+                highlightBar.widthAnchor.constraint(equalToConstant: 3),
+
                 imageView.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
                 imageView.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
                 imageView.widthAnchor.constraint(equalToConstant: 16),
@@ -489,10 +537,21 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
         let palette = currentTheme.palette
         cell.textField?.stringValue = entry.displayName
-        cell.textField?.textColor = palette.sidebarEntryTextColor
         cell.imageView?.image = NSImage(systemSymbolName: entry.iconName, accessibilityDescription: nil)
             ?? NSImage(systemSymbolName: "folder", accessibilityDescription: nil)
-        cell.imageView?.contentTintColor = palette.sidebarIconTintColor
+
+        if entry.isCurrentPosition {
+            cell.textField?.font = .systemFont(ofSize: 13, weight: .semibold)
+            cell.textField?.textColor = palette.starAccentColor
+            cell.imageView?.contentTintColor = palette.starAccentColor
+            highlightBar.layer?.backgroundColor = palette.starAccentColor.cgColor
+            highlightBar.isHidden = false
+        } else {
+            cell.textField?.font = .systemFont(ofSize: 13)
+            cell.textField?.textColor = palette.sidebarEntryTextColor
+            cell.imageView?.contentTintColor = palette.sidebarIconTintColor
+            highlightBar.isHidden = true
+        }
 
         shortcutLabel.stringValue = entry.shortcutHint ?? ""
         shortcutLabel.isHidden = entry.shortcutHint == nil

@@ -21,12 +21,23 @@ final class SidebarViewModel {
         let path: String
         let iconName: String
         let shortcutHint: String?
+        let isCurrentPosition: Bool
+        let timelinePosition: Int?
 
-        init(displayName: String, path: String, iconName: String, shortcutHint: String? = nil) {
+        init(
+            displayName: String,
+            path: String,
+            iconName: String,
+            shortcutHint: String? = nil,
+            isCurrentPosition: Bool = false,
+            timelinePosition: Int? = nil
+        ) {
             self.displayName = displayName
             self.path = path
             self.iconName = iconName
             self.shortcutHint = shortcutHint
+            self.isCurrentPosition = isCurrentPosition
+            self.timelinePosition = timelinePosition
         }
     }
 
@@ -36,6 +47,7 @@ final class SidebarViewModel {
 
     private let configManager: ConfigManager
     private let visitHistoryService: VisitHistoryService?
+    private var navigationHistorySection: SidebarSection?
 
     init(configManager: ConfigManager, visitHistoryService: VisitHistoryService? = nil) {
         self.configManager = configManager
@@ -48,10 +60,10 @@ final class SidebarViewModel {
 
         let appConfig = configManager.loadAppConfig()
         let bookmarksConfig = configManager.loadBookmarksConfig()
-        let recentItemsLimit = appConfig.sidebarRecentItemsLimit
 
         if appConfig.sidebarFavoritesVisible {
             let defaultGroup = bookmarksConfig.groups.first(where: { $0.isDefault })
+            let favoritesTitle = defaultGroup?.name ?? "Favorites"
             let favorites: [SidebarEntry]
             if let defaultGroup {
                 favorites = defaultGroup.entries.map { entry in
@@ -73,21 +85,11 @@ final class SidebarViewModel {
                     SidebarEntry(displayName: "Applications", path: "/Applications", iconName: "app"),
                 ]
             }
-            result.append(SidebarSection(kind: .favorites, title: "Favorites", items: favorites))
+            result.append(SidebarSection(kind: .favorites, title: favoritesTitle, items: favorites))
         }
 
-        if let visitHistoryService, recentItemsLimit > 0 {
-            let recentEntries = visitHistoryService.recentEntries(limit: recentItemsLimit)
-            if !recentEntries.isEmpty {
-                let recentItems = recentEntries.map { entry in
-                    SidebarEntry(
-                        displayName: entry.displayName,
-                        path: entry.path,
-                        iconName: "clock"
-                    )
-                }
-                result.append(SidebarSection(kind: .recent, title: "Recent", items: recentItems))
-            }
+        if let navigationHistorySection {
+            result.append(navigationHistorySection)
         }
 
         for group in bookmarksConfig.groups where !group.isDefault {
@@ -113,6 +115,41 @@ final class SidebarViewModel {
 
         sections = result
         onSectionsChanged?(sections)
+    }
+
+    func updateNavigationHistory(
+        backStack: [URL],
+        currentURL: URL,
+        forwardStack: [URL],
+        paneSide: PaneSide
+    ) {
+        let reversedForward = Array(forwardStack.reversed())
+        let allURLs = backStack + [currentURL] + reversedForward
+        let currentIndex = backStack.count
+
+        let items = allURLs.enumerated().map { index, url in
+            let name = url.lastPathComponent.isEmpty ? url.path : url.lastPathComponent
+            let isCurrent = index == currentIndex
+            let icon: String
+            if isCurrent {
+                icon = "location.fill"
+            } else if index < currentIndex {
+                icon = "chevron.left"
+            } else {
+                icon = "chevron.right"
+            }
+            return SidebarEntry(
+                displayName: name,
+                path: url.path,
+                iconName: icon,
+                isCurrentPosition: isCurrent,
+                timelinePosition: index
+            )
+        }
+
+        let title = paneSide == .left ? "History (Left)" : "History (Right)"
+        navigationHistorySection = SidebarSection(kind: .recent, title: title, items: items)
+        reloadSections()
     }
 
     func urlForEntry(_ entry: SidebarEntry) -> URL? {

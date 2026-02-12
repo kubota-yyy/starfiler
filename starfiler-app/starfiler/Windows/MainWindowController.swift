@@ -15,6 +15,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var leftPaneVisible: Bool
     private var rightPaneVisible: Bool
     private var starEffectsEnabled: Bool
+    private var animationEffectSettings: AnimationEffectSettings
     private lazy var mainSplitViewController = MainSplitViewController(
         viewModel: mainViewModel,
         configManager: configManager,
@@ -49,6 +50,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         self.leftPaneVisible = appConfig.leftPaneVisible
         self.rightPaneVisible = appConfig.rightPaneVisible
         self.starEffectsEnabled = appConfig.starEffectsEnabled
+        self.animationEffectSettings = appConfig.animationEffectSettings
         let fallbackDirectory = initialDirectory.standardizedFileURL
         let leftDirectory = Self.resolveDirectory(path: appConfig.lastLeftPanePath, fallback: fallbackDirectory)
         let rightDirectory = Self.resolveDirectory(path: appConfig.lastRightPanePath, fallback: leftDirectory)
@@ -99,7 +101,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
         mainSplitViewController.focusActivePane()
 
-        if starEffectsEnabled, let contentView = window?.contentView {
+        if starEffectsEnabled, animationEffectSettings.windowIntroAnimation, let contentView = window?.contentView {
             contentView.wantsLayer = true
             contentView.alphaValue = 0
 
@@ -188,6 +190,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     var isStarEffectsEnabled: Bool {
         starEffectsEnabled
+    }
+
+    var currentAnimationEffectSettings: AnimationEffectSettings {
+        animationEffectSettings
     }
 
     func updateFilerTheme(_ theme: FilerTheme) {
@@ -287,6 +293,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         persistAppConfig()
     }
 
+    func updateAnimationEffectSettings(_ settings: AnimationEffectSettings) {
+        guard animationEffectSettings != settings else {
+            return
+        }
+
+        animationEffectSettings = settings
+        mainSplitViewController.setAnimationEffectSettings(settings)
+        persistAppConfig()
+    }
+
     func presentBatchRename() {
         mainSplitViewController.presentBatchRenameWindow()
     }
@@ -331,6 +347,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         mainSplitViewController.presentGoToPathPrompt()
     }
 
+    func requestDeleteFromActivePane() {
+        mainSplitViewController.requestDeleteFromActivePane()
+    }
+
     private func configureWindow() {
         guard let window else {
             return
@@ -364,6 +384,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
         applyCurrentAppearance()
         mainSplitViewController.setStarEffectsEnabled(starEffectsEnabled)
+        mainSplitViewController.setAnimationEffectSettings(animationEffectSettings)
         window.contentViewController = mainSplitViewController
         attachWindowControlButtons(to: window)
     }
@@ -428,7 +449,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             rightPaneMediaRecursiveEnabled: mainViewModel.rightPane.mediaRecursiveEnabled,
             leftPaneVisible: leftPaneVisible,
             rightPaneVisible: rightPaneVisible,
-            starEffectsEnabled: starEffectsEnabled
+            starEffectsEnabled: starEffectsEnabled,
+            animationEffectSettings: animationEffectSettings
         )
 
         try? configManager.saveAppConfig(appConfig)

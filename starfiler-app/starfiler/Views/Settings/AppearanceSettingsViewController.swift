@@ -10,6 +10,7 @@ final class AppearanceSettingsViewController: NSViewController {
     var onSidebarFavoritesVisibilityChanged: ((Bool) -> Void)?
     var onSidebarRecentItemsLimitChanged: ((Int) -> Void)?
     var onStarEffectsChanged: ((Bool) -> Void)?
+    var onAnimationEffectSettingsChanged: ((AnimationEffectSettings) -> Void)?
 
     private let titleLabel = NSTextField(labelWithString: "Theme")
     private let themePopUpButton = NSPopUpButton()
@@ -21,6 +22,7 @@ final class AppearanceSettingsViewController: NSViewController {
     private let transparentOpacityValueLabel = NSTextField(labelWithString: "")
     private let actionFeedbackButton = NSButton(checkboxWithTitle: "Show Action Feedback Toasts", target: nil, action: nil)
     private let starEffectsButton = NSButton(checkboxWithTitle: "Enable Star Effects", target: nil, action: nil)
+    private var effectButtons: [(kind: AnimationEffectSettings.EffectKind, button: NSButton)] = []
     private let fileListSettingsLabel = NSTextField(labelWithString: "File List")
     private let fileIconSizeLabel = NSTextField(labelWithString: "Icon Size")
     private let fileIconSizeSlider = NSSlider(value: 16, minValue: 12, maxValue: 40, target: nil, action: nil)
@@ -51,6 +53,7 @@ final class AppearanceSettingsViewController: NSViewController {
     private var isSidebarFavoritesVisible: Bool
     private var sidebarRecentItemsLimit: Int
     private var isStarEffectsEnabled: Bool
+    private var animationEffectSettings: AnimationEffectSettings
 
     init(
         selectedTheme: FilerTheme,
@@ -61,7 +64,8 @@ final class AppearanceSettingsViewController: NSViewController {
         initialFileIconSize: CGFloat,
         initialSidebarFavoritesVisible: Bool,
         initialSidebarRecentItemsLimit: Int,
-        initialStarEffectsEnabled: Bool = true
+        initialStarEffectsEnabled: Bool = true,
+        initialAnimationEffectSettings: AnimationEffectSettings = .allEnabled
     ) {
         self.selectedTheme = selectedTheme
         self.isTransparentBackgroundEnabled = isTransparentBackgroundEnabled
@@ -72,6 +76,7 @@ final class AppearanceSettingsViewController: NSViewController {
         self.isSidebarFavoritesVisible = initialSidebarFavoritesVisible
         self.sidebarRecentItemsLimit = Self.clampedSidebarRecentItemsLimit(initialSidebarRecentItemsLimit)
         self.isStarEffectsEnabled = initialStarEffectsEnabled
+        self.animationEffectSettings = initialAnimationEffectSettings
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -139,6 +144,8 @@ final class AppearanceSettingsViewController: NSViewController {
         starEffectsButton.action = #selector(starEffectsChanged(_:))
         starEffectsButton.state = isStarEffectsEnabled ? .on : .off
 
+        configureEffectButtons()
+
         fileListSettingsLabel.translatesAutoresizingMaskIntoConstraints = false
         fileListSettingsLabel.font = .systemFont(ofSize: 13, weight: .semibold)
 
@@ -197,6 +204,19 @@ final class AppearanceSettingsViewController: NSViewController {
         spotlightScopeDescriptionLabel.stringValue = selectedSpotlightSearchScope.descriptionText
     }
 
+    private func configureEffectButtons() {
+        for kind in AnimationEffectSettings.EffectKind.allCases {
+            let button = NSButton(checkboxWithTitle: kind.displayName, target: self, action: #selector(effectToggleChanged(_:)))
+            button.translatesAutoresizingMaskIntoConstraints = false
+            button.font = .systemFont(ofSize: 11)
+            button.controlSize = .small
+            button.state = animationEffectSettings[kind] ? .on : .off
+            button.isEnabled = isStarEffectsEnabled
+            button.tag = AnimationEffectSettings.EffectKind.allCases.firstIndex(of: kind) ?? 0
+            effectButtons.append((kind: kind, button: button))
+        }
+    }
+
     private func configureLayout() {
         view.addSubview(titleLabel)
         view.addSubview(themePopUpButton)
@@ -208,6 +228,11 @@ final class AppearanceSettingsViewController: NSViewController {
         view.addSubview(transparentOpacityValueLabel)
         view.addSubview(actionFeedbackButton)
         view.addSubview(starEffectsButton)
+
+        for (_, button) in effectButtons {
+            view.addSubview(button)
+        }
+
         view.addSubview(fileListSettingsLabel)
         view.addSubview(fileIconSizeLabel)
         view.addSubview(fileIconSizeSlider)
@@ -220,7 +245,7 @@ final class AppearanceSettingsViewController: NSViewController {
         view.addSubview(spotlightScopePopUpButton)
         view.addSubview(spotlightScopeDescriptionLabel)
 
-        NSLayoutConstraint.activate([
+        var constraints = [
             titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             titleLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: 20),
 
@@ -256,9 +281,19 @@ final class AppearanceSettingsViewController: NSViewController {
 
             starEffectsButton.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             starEffectsButton.topAnchor.constraint(equalTo: actionFeedbackButton.bottomAnchor, constant: 6),
+        ]
 
+        // Effect toggle buttons: indented under the master star effects button
+        var previousAnchor = starEffectsButton.bottomAnchor
+        for (_, button) in effectButtons {
+            constraints.append(button.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor, constant: 20))
+            constraints.append(button.topAnchor.constraint(equalTo: previousAnchor, constant: 3))
+            previousAnchor = button.bottomAnchor
+        }
+
+        constraints.append(contentsOf: [
             fileListSettingsLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            fileListSettingsLabel.topAnchor.constraint(equalTo: starEffectsButton.bottomAnchor, constant: 20),
+            fileListSettingsLabel.topAnchor.constraint(equalTo: previousAnchor, constant: 16),
 
             fileIconSizeLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             fileIconSizeLabel.topAnchor.constraint(equalTo: fileListSettingsLabel.bottomAnchor, constant: 10),
@@ -296,6 +331,8 @@ final class AppearanceSettingsViewController: NSViewController {
             spotlightScopeDescriptionLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             spotlightScopeDescriptionLabel.topAnchor.constraint(equalTo: spotlightScopePopUpButton.bottomAnchor, constant: 8),
         ])
+
+        NSLayoutConstraint.activate(constraints)
     }
 
     @objc
@@ -330,7 +367,17 @@ final class AppearanceSettingsViewController: NSViewController {
     @objc
     private func starEffectsChanged(_ sender: NSButton) {
         isStarEffectsEnabled = sender.state == .on
+        updateEffectButtonsEnabled()
         onStarEffectsChanged?(isStarEffectsEnabled)
+    }
+
+    @objc
+    private func effectToggleChanged(_ sender: NSButton) {
+        let allCases = AnimationEffectSettings.EffectKind.allCases
+        guard allCases.indices.contains(sender.tag) else { return }
+        let kind = allCases[sender.tag]
+        animationEffectSettings[kind] = sender.state == .on
+        onAnimationEffectSettingsChanged?(animationEffectSettings)
     }
 
     @objc
@@ -366,6 +413,12 @@ final class AppearanceSettingsViewController: NSViewController {
         sidebarRecentItemsLimit = limit
         sidebarRecentItemsLimitValueLabel.stringValue = sidebarRecentItemsLimitText(limit)
         onSidebarRecentItemsLimitChanged?(limit)
+    }
+
+    private func updateEffectButtonsEnabled() {
+        for (_, button) in effectButtons {
+            button.isEnabled = isStarEffectsEnabled
+        }
     }
 
     private func applyThemeSelection(_ theme: FilerTheme, notify: Bool) {

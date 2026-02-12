@@ -30,4 +30,32 @@ struct NavigationHistory: Hashable, Sendable {
         }
         return destination
     }
+
+    struct TimelineEntry: Hashable, Sendable {
+        let url: URL
+        let isCurrentPosition: Bool
+        let timelineIndex: Int
+    }
+
+    func timeline(current: URL) -> [TimelineEntry] {
+        let reversedForward = Array(forwardStack.reversed())
+        let all = backStack + [current] + reversedForward
+        let currentIndex = backStack.count
+        return all.enumerated().map { index, url in
+            TimelineEntry(url: url, isCurrentPosition: index == currentIndex, timelineIndex: index)
+        }
+    }
+
+    mutating func jumpToTimelinePosition(_ position: Int, from current: URL) -> URL? {
+        let reversedForward = Array(forwardStack.reversed())
+        let timeline = backStack + [current] + reversedForward
+        let currentIndex = backStack.count
+        guard position >= 0, position < timeline.count, position != currentIndex else {
+            return nil
+        }
+        let destination = timeline[position]
+        backStack = Array(timeline[0..<position])
+        forwardStack = Array(timeline[(position + 1)...].reversed())
+        return destination
+    }
 }
