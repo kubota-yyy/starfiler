@@ -28,6 +28,25 @@ struct BookmarksConfig: Codable, Sendable {
         try data.write(to: url, options: [.atomic])
     }
 
+    func migratingLegacyPaths(fileManager: FileManager = .default) -> (config: BookmarksConfig, didChange: Bool) {
+        var migratedGroups = groups
+        var didChange = false
+
+        for groupIndex in migratedGroups.indices {
+            for entryIndex in migratedGroups[groupIndex].entries.indices {
+                let entry = migratedGroups[groupIndex].entries[entryIndex]
+                let resolvedPath = UserPaths.resolveBookmarkPath(entry.path, fileManager: fileManager)
+                guard resolvedPath != entry.path else {
+                    continue
+                }
+                migratedGroups[groupIndex].entries[entryIndex].path = resolvedPath
+                didChange = true
+            }
+        }
+
+        return (BookmarksConfig(groups: migratedGroups), didChange)
+    }
+
     static func withDefaults() -> BookmarksConfig {
         let homePath = UserPaths.homeDirectoryPath
         let defaultGroup = BookmarkGroup(

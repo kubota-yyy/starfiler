@@ -52,7 +52,12 @@ final class ConfigManager {
     }
 
     func loadBookmarksConfig() -> BookmarksConfig {
-        load(BookmarksConfig.self, from: bookmarksConfigURL) ?? BookmarksConfig()
+        let loadedConfig = load(BookmarksConfig.self, from: bookmarksConfigURL) ?? BookmarksConfig()
+        let migrationResult = loadedConfig.migratingLegacyPaths(fileManager: fileManager)
+        if migrationResult.didChange {
+            try? migrationResult.config.save(to: bookmarksConfigURL, fileManager: fileManager)
+        }
+        return migrationResult.config
     }
 
     func saveBookmarksConfig(_ config: BookmarksConfig) throws {

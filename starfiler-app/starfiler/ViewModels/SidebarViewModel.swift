@@ -116,7 +116,8 @@ final class SidebarViewModel {
     }
 
     func urlForEntry(_ entry: SidebarEntry) -> URL? {
-        let url = URL(fileURLWithPath: entry.path).standardizedFileURL
+        let resolvedPath = UserPaths.resolveBookmarkPath(entry.path)
+        let url = URL(fileURLWithPath: resolvedPath).standardizedFileURL
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
             return nil
