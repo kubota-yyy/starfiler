@@ -7,6 +7,8 @@ final class AppearanceSettingsViewController: NSViewController {
     var onActionFeedbackChanged: ((Bool) -> Void)?
     var onSpotlightSearchScopeChanged: ((SpotlightSearchScope) -> Void)?
     var onFileIconSizeChanged: ((CGFloat) -> Void)?
+    var onSidebarFavoritesVisibilityChanged: ((Bool) -> Void)?
+    var onSidebarRecentItemsLimitChanged: ((Int) -> Void)?
 
     private let titleLabel = NSTextField(labelWithString: "Theme")
     private let themePopUpButton = NSPopUpButton()
@@ -21,6 +23,20 @@ final class AppearanceSettingsViewController: NSViewController {
     private let fileIconSizeLabel = NSTextField(labelWithString: "Icon Size")
     private let fileIconSizeSlider = NSSlider(value: 16, minValue: 12, maxValue: 40, target: nil, action: nil)
     private let fileIconSizeValueLabel = NSTextField(labelWithString: "")
+    private let sidebarFavoritesVisibilityButton = NSButton(
+        checkboxWithTitle: "Show Favorites Section",
+        target: nil,
+        action: nil
+    )
+    private let sidebarRecentItemsLimitLabel = NSTextField(labelWithString: "Sidebar Recent Items")
+    private let sidebarRecentItemsLimitSlider = NSSlider(
+        value: 10,
+        minValue: Double(AppConfig.sidebarRecentItemsLimitRange.lowerBound),
+        maxValue: Double(AppConfig.sidebarRecentItemsLimitRange.upperBound),
+        target: nil,
+        action: nil
+    )
+    private let sidebarRecentItemsLimitValueLabel = NSTextField(labelWithString: "")
     private let searchSettingsLabel = NSTextField(labelWithString: "Spotlight Search Scope")
     private let spotlightScopePopUpButton = NSPopUpButton()
     private let spotlightScopeDescriptionLabel = NSTextField(wrappingLabelWithString: "")
@@ -30,6 +46,8 @@ final class AppearanceSettingsViewController: NSViewController {
     private var isActionFeedbackEnabled: Bool
     private var selectedSpotlightSearchScope: SpotlightSearchScope
     private var fileIconSize: CGFloat
+    private var isSidebarFavoritesVisible: Bool
+    private var sidebarRecentItemsLimit: Int
 
     init(
         selectedTheme: FilerTheme,
@@ -37,7 +55,9 @@ final class AppearanceSettingsViewController: NSViewController {
         transparentBackgroundOpacity: CGFloat,
         isActionFeedbackEnabled: Bool,
         selectedSpotlightSearchScope: SpotlightSearchScope,
-        initialFileIconSize: CGFloat
+        initialFileIconSize: CGFloat,
+        initialSidebarFavoritesVisible: Bool,
+        initialSidebarRecentItemsLimit: Int
     ) {
         self.selectedTheme = selectedTheme
         self.isTransparentBackgroundEnabled = isTransparentBackgroundEnabled
@@ -45,6 +65,8 @@ final class AppearanceSettingsViewController: NSViewController {
         self.isActionFeedbackEnabled = isActionFeedbackEnabled
         self.selectedSpotlightSearchScope = selectedSpotlightSearchScope
         self.fileIconSize = min(max(initialFileIconSize, 12), 40)
+        self.isSidebarFavoritesVisible = initialSidebarFavoritesVisible
+        self.sidebarRecentItemsLimit = Self.clampedSidebarRecentItemsLimit(initialSidebarRecentItemsLimit)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -124,6 +146,27 @@ final class AppearanceSettingsViewController: NSViewController {
         fileIconSizeValueLabel.alignment = .right
         fileIconSizeValueLabel.stringValue = "\(Int(fileIconSize.rounded())) px"
 
+        sidebarFavoritesVisibilityButton.translatesAutoresizingMaskIntoConstraints = false
+        sidebarFavoritesVisibilityButton.target = self
+        sidebarFavoritesVisibilityButton.action = #selector(sidebarFavoritesVisibilityChanged(_:))
+        sidebarFavoritesVisibilityButton.state = isSidebarFavoritesVisible ? .on : .off
+
+        sidebarRecentItemsLimitLabel.translatesAutoresizingMaskIntoConstraints = false
+        sidebarRecentItemsLimitLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        sidebarRecentItemsLimitLabel.textColor = .secondaryLabelColor
+
+        sidebarRecentItemsLimitSlider.translatesAutoresizingMaskIntoConstraints = false
+        sidebarRecentItemsLimitSlider.target = self
+        sidebarRecentItemsLimitSlider.action = #selector(sidebarRecentItemsLimitChanged(_:))
+        sidebarRecentItemsLimitSlider.numberOfTickMarks = AppConfig.sidebarRecentItemsLimitRange.count
+        sidebarRecentItemsLimitSlider.allowsTickMarkValuesOnly = true
+        sidebarRecentItemsLimitSlider.doubleValue = Double(sidebarRecentItemsLimit)
+
+        sidebarRecentItemsLimitValueLabel.translatesAutoresizingMaskIntoConstraints = false
+        sidebarRecentItemsLimitValueLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        sidebarRecentItemsLimitValueLabel.alignment = .right
+        sidebarRecentItemsLimitValueLabel.stringValue = sidebarRecentItemsLimitText(sidebarRecentItemsLimit)
+
         searchSettingsLabel.translatesAutoresizingMaskIntoConstraints = false
         searchSettingsLabel.font = .systemFont(ofSize: 13, weight: .semibold)
 
@@ -158,6 +201,10 @@ final class AppearanceSettingsViewController: NSViewController {
         view.addSubview(fileIconSizeLabel)
         view.addSubview(fileIconSizeSlider)
         view.addSubview(fileIconSizeValueLabel)
+        view.addSubview(sidebarFavoritesVisibilityButton)
+        view.addSubview(sidebarRecentItemsLimitLabel)
+        view.addSubview(sidebarRecentItemsLimitSlider)
+        view.addSubview(sidebarRecentItemsLimitValueLabel)
         view.addSubview(searchSettingsLabel)
         view.addSubview(spotlightScopePopUpButton)
         view.addSubview(spotlightScopeDescriptionLabel)
@@ -210,8 +257,22 @@ final class AppearanceSettingsViewController: NSViewController {
             fileIconSizeValueLabel.centerYAnchor.constraint(equalTo: fileIconSizeSlider.centerYAnchor),
             fileIconSizeValueLabel.widthAnchor.constraint(equalToConstant: 72),
 
+            sidebarFavoritesVisibilityButton.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            sidebarFavoritesVisibilityButton.topAnchor.constraint(equalTo: fileIconSizeSlider.bottomAnchor, constant: 10),
+
+            sidebarRecentItemsLimitLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            sidebarRecentItemsLimitLabel.topAnchor.constraint(equalTo: sidebarFavoritesVisibilityButton.bottomAnchor, constant: 10),
+
+            sidebarRecentItemsLimitSlider.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            sidebarRecentItemsLimitSlider.topAnchor.constraint(equalTo: sidebarRecentItemsLimitLabel.bottomAnchor, constant: 6),
+            sidebarRecentItemsLimitSlider.widthAnchor.constraint(equalToConstant: 220),
+
+            sidebarRecentItemsLimitValueLabel.leadingAnchor.constraint(equalTo: sidebarRecentItemsLimitSlider.trailingAnchor, constant: 10),
+            sidebarRecentItemsLimitValueLabel.centerYAnchor.constraint(equalTo: sidebarRecentItemsLimitSlider.centerYAnchor),
+            sidebarRecentItemsLimitValueLabel.widthAnchor.constraint(equalToConstant: 72),
+
             searchSettingsLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            searchSettingsLabel.topAnchor.constraint(equalTo: fileIconSizeSlider.bottomAnchor, constant: 20),
+            searchSettingsLabel.topAnchor.constraint(equalTo: sidebarRecentItemsLimitSlider.bottomAnchor, constant: 20),
 
             spotlightScopePopUpButton.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             spotlightScopePopUpButton.topAnchor.constraint(equalTo: searchSettingsLabel.bottomAnchor, constant: 8),
@@ -272,6 +333,21 @@ final class AppearanceSettingsViewController: NSViewController {
         onFileIconSizeChanged?(fileIconSize)
     }
 
+    @objc
+    private func sidebarFavoritesVisibilityChanged(_ sender: NSButton) {
+        isSidebarFavoritesVisible = sender.state == .on
+        onSidebarFavoritesVisibilityChanged?(isSidebarFavoritesVisible)
+    }
+
+    @objc
+    private func sidebarRecentItemsLimitChanged(_ sender: NSSlider) {
+        let limit = Self.clampedSidebarRecentItemsLimit(Int(sender.doubleValue.rounded()))
+        sender.doubleValue = Double(limit)
+        sidebarRecentItemsLimit = limit
+        sidebarRecentItemsLimitValueLabel.stringValue = sidebarRecentItemsLimitText(limit)
+        onSidebarRecentItemsLimitChanged?(limit)
+    }
+
     private func applyThemeSelection(_ theme: FilerTheme, notify: Bool) {
         selectedTheme = theme
         descriptionLabel.stringValue = theme.descriptionText
@@ -328,5 +404,13 @@ final class AppearanceSettingsViewController: NSViewController {
 
             previousView = swatch
         }
+    }
+
+    private func sidebarRecentItemsLimitText(_ value: Int) -> String {
+        value == 0 ? "Off" : "\(value) items"
+    }
+
+    private static func clampedSidebarRecentItemsLimit(_ value: Int) -> Int {
+        min(max(value, AppConfig.sidebarRecentItemsLimitRange.lowerBound), AppConfig.sidebarRecentItemsLimitRange.upperBound)
     }
 }

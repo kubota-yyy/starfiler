@@ -4,6 +4,18 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     private let viewModel: SidebarViewModel
     private let scrollView = NSScrollView()
     private let outlineView = NSOutlineView()
+    private let recentContainerView = NSView()
+    private let recentSeparatorView = NSView()
+    private let recentHeaderLabel = NSTextField(labelWithString: "Recent")
+    private let recentScrollView = NSScrollView()
+    private let recentOutlineView = NSOutlineView()
+    private var recentContainerHeightConstraint: NSLayoutConstraint?
+
+    private var regularSections: [SidebarViewModel.SidebarSection] = []
+    private var recentSection: SidebarViewModel.SidebarSection?
+
+    private let sectionHeaderHeight: CGFloat = 22
+    private let entryRowHeight: CGFloat = 24
 
     var onNavigateRequested: ((URL) -> Void)?
 
@@ -22,7 +34,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        configureOutlineView()
+        configureOutlineViews()
         configureLayout()
         bindViewModel()
     }
@@ -31,26 +43,41 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
     func reloadData() {
         viewModel.reloadSections()
-        outlineView.reloadData()
-        expandAllSections()
     }
 
     func applyTheme(_ theme: FilerTheme, backgroundOpacity: CGFloat = 1.0) {
         currentTheme = theme
         let palette = theme.palette
+        let backgroundColor = palette.sidebarBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
+
         view.wantsLayer = true
-        view.layer?.backgroundColor = palette.sidebarBackgroundColor.applyingBackgroundOpacity(backgroundOpacity).cgColor
-        outlineView.backgroundColor = palette.sidebarBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
-        scrollView.backgroundColor = palette.sidebarBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
+        view.layer?.backgroundColor = backgroundColor.cgColor
+        recentContainerView.wantsLayer = true
+        recentContainerView.layer?.backgroundColor = backgroundColor.cgColor
+        recentSeparatorView.wantsLayer = true
+        recentSeparatorView.layer?.backgroundColor = NSColor.separatorColor.withAlphaComponent(0.25).cgColor
+        recentHeaderLabel.textColor = palette.sidebarSectionHeaderColor
+
+        outlineView.backgroundColor = backgroundColor
+        scrollView.backgroundColor = backgroundColor
+        recentOutlineView.backgroundColor = backgroundColor
+        recentScrollView.backgroundColor = backgroundColor
+
         outlineView.reloadData()
+        recentOutlineView.reloadData()
     }
 
-    private func configureOutlineView() {
+    private func configureOutlineViews() {
+        configureRegularOutlineView()
+        configureRecentOutlineView()
+    }
+
+    private func configureRegularOutlineView() {
         outlineView.translatesAutoresizingMaskIntoConstraints = false
         outlineView.delegate = self
         outlineView.dataSource = self
         outlineView.headerView = nil
-        outlineView.rowHeight = 24
+        outlineView.rowHeight = entryRowHeight
         outlineView.indentationPerLevel = 14
         outlineView.selectionHighlightStyle = .sourceList
         outlineView.allowsTypeSelect = false
@@ -71,41 +98,137 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         scrollView.drawsBackground = true
     }
 
+    private func configureRecentOutlineView() {
+        recentContainerView.translatesAutoresizingMaskIntoConstraints = false
+        recentContainerView.wantsLayer = true
+
+        recentSeparatorView.translatesAutoresizingMaskIntoConstraints = false
+        recentSeparatorView.wantsLayer = true
+
+        recentHeaderLabel.translatesAutoresizingMaskIntoConstraints = false
+        recentHeaderLabel.font = .systemFont(ofSize: 11, weight: .bold)
+
+        recentOutlineView.translatesAutoresizingMaskIntoConstraints = false
+        recentOutlineView.delegate = self
+        recentOutlineView.dataSource = self
+        recentOutlineView.headerView = nil
+        recentOutlineView.rowHeight = entryRowHeight
+        recentOutlineView.indentationPerLevel = 0
+        recentOutlineView.selectionHighlightStyle = .sourceList
+        recentOutlineView.allowsTypeSelect = false
+        recentOutlineView.usesAlternatingRowBackgroundColors = false
+        recentOutlineView.target = self
+        recentOutlineView.action = #selector(handleSingleClick(_:))
+
+        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("recentSidebar"))
+        column.title = ""
+        recentOutlineView.addTableColumn(column)
+        recentOutlineView.outlineTableColumn = column
+
+        recentScrollView.translatesAutoresizingMaskIntoConstraints = false
+        recentScrollView.documentView = recentOutlineView
+        recentScrollView.hasVerticalScroller = true
+        recentScrollView.hasHorizontalScroller = false
+        recentScrollView.autohidesScrollers = true
+        recentScrollView.drawsBackground = true
+    }
+
     private func configureLayout() {
         view.addSubview(scrollView)
+        view.addSubview(recentContainerView)
+
+        recentContainerView.addSubview(recentSeparatorView)
+        recentContainerView.addSubview(recentHeaderLabel)
+        recentContainerView.addSubview(recentScrollView)
 
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: view.topAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: recentContainerView.topAnchor),
+
+            recentContainerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            recentContainerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            recentContainerView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            recentSeparatorView.topAnchor.constraint(equalTo: recentContainerView.topAnchor),
+            recentSeparatorView.leadingAnchor.constraint(equalTo: recentContainerView.leadingAnchor),
+            recentSeparatorView.trailingAnchor.constraint(equalTo: recentContainerView.trailingAnchor),
+            recentSeparatorView.heightAnchor.constraint(equalToConstant: 1),
+
+            recentHeaderLabel.topAnchor.constraint(equalTo: recentSeparatorView.bottomAnchor, constant: 4),
+            recentHeaderLabel.leadingAnchor.constraint(equalTo: recentContainerView.leadingAnchor, constant: 2),
+            recentHeaderLabel.trailingAnchor.constraint(equalTo: recentContainerView.trailingAnchor, constant: -4),
+
+            recentScrollView.topAnchor.constraint(equalTo: recentHeaderLabel.bottomAnchor, constant: 2),
+            recentScrollView.leadingAnchor.constraint(equalTo: recentContainerView.leadingAnchor),
+            recentScrollView.trailingAnchor.constraint(equalTo: recentContainerView.trailingAnchor),
+            recentScrollView.bottomAnchor.constraint(equalTo: recentContainerView.bottomAnchor),
         ])
+
+        recentContainerHeightConstraint = recentContainerView.heightAnchor.constraint(equalToConstant: 0)
+        recentContainerHeightConstraint?.isActive = true
     }
 
     private func bindViewModel() {
         viewModel.onSectionsChanged = { [weak self] _ in
-            self?.outlineView.reloadData()
-            self?.expandAllSections()
+            self?.syncSections()
         }
+        syncSections()
+    }
+
+    private func syncSections() {
+        regularSections = viewModel.sections.filter { !isRecentSection($0) }
+        recentSection = viewModel.sections.first(where: { isRecentSection($0) })
+
+        outlineView.reloadData()
         expandAllSections()
+        recentOutlineView.reloadData()
+        updateRecentSectionLayout()
+    }
+
+    private func isRecentSection(_ section: SidebarViewModel.SidebarSection) -> Bool {
+        if case .recent = section.kind {
+            return true
+        }
+        return false
     }
 
     private func expandAllSections() {
-        for section in viewModel.sections {
+        for section in regularSections {
             outlineView.expandItem(section.title)
         }
+    }
+
+    private func updateRecentSectionLayout() {
+        let recentCount = recentSection?.items.count ?? 0
+        let hasRecent = recentCount > 0
+        recentContainerView.isHidden = !hasRecent
+
+        guard hasRecent else {
+            recentContainerHeightConstraint?.constant = 0
+            return
+        }
+
+        let contentHeight = 1 + 4 + sectionHeaderHeight + 2 + (CGFloat(recentCount) * entryRowHeight)
+        recentContainerHeightConstraint?.constant = contentHeight
+        recentScrollView.hasVerticalScroller = false
     }
 
     // MARK: - Actions
 
     @objc
     private func handleSingleClick(_ sender: Any?) {
-        let clickedRow = outlineView.clickedRow
+        guard let sourceOutlineView = sender as? NSOutlineView else {
+            return
+        }
+
+        let clickedRow = sourceOutlineView.clickedRow
         guard clickedRow >= 0 else {
             return
         }
 
-        let item = outlineView.item(atRow: clickedRow)
+        let item = sourceOutlineView.item(atRow: clickedRow)
         guard let entry = item as? SidebarViewModel.SidebarEntry else {
             return
         }
@@ -120,12 +243,19 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     // MARK: - NSOutlineViewDataSource
 
     func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
+        if outlineView === recentOutlineView {
+            if item == nil {
+                return recentSection?.items.count ?? 0
+            }
+            return 0
+        }
+
         if item == nil {
-            return viewModel.sections.count
+            return regularSections.count
         }
 
         if let sectionTitle = item as? String,
-           let section = viewModel.sections.first(where: { $0.title == sectionTitle }) {
+           let section = regularSections.first(where: { $0.title == sectionTitle }) {
             return section.items.count
         }
 
@@ -133,12 +263,16 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     }
 
     func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
+        if outlineView === recentOutlineView {
+            return recentSection?.items[index] ?? ""
+        }
+
         if item == nil {
-            return viewModel.sections[index].title
+            return regularSections[index].title
         }
 
         if let sectionTitle = item as? String,
-           let section = viewModel.sections.first(where: { $0.title == sectionTitle }) {
+           let section = regularSections.first(where: { $0.title == sectionTitle }) {
             return section.items[index]
         }
 
@@ -146,25 +280,31 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     }
 
     func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
-        item is String
+        if outlineView === recentOutlineView {
+            return false
+        }
+        return item is String
     }
 
     // MARK: - NSOutlineViewDelegate
 
     func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
         if let sectionTitle = item as? String {
-            return makeSectionHeaderView(title: sectionTitle)
+            return makeSectionHeaderView(title: sectionTitle, in: outlineView)
         }
 
         if let entry = item as? SidebarViewModel.SidebarEntry {
-            return makeEntryView(entry: entry)
+            return makeEntryView(entry: entry, in: outlineView)
         }
 
         return nil
     }
 
     func outlineView(_ outlineView: NSOutlineView, isGroupItem item: Any) -> Bool {
-        item is String
+        if outlineView === recentOutlineView {
+            return false
+        }
+        return item is String
     }
 
     func outlineView(_ outlineView: NSOutlineView, shouldSelectItem item: Any) -> Bool {
@@ -172,15 +312,19 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     }
 
     func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
-        if item is String {
-            return 22
+        if outlineView === recentOutlineView {
+            return entryRowHeight
         }
-        return 24
+
+        if item is String {
+            return sectionHeaderHeight
+        }
+        return entryRowHeight
     }
 
     // MARK: - Cell Views
 
-    private func makeSectionHeaderView(title: String) -> NSView {
+    private func makeSectionHeaderView(title: String, in outlineView: NSOutlineView) -> NSView {
         let cellIdentifier = NSUserInterfaceItemIdentifier("sectionHeader")
         let palette = currentTheme.palette
 
@@ -210,7 +354,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         return cell
     }
 
-    private func makeEntryView(entry: SidebarViewModel.SidebarEntry) -> NSView {
+    private func makeEntryView(entry: SidebarViewModel.SidebarEntry, in outlineView: NSOutlineView) -> NSView {
         let cellIdentifier = NSUserInterfaceItemIdentifier("entryCell")
         let cell: NSTableCellView
         let shortcutLabel: NSTextField

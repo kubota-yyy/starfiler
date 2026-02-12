@@ -5,6 +5,11 @@ enum PaneSide: Sendable {
     case right
 }
 
+enum PaneDisplayMode: String, Codable, CaseIterable, Sendable {
+    case browser
+    case media
+}
+
 struct PaneState: Hashable, Sendable {
     var currentDirectory: URL
     var cursorIndex: Int

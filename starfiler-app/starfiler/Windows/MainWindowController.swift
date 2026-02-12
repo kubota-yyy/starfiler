@@ -9,12 +9,19 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var actionFeedbackEnabled: Bool
     private var spotlightSearchScope: SpotlightSearchScope
     private var fileIconSize: CGFloat
-    private var imagePreviewRecursiveMode: Bool
+    private var sidebarFavoritesVisible: Bool
+    private var sidebarRecentItemsLimit: Int
+    private var sidebarWidth: CGFloat
+    private var leftPaneVisible: Bool
+    private var rightPaneVisible: Bool
     private lazy var mainSplitViewController = MainSplitViewController(
         viewModel: mainViewModel,
         configManager: configManager,
         actionFeedbackEnabled: actionFeedbackEnabled,
-        fileIconSize: fileIconSize
+        fileIconSize: fileIconSize,
+        initialSidebarWidth: sidebarWidth,
+        initialLeftPaneVisible: leftPaneVisible,
+        initialRightPaneVisible: rightPaneVisible
     )
     private let appUndoManager = UndoManager()
     private weak var containerView: NSView?
@@ -36,7 +43,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         self.actionFeedbackEnabled = appConfig.actionFeedbackEnabled
         self.spotlightSearchScope = appConfig.spotlightSearchScope
         self.fileIconSize = CGFloat(appConfig.fileIconSize)
-        self.imagePreviewRecursiveMode = appConfig.imagePreviewRecursiveMode
+        self.sidebarFavoritesVisible = appConfig.sidebarFavoritesVisible
+        self.sidebarRecentItemsLimit = appConfig.sidebarRecentItemsLimit
+        self.sidebarWidth = Self.clampedSidebarWidth(CGFloat(appConfig.sidebarWidth))
+        self.leftPaneVisible = appConfig.leftPaneVisible
+        self.rightPaneVisible = appConfig.rightPaneVisible
         let fallbackDirectory = initialDirectory.standardizedFileURL
         let leftDirectory = Self.resolveDirectory(path: appConfig.lastLeftPanePath, fallback: fallbackDirectory)
         let rightDirectory = Self.resolveDirectory(path: appConfig.lastRightPanePath, fallback: leftDirectory)
@@ -53,7 +64,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             initialPreviewVisible: appConfig.previewPaneVisible,
             initialSidebarVisible: appConfig.sidebarVisible,
             initialSpotlightSearchScope: appConfig.spotlightSearchScope,
-            initialImagePreviewRecursiveEnabled: appConfig.imagePreviewRecursiveMode,
+            initialLeftPaneDisplayMode: appConfig.leftPaneDisplayMode,
+            initialRightPaneDisplayMode: appConfig.rightPaneDisplayMode,
+            initialLeftPaneMediaRecursiveEnabled: appConfig.leftPaneMediaRecursiveEnabled,
+            initialRightPaneMediaRecursiveEnabled: appConfig.rightPaneMediaRecursiveEnabled,
             initialLeftDirectory: leftDirectory,
             initialRightDirectory: rightDirectory
         )
@@ -112,6 +126,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     var currentFileIconSize: CGFloat {
         fileIconSize
+    }
+
+    var currentSidebarRecentItemsLimit: Int {
+        sidebarRecentItemsLimit
+    }
+
+    var isSidebarFavoritesVisible: Bool {
+        sidebarFavoritesVisible
     }
 
     func updateFilerTheme(_ theme: FilerTheme) {
@@ -177,6 +199,30 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         persistAppConfig()
     }
 
+    func updateSidebarRecentItemsLimit(_ limit: Int) {
+        let clampedLimit = min(
+            max(limit, AppConfig.sidebarRecentItemsLimitRange.lowerBound),
+            AppConfig.sidebarRecentItemsLimitRange.upperBound
+        )
+        guard sidebarRecentItemsLimit != clampedLimit else {
+            return
+        }
+
+        sidebarRecentItemsLimit = clampedLimit
+        persistAppConfig()
+        mainSplitViewController.reloadSidebarSections()
+    }
+
+    func updateSidebarFavoritesVisible(_ visible: Bool) {
+        guard sidebarFavoritesVisible != visible else {
+            return
+        }
+
+        sidebarFavoritesVisible = visible
+        persistAppConfig()
+        mainSplitViewController.reloadSidebarSections()
+    }
+
     func presentBatchRename() {
         mainSplitViewController.presentBatchRenameWindow()
     }
@@ -191,6 +237,18 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     func toggleSidebarPane() {
         mainSplitViewController.toggleSidebarPane()
+    }
+
+    func toggleLeftPane() {
+        mainSplitViewController.toggleLeftPane()
+    }
+
+    func toggleRightPane() {
+        mainSplitViewController.toggleRightPane()
+    }
+
+    func toggleSinglePane() {
+        mainSplitViewController.toggleSinglePane()
     }
 
     func reloadBookmarksConfig() {
@@ -242,9 +300,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         mainSplitViewController.onSpotlightSearchScopeChanged = { [weak self] scope in
             self?.updateSpotlightSearchScope(scope)
         }
-        mainSplitViewController.onImagePreviewRecursiveModeChanged = { [weak self] enabled in
-            self?.imagePreviewRecursiveMode = enabled
+        mainSplitViewController.onPaneVisibilityChanged = { [weak self] leftVisible, rightVisible in
+            self?.leftPaneVisible = leftVisible
+            self?.rightPaneVisible = rightVisible
             self?.persistAppConfig()
+        }
+        mainSplitViewController.onSidebarWidthChanged = { [weak self] width in
+            self?.handleSidebarWidthChanged(width)
         }
 
         applyCurrentAppearance()
@@ -275,6 +337,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func persistAppConfig() {
+        if mainSplitViewController.isViewLoaded {
+            sidebarWidth = Self.clampedSidebarWidth(mainSplitViewController.currentSidebarWidth())
+        }
+
         let activeSortDescriptor = mainViewModel.activePane.directoryContents.sortDescriptor
         let appConfig = AppConfig(
             showHiddenFiles: mainViewModel.activePane.directoryContents.showHiddenFiles,
@@ -291,7 +357,15 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             actionFeedbackEnabled: actionFeedbackEnabled,
             spotlightSearchScope: spotlightSearchScope,
             fileIconSize: Double(fileIconSize),
-            imagePreviewRecursiveMode: imagePreviewRecursiveMode
+            sidebarFavoritesVisible: sidebarFavoritesVisible,
+            sidebarRecentItemsLimit: sidebarRecentItemsLimit,
+            sidebarWidth: Double(sidebarWidth),
+            leftPaneDisplayMode: mainViewModel.leftPane.displayMode,
+            rightPaneDisplayMode: mainViewModel.rightPane.displayMode,
+            leftPaneMediaRecursiveEnabled: mainViewModel.leftPane.mediaRecursiveEnabled,
+            rightPaneMediaRecursiveEnabled: mainViewModel.rightPane.mediaRecursiveEnabled,
+            leftPaneVisible: leftPaneVisible,
+            rightPaneVisible: rightPaneVisible
         )
 
         try? configManager.saveAppConfig(appConfig)
@@ -329,5 +403,19 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         case .selection:
             return .selection
         }
+    }
+
+    private func handleSidebarWidthChanged(_ width: CGFloat) {
+        let clamped = Self.clampedSidebarWidth(width)
+        guard abs(sidebarWidth - clamped) >= 1 else {
+            return
+        }
+
+        sidebarWidth = clamped
+        persistAppConfig()
+    }
+
+    private static func clampedSidebarWidth(_ value: CGFloat) -> CGFloat {
+        min(max(value, CGFloat(AppConfig.sidebarWidthRange.lowerBound)), CGFloat(AppConfig.sidebarWidthRange.upperBound))
     }
 }

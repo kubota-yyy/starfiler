@@ -75,6 +75,9 @@ private final class ActionToastPresenter {
 }
 
 final class MainSplitViewController: NSSplitViewController {
+    private static let defaultSidebarWidth = CGFloat(260)
+    private static let sidebarWidthRange: ClosedRange<CGFloat> = CGFloat(AppConfig.sidebarWidthRange.lowerBound) ... CGFloat(AppConfig.sidebarWidthRange.upperBound)
+
     private struct PaneStatus {
         var path: String
         var itemCount: Int
@@ -88,6 +91,8 @@ final class MainSplitViewController: NSSplitViewController {
     private let sidebarSplitItem: NSSplitViewItem
     private let leftPaneViewController: FilePaneViewController
     private let rightPaneViewController: FilePaneViewController
+    private let leftSplitItem: NSSplitViewItem
+    private let rightSplitItem: NSSplitViewItem
     private let previewPaneViewController: PreviewPaneViewController
     private let previewSplitItem: NSSplitViewItem
 
@@ -100,17 +105,32 @@ final class MainSplitViewController: NSSplitViewController {
     private var rightPaneStatus: PaneStatus
     private var actionFeedbackEnabled: Bool
     private var fileIconSize: CGFloat
+    private let initialSidebarWidth: CGFloat
+    private var hasAppliedInitialSidebarWidth = false
+    private var lastReportedSidebarWidth: CGFloat
     private let toastPresenter = ActionToastPresenter()
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
     var onSpotlightSearchScopeChanged: ((SpotlightSearchScope) -> Void)?
-    var onImagePreviewRecursiveModeChanged: ((Bool) -> Void)?
+    var onPaneVisibilityChanged: ((Bool, Bool) -> Void)?
+    var onSidebarWidthChanged: ((CGFloat) -> Void)?
 
-    init(viewModel: MainViewModel, configManager: ConfigManager, actionFeedbackEnabled: Bool, fileIconSize: CGFloat) {
+    init(
+        viewModel: MainViewModel,
+        configManager: ConfigManager,
+        actionFeedbackEnabled: Bool,
+        fileIconSize: CGFloat,
+        initialSidebarWidth: CGFloat = MainSplitViewController.defaultSidebarWidth,
+        initialLeftPaneVisible: Bool = true,
+        initialRightPaneVisible: Bool = true
+    ) {
+        let clampedSidebarWidth = Self.clampedSidebarWidth(initialSidebarWidth)
         self.viewModel = viewModel
         self.configManager = configManager
         self.actionFeedbackEnabled = actionFeedbackEnabled
         self.fileIconSize = fileIconSize
+        self.initialSidebarWidth = clampedSidebarWidth
+        self.lastReportedSidebarWidth = clampedSidebarWidth
 
         self.sidebarViewModel = SidebarViewModel(
             configManager: configManager,
@@ -121,6 +141,8 @@ final class MainSplitViewController: NSSplitViewController {
 
         self.leftPaneViewController = FilePaneViewController(viewModel: viewModel.leftPane)
         self.rightPaneViewController = FilePaneViewController(viewModel: viewModel.rightPane)
+        self.leftSplitItem = NSSplitViewItem(viewController: leftPaneViewController)
+        self.rightSplitItem = NSSplitViewItem(viewController: rightPaneViewController)
         self.previewPaneViewController = PreviewPaneViewController(viewModel: viewModel.previewPane)
         self.previewSplitItem = NSSplitViewItem(viewController: previewPaneViewController)
         self.bookmarksConfig = configManager.loadBookmarksConfig()
@@ -152,6 +174,7 @@ final class MainSplitViewController: NSSplitViewController {
         refreshActivePaneUI(focusActivePane: false)
         viewModel.refreshPreviewForActivePane()
         applySidebarVisibility(animated: false)
+        applyPaneVisibility(leftVisible: initialLeftPaneVisible, rightVisible: initialRightPaneVisible, animated: false)
         applyPreviewPaneVisibility(animated: false)
 
         propagateBookmarksConfig()
@@ -161,6 +184,16 @@ final class MainSplitViewController: NSSplitViewController {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        applyInitialSidebarWidthIfNeeded()
+    }
+
+    override func splitViewDidResizeSubviews(_ notification: Notification) {
+        super.splitViewDidResizeSubviews(notification)
+        reportSidebarWidthIfNeeded(force: false)
     }
 
     func focusActivePane() {
@@ -177,6 +210,31 @@ final class MainSplitViewController: NSSplitViewController {
         applySidebarVisibility(animated: true)
     }
 
+    func toggleLeftPane() {
+        togglePaneVisibility(side: .left, animated: true)
+    }
+
+    func toggleRightPane() {
+        togglePaneVisibility(side: .right, animated: true)
+    }
+
+    func toggleSinglePane() {
+        let leftVisible = !leftSplitItem.isCollapsed
+        let rightVisible = !rightSplitItem.isCollapsed
+
+        if leftVisible && rightVisible {
+            switch viewModel.activePaneSide {
+            case .left:
+                applyPaneVisibility(leftVisible: true, rightVisible: false, animated: true)
+            case .right:
+                applyPaneVisibility(leftVisible: false, rightVisible: true, animated: true)
+            }
+            return
+        }
+
+        applyPaneVisibility(leftVisible: true, rightVisible: true, animated: true)
+    }
+
     func setFilerTheme(_ theme: FilerTheme, backgroundOpacity: CGFloat = 1.0) {
         let palette = theme.palette
         splitView.wantsLayer = true
@@ -191,6 +249,10 @@ final class MainSplitViewController: NSSplitViewController {
     func reloadBookmarksConfig() {
         bookmarksConfig = configManager.loadBookmarksConfig()
         propagateBookmarksConfig()
+        sidebarViewController.reloadData()
+    }
+
+    func reloadSidebarSections() {
         sidebarViewController.reloadData()
     }
 
@@ -216,23 +278,32 @@ final class MainSplitViewController: NSSplitViewController {
         rightPaneViewController.setFileIconSize(clampedSize)
     }
 
+    func currentSidebarWidth() -> CGFloat {
+        if sidebarSplitItem.isCollapsed {
+            return lastReportedSidebarWidth
+        }
+
+        return Self.clampedSidebarWidth(sidebarViewController.view.frame.width)
+    }
+
     private func configureSplitView() {
         splitView.isVertical = true
         splitView.dividerStyle = .thin
         splitView.autosaveName = "MainSplitViewV2"
+        splitView.delegate = self
 
-        sidebarSplitItem.minimumThickness = 140
-        sidebarSplitItem.maximumThickness = 240
+        sidebarSplitItem.minimumThickness = Self.sidebarWidthRange.lowerBound
+        sidebarSplitItem.maximumThickness = Self.sidebarWidthRange.upperBound
         sidebarSplitItem.canCollapse = true
         addSplitViewItem(sidebarSplitItem)
 
-        let leftItem = NSSplitViewItem(viewController: leftPaneViewController)
-        leftItem.minimumThickness = 280
-        addSplitViewItem(leftItem)
+        leftSplitItem.minimumThickness = 280
+        leftSplitItem.canCollapse = true
+        addSplitViewItem(leftSplitItem)
 
-        let rightItem = NSSplitViewItem(viewController: rightPaneViewController)
-        rightItem.minimumThickness = 280
-        addSplitViewItem(rightItem)
+        rightSplitItem.minimumThickness = 280
+        rightSplitItem.canCollapse = true
+        addSplitViewItem(rightSplitItem)
 
         previewSplitItem.minimumThickness = 260
         previewSplitItem.canCollapse = true
@@ -300,11 +371,6 @@ final class MainSplitViewController: NSSplitViewController {
             self?.handleSpotlightSearchScopeChanged(scope)
         }
 
-        previewPaneViewController.onRecursiveModeChanged = { [weak self] enabled in
-            self?.viewModel.previewPane.setRecursiveEnabled(enabled)
-            self?.onImagePreviewRecursiveModeChanged?(enabled)
-        }
-
         previewPaneViewController.onImageSelectionChanged = { [weak self] selectedURL in
             self?.viewModel.previewPane.setSelectedFileURL(selectedURL)
         }
@@ -363,6 +429,15 @@ final class MainSplitViewController: NSSplitViewController {
             return true
         case .toggleSidebar:
             toggleSidebarPane()
+            return true
+        case .toggleLeftPane:
+            toggleLeftPane()
+            return true
+        case .toggleRightPane:
+            toggleRightPane()
+            return true
+        case .toggleSinglePane:
+            toggleSinglePane()
             return true
         case .openBookmarkSearch:
             presentBookmarkSearchPanel()
@@ -472,12 +547,17 @@ final class MainSplitViewController: NSSplitViewController {
         }
 
         if animated {
-            NSAnimationContext.runAnimationGroup { context in
+            NSAnimationContext.runAnimationGroup({ context in
                 context.duration = 0.18
                 sidebarSplitItem.animator().isCollapsed = shouldCollapse
-            }
+            }, completionHandler: { [weak self] in
+                self?.restoreSidebarWidthIfNeeded()
+                self?.reportSidebarWidthIfNeeded(force: true)
+            })
         } else {
             sidebarSplitItem.isCollapsed = shouldCollapse
+            restoreSidebarWidthIfNeeded()
+            reportSidebarWidthIfNeeded(force: true)
         }
     }
 
@@ -525,6 +605,62 @@ final class MainSplitViewController: NSSplitViewController {
         onStatusChanged?(status.path, status.itemCount, status.markedCount)
     }
 
+    private func applyPaneVisibility(leftVisible: Bool, rightVisible: Bool, animated: Bool) {
+        let normalizedLeftVisible: Bool
+        let normalizedRightVisible: Bool
+        if !leftVisible, !rightVisible {
+            normalizedLeftVisible = true
+            normalizedRightVisible = false
+        } else {
+            normalizedLeftVisible = leftVisible
+            normalizedRightVisible = rightVisible
+        }
+
+        setPaneVisibility(splitItem: leftSplitItem, visible: normalizedLeftVisible, animated: animated)
+        setPaneVisibility(splitItem: rightSplitItem, visible: normalizedRightVisible, animated: animated)
+
+        if !normalizedLeftVisible, viewModel.activePaneSide == .left {
+            setActivePane(.right)
+        } else if !normalizedRightVisible, viewModel.activePaneSide == .right {
+            setActivePane(.left)
+        }
+
+        onPaneVisibilityChanged?(normalizedLeftVisible, normalizedRightVisible)
+    }
+
+    private func togglePaneVisibility(side: PaneSide, animated: Bool) {
+        let leftVisible = !leftSplitItem.isCollapsed
+        let rightVisible = !rightSplitItem.isCollapsed
+        switch side {
+        case .left:
+            if leftVisible, !rightVisible {
+                return
+            }
+            applyPaneVisibility(leftVisible: !leftVisible, rightVisible: rightVisible, animated: animated)
+        case .right:
+            if rightVisible, !leftVisible {
+                return
+            }
+            applyPaneVisibility(leftVisible: leftVisible, rightVisible: !rightVisible, animated: animated)
+        }
+    }
+
+    private func setPaneVisibility(splitItem: NSSplitViewItem, visible: Bool, animated: Bool) {
+        let shouldCollapse = !visible
+        guard splitItem.isCollapsed != shouldCollapse else {
+            return
+        }
+
+        if animated {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.18
+                splitItem.animator().isCollapsed = shouldCollapse
+            }
+        } else {
+            splitItem.isCollapsed = shouldCollapse
+        }
+    }
+
     private func paneViewController(for side: PaneSide) -> FilePaneViewController {
         switch side {
         case .left:
@@ -532,6 +668,45 @@ final class MainSplitViewController: NSSplitViewController {
         case .right:
             return rightPaneViewController
         }
+    }
+
+    private func applyInitialSidebarWidthIfNeeded() {
+        guard !hasAppliedInitialSidebarWidth else {
+            return
+        }
+
+        hasAppliedInitialSidebarWidth = true
+        if !sidebarSplitItem.isCollapsed, splitView.arrangedSubviews.count > 1 {
+            splitView.setPosition(initialSidebarWidth, ofDividerAt: 0)
+        }
+
+        reportSidebarWidthIfNeeded(force: true)
+    }
+
+    private func restoreSidebarWidthIfNeeded() {
+        guard !sidebarSplitItem.isCollapsed, splitView.arrangedSubviews.count > 1 else {
+            return
+        }
+
+        splitView.setPosition(lastReportedSidebarWidth, ofDividerAt: 0)
+    }
+
+    private func reportSidebarWidthIfNeeded(force: Bool) {
+        guard !sidebarSplitItem.isCollapsed else {
+            return
+        }
+
+        let width = Self.clampedSidebarWidth(sidebarViewController.view.frame.width)
+        guard force || abs(width - lastReportedSidebarWidth) >= 1 else {
+            return
+        }
+
+        lastReportedSidebarWidth = width
+        onSidebarWidthChanged?(width)
+    }
+
+    private static func clampedSidebarWidth(_ width: CGFloat) -> CGFloat {
+        min(max(width, sidebarWidthRange.lowerBound), sidebarWidthRange.upperBound)
     }
 
     private func presentTextPrompt(_ prompt: TextInputPrompt) -> String? {

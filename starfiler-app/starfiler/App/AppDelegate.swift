@@ -195,6 +195,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let togglePreviewItem = viewMenu.addItem(withTitle: "Toggle Preview", action: #selector(menuTogglePreview(_:)), keyEquivalent: "p")
         togglePreviewItem.keyEquivalentModifierMask = [.control]
+        let toggleLeftPaneItem = viewMenu.addItem(withTitle: "Toggle Left Pane", action: #selector(menuToggleLeftPane(_:)), keyEquivalent: "1")
+        toggleLeftPaneItem.keyEquivalentModifierMask = [.control]
+        let toggleRightPaneItem = viewMenu.addItem(withTitle: "Toggle Right Pane", action: #selector(menuToggleRightPane(_:)), keyEquivalent: "2")
+        toggleRightPaneItem.keyEquivalentModifierMask = [.control]
+        let toggleSinglePaneItem = viewMenu.addItem(withTitle: "Toggle Single Pane", action: #selector(menuToggleSinglePane(_:)), keyEquivalent: "3")
+        toggleSinglePaneItem.keyEquivalentModifierMask = [.control]
+        let toggleMediaModeItem = viewMenu.addItem(withTitle: "Toggle Media Mode", action: #selector(menuToggleMediaMode(_:)), keyEquivalent: "m")
+        toggleMediaModeItem.keyEquivalentModifierMask = [.control]
+        let toggleMediaRecursiveItem = viewMenu.addItem(withTitle: "Toggle Media Recursive", action: #selector(menuToggleMediaRecursive(_:)), keyEquivalent: "m")
+        toggleMediaRecursiveItem.keyEquivalentModifierMask = [.control, .shift]
         viewMenu.addItem(withTitle: "Toggle Hidden Files", action: #selector(menuToggleHiddenFiles(_:)), keyEquivalent: ".")
         viewMenu.addItem(NSMenuItem.separator())
         viewMenu.addItem(withTitle: "Sort by Name", action: #selector(menuSortByName(_:)), keyEquivalent: "")
@@ -293,6 +303,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainWindowController?.togglePreviewPane()
     }
 
+    @objc private func menuToggleLeftPane(_ sender: Any?) {
+        mainWindowController?.toggleLeftPane()
+    }
+
+    @objc private func menuToggleRightPane(_ sender: Any?) {
+        mainWindowController?.toggleRightPane()
+    }
+
+    @objc private func menuToggleSinglePane(_ sender: Any?) {
+        mainWindowController?.toggleSinglePane()
+    }
+
+    @objc private func menuToggleMediaMode(_ sender: Any?) {
+        mainWindowController?.performAction { $0.activePane.toggleDisplayMode() }
+    }
+
+    @objc private func menuToggleMediaRecursive(_ sender: Any?) {
+        mainWindowController?.performAction { $0.activePane.toggleMediaRecursive() }
+    }
+
     @objc private func menuToggleHiddenFiles(_ sender: Any?) {
         mainWindowController?.performAction { $0.activePane.toggleHiddenFiles() }
     }
@@ -387,6 +417,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let currentActionFeedbackEnabled = mainWindowController?.isActionFeedbackEnabled ?? true
         let currentSpotlightSearchScope = mainWindowController?.currentSpotlightSearchScope ?? .currentDirectory
         let currentFileIconSize = mainWindowController?.currentFileIconSize ?? 16
+        let currentSidebarFavoritesVisible = mainWindowController?.isSidebarFavoritesVisible ?? true
+        let currentSidebarRecentItemsLimit = mainWindowController?.currentSidebarRecentItemsLimit ?? 10
 
         let appearanceVC = AppearanceSettingsViewController(
             selectedTheme: currentTheme,
@@ -394,7 +426,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             transparentBackgroundOpacity: currentTransparentBackgroundOpacity,
             isActionFeedbackEnabled: currentActionFeedbackEnabled,
             selectedSpotlightSearchScope: currentSpotlightSearchScope,
-            initialFileIconSize: currentFileIconSize
+            initialFileIconSize: currentFileIconSize,
+            initialSidebarFavoritesVisible: currentSidebarFavoritesVisible,
+            initialSidebarRecentItemsLimit: currentSidebarRecentItemsLimit
         )
         appearanceVC.onThemeChanged = { [weak self] theme in
             self?.mainWindowController?.updateFilerTheme(theme)
@@ -413,6 +447,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         appearanceVC.onFileIconSizeChanged = { [weak self] size in
             self?.mainWindowController?.updateFileIconSize(size)
+        }
+        appearanceVC.onSidebarFavoritesVisibilityChanged = { [weak self] visible in
+            self?.mainWindowController?.updateSidebarFavoritesVisible(visible)
+        }
+        appearanceVC.onSidebarRecentItemsLimitChanged = { [weak self] limit in
+            self?.mainWindowController?.updateSidebarRecentItemsLimit(limit)
         }
 
         let keybindingsVC = KeybindingsViewController()

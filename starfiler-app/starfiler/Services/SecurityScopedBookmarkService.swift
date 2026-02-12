@@ -223,6 +223,16 @@ actor SecurityScopedBookmarkService: SecurityScopedBookmarkProviding {
             )
         }
 
+        if canAccessWithoutBookmark(standardizedURL) {
+            activeScopes[requestedResolvedPath] = ActiveScope(
+                url: standardizedURL,
+                refCount: 1,
+                startedSecurityScope: false
+            )
+            activeLeases[requestedResolvedPath] = ActiveLease(scopeResolvedPath: requestedResolvedPath, count: 1)
+            return
+        }
+
         throw SecurityScopedBookmarkError.bookmarkNotFound(requestedPath: requestedResolvedPath)
     }
 
@@ -395,5 +405,23 @@ actor SecurityScopedBookmarkService: SecurityScopedBookmarkProviding {
 
     private func pathDepth(_ path: String) -> Int {
         path.split(separator: "/", omittingEmptySubsequences: true).count
+    }
+
+    private func canAccessWithoutBookmark(_ url: URL) -> Bool {
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
+            return false
+        }
+
+        if isDirectory.boolValue {
+            do {
+                _ = try fileManager.contentsOfDirectory(atPath: url.path)
+                return true
+            } catch {
+                return false
+            }
+        }
+
+        return fileManager.isReadableFile(atPath: url.path)
     }
 }

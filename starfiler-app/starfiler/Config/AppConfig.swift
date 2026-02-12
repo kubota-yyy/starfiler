@@ -80,6 +80,9 @@ enum SpotlightSearchScope: String, Codable, CaseIterable, Sendable {
 }
 
 struct AppConfig: Codable, Sendable {
+    static let sidebarRecentItemsLimitRange: ClosedRange<Int> = 0 ... 20
+    static let sidebarWidthRange: ClosedRange<Double> = 180 ... 420
+
     enum SortColumn: String, Codable, CaseIterable, Sendable {
         case name
         case size
@@ -107,7 +110,15 @@ struct AppConfig: Codable, Sendable {
     var actionFeedbackEnabled: Bool
     var spotlightSearchScope: SpotlightSearchScope
     var fileIconSize: Double
-    var imagePreviewRecursiveMode: Bool
+    var sidebarFavoritesVisible: Bool
+    var sidebarRecentItemsLimit: Int
+    var sidebarWidth: Double
+    var leftPaneDisplayMode: PaneDisplayMode
+    var rightPaneDisplayMode: PaneDisplayMode
+    var leftPaneMediaRecursiveEnabled: Bool
+    var rightPaneMediaRecursiveEnabled: Bool
+    var leftPaneVisible: Bool
+    var rightPaneVisible: Bool
 
     init(
         showHiddenFiles: Bool = true,
@@ -124,7 +135,15 @@ struct AppConfig: Codable, Sendable {
         actionFeedbackEnabled: Bool = true,
         spotlightSearchScope: SpotlightSearchScope = .currentDirectory,
         fileIconSize: Double = 16,
-        imagePreviewRecursiveMode: Bool = false
+        sidebarFavoritesVisible: Bool = true,
+        sidebarRecentItemsLimit: Int = 10,
+        sidebarWidth: Double = 260,
+        leftPaneDisplayMode: PaneDisplayMode = .browser,
+        rightPaneDisplayMode: PaneDisplayMode = .browser,
+        leftPaneMediaRecursiveEnabled: Bool = false,
+        rightPaneMediaRecursiveEnabled: Bool = false,
+        leftPaneVisible: Bool = true,
+        rightPaneVisible: Bool = true
     ) {
         self.showHiddenFiles = showHiddenFiles
         self.defaultSortColumn = defaultSortColumn
@@ -140,7 +159,15 @@ struct AppConfig: Codable, Sendable {
         self.actionFeedbackEnabled = actionFeedbackEnabled
         self.spotlightSearchScope = spotlightSearchScope
         self.fileIconSize = fileIconSize
-        self.imagePreviewRecursiveMode = imagePreviewRecursiveMode
+        self.sidebarFavoritesVisible = sidebarFavoritesVisible
+        self.sidebarRecentItemsLimit = Self.clampedSidebarRecentItemsLimit(sidebarRecentItemsLimit)
+        self.sidebarWidth = Self.clampedSidebarWidth(sidebarWidth)
+        self.leftPaneDisplayMode = leftPaneDisplayMode
+        self.rightPaneDisplayMode = rightPaneDisplayMode
+        self.leftPaneMediaRecursiveEnabled = leftPaneMediaRecursiveEnabled
+        self.rightPaneMediaRecursiveEnabled = rightPaneMediaRecursiveEnabled
+        self.leftPaneVisible = leftPaneVisible
+        self.rightPaneVisible = rightPaneVisible
     }
 
     enum CodingKeys: String, CodingKey {
@@ -158,7 +185,15 @@ struct AppConfig: Codable, Sendable {
         case actionFeedbackEnabled
         case spotlightSearchScope
         case fileIconSize
-        case imagePreviewRecursiveMode
+        case sidebarFavoritesVisible
+        case sidebarRecentItemsLimit
+        case sidebarWidth
+        case leftPaneDisplayMode
+        case rightPaneDisplayMode
+        case leftPaneMediaRecursiveEnabled
+        case rightPaneMediaRecursiveEnabled
+        case leftPaneVisible
+        case rightPaneVisible
     }
 
     init(from decoder: Decoder) throws {
@@ -177,6 +212,24 @@ struct AppConfig: Codable, Sendable {
         actionFeedbackEnabled = try container.decodeIfPresent(Bool.self, forKey: .actionFeedbackEnabled) ?? true
         spotlightSearchScope = try container.decodeIfPresent(SpotlightSearchScope.self, forKey: .spotlightSearchScope) ?? .currentDirectory
         fileIconSize = try container.decodeIfPresent(Double.self, forKey: .fileIconSize) ?? 16
-        imagePreviewRecursiveMode = try container.decodeIfPresent(Bool.self, forKey: .imagePreviewRecursiveMode) ?? false
+        sidebarFavoritesVisible = try container.decodeIfPresent(Bool.self, forKey: .sidebarFavoritesVisible) ?? true
+        let recentItemsLimit = try container.decodeIfPresent(Int.self, forKey: .sidebarRecentItemsLimit) ?? 10
+        sidebarRecentItemsLimit = Self.clampedSidebarRecentItemsLimit(recentItemsLimit)
+        let sidebarWidthValue = try container.decodeIfPresent(Double.self, forKey: .sidebarWidth) ?? 260
+        sidebarWidth = Self.clampedSidebarWidth(sidebarWidthValue)
+        leftPaneDisplayMode = try container.decodeIfPresent(PaneDisplayMode.self, forKey: .leftPaneDisplayMode) ?? .browser
+        rightPaneDisplayMode = try container.decodeIfPresent(PaneDisplayMode.self, forKey: .rightPaneDisplayMode) ?? .browser
+        leftPaneMediaRecursiveEnabled = try container.decodeIfPresent(Bool.self, forKey: .leftPaneMediaRecursiveEnabled) ?? false
+        rightPaneMediaRecursiveEnabled = try container.decodeIfPresent(Bool.self, forKey: .rightPaneMediaRecursiveEnabled) ?? false
+        leftPaneVisible = try container.decodeIfPresent(Bool.self, forKey: .leftPaneVisible) ?? true
+        rightPaneVisible = try container.decodeIfPresent(Bool.self, forKey: .rightPaneVisible) ?? true
+    }
+
+    private static func clampedSidebarRecentItemsLimit(_ value: Int) -> Int {
+        min(max(value, sidebarRecentItemsLimitRange.lowerBound), sidebarRecentItemsLimitRange.upperBound)
+    }
+
+    private static func clampedSidebarWidth(_ value: Double) -> Double {
+        min(max(value, sidebarWidthRange.lowerBound), sidebarWidthRange.upperBound)
     }
 }

@@ -46,34 +46,38 @@ final class SidebarViewModel {
     func reloadSections() {
         var result: [SidebarSection] = []
 
+        let appConfig = configManager.loadAppConfig()
         let bookmarksConfig = configManager.loadBookmarksConfig()
+        let recentItemsLimit = appConfig.sidebarRecentItemsLimit
 
-        let defaultGroup = bookmarksConfig.groups.first(where: { $0.isDefault })
-        let favorites: [SidebarEntry]
-        if let defaultGroup {
-            favorites = defaultGroup.entries.map { entry in
-                let hint = entry.shortcutKey.map { "' \($0)" }
-                return SidebarEntry(
-                    displayName: entry.displayName,
-                    path: entry.path,
-                    iconName: iconName(for: entry.displayName),
-                    shortcutHint: hint
-                )
+        if appConfig.sidebarFavoritesVisible {
+            let defaultGroup = bookmarksConfig.groups.first(where: { $0.isDefault })
+            let favorites: [SidebarEntry]
+            if let defaultGroup {
+                favorites = defaultGroup.entries.map { entry in
+                    let hint = entry.shortcutKey.map { "' \($0)" }
+                    return SidebarEntry(
+                        displayName: entry.displayName,
+                        path: entry.path,
+                        iconName: iconName(for: entry.displayName),
+                        shortcutHint: hint
+                    )
+                }
+            } else {
+                let homePath = UserPaths.homeDirectoryPath
+                favorites = [
+                    SidebarEntry(displayName: "Home", path: homePath, iconName: "house"),
+                    SidebarEntry(displayName: "Desktop", path: homePath + "/Desktop", iconName: "menubar.dock.rectangle"),
+                    SidebarEntry(displayName: "Documents", path: homePath + "/Documents", iconName: "doc"),
+                    SidebarEntry(displayName: "Downloads", path: homePath + "/Downloads", iconName: "arrow.down.circle"),
+                    SidebarEntry(displayName: "Applications", path: "/Applications", iconName: "app"),
+                ]
             }
-        } else {
-            let homePath = UserPaths.homeDirectoryPath
-            favorites = [
-                SidebarEntry(displayName: "Home", path: homePath, iconName: "house"),
-                SidebarEntry(displayName: "Desktop", path: homePath + "/Desktop", iconName: "menubar.dock.rectangle"),
-                SidebarEntry(displayName: "Documents", path: homePath + "/Documents", iconName: "doc"),
-                SidebarEntry(displayName: "Downloads", path: homePath + "/Downloads", iconName: "arrow.down.circle"),
-                SidebarEntry(displayName: "Applications", path: "/Applications", iconName: "app"),
-            ]
+            result.append(SidebarSection(kind: .favorites, title: "Favorites", items: favorites))
         }
-        result.append(SidebarSection(kind: .favorites, title: "Favorites", items: favorites))
 
-        if let visitHistoryService {
-            let recentEntries = visitHistoryService.recentEntries(limit: 10)
+        if let visitHistoryService, recentItemsLimit > 0 {
+            let recentEntries = visitHistoryService.recentEntries(limit: recentItemsLimit)
             if !recentEntries.isEmpty {
                 let recentItems = recentEntries.map { entry in
                     SidebarEntry(
@@ -101,6 +105,9 @@ final class SidebarViewModel {
                     shortcutHint: hint
                 )
             }
+            guard !entries.isEmpty else {
+                continue
+            }
             result.append(SidebarSection(kind: .bookmarkGroup(name: group.name), title: group.name, items: entries))
         }
 
@@ -123,9 +130,6 @@ final class SidebarViewModel {
             return
         }
         bookmarksConfig.groups[groupIndex].entries.removeAll { $0.path == entry.path }
-        if bookmarksConfig.groups[groupIndex].entries.isEmpty {
-            bookmarksConfig.groups.remove(at: groupIndex)
-        }
         try? configManager.saveBookmarksConfig(bookmarksConfig)
         reloadSections()
     }

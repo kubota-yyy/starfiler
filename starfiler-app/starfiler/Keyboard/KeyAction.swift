@@ -43,6 +43,11 @@ enum KeyAction: String, Codable, CaseIterable, Sendable {
     case openFile
     case openFileInFinder
     case toggleSidebar
+    case toggleLeftPane
+    case toggleRightPane
+    case toggleSinglePane
+    case toggleMediaMode
+    case toggleMediaRecursive
     case batchRename
     case syncPanes
     case quit

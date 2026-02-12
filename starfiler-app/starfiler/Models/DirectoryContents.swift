@@ -1,6 +1,11 @@
 import Foundation
 
 struct DirectoryContents: Sendable {
+    enum ContentFilter: Hashable, Sendable {
+        case allFiles
+        case mediaOnly
+    }
+
     enum SortDescriptor: Hashable, Sendable {
         enum Column: Hashable, Sendable {
             case name
@@ -53,19 +58,22 @@ struct DirectoryContents: Sendable {
     var sortDescriptor: SortDescriptor
     var filterText: String
     var showHiddenFiles: Bool
+    var contentFilter: ContentFilter
 
     init(
         allItems: [FileItem] = [],
         displayedItems: [FileItem] = [],
         sortDescriptor: SortDescriptor = .name(ascending: true),
         filterText: String = "",
-        showHiddenFiles: Bool = false
+        showHiddenFiles: Bool = false,
+        contentFilter: ContentFilter = .allFiles
     ) {
         self.allItems = allItems
         self.displayedItems = displayedItems
         self.sortDescriptor = sortDescriptor
         self.filterText = filterText
         self.showHiddenFiles = showHiddenFiles
+        self.contentFilter = contentFilter
         recompute()
     }
 
@@ -74,6 +82,13 @@ struct DirectoryContents: Sendable {
 
         if !showHiddenFiles {
             items = items.filter { !$0.isHidden }
+        }
+
+        switch contentFilter {
+        case .allFiles:
+            break
+        case .mediaOnly:
+            items = items.filter { !$0.isDirectory && $0.url.isMediaFile }
         }
 
         let trimmedFilter = filterText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -99,11 +114,13 @@ struct DirectoryContents: Sendable {
     }
 
     private func compare(_ lhs: FileItem, _ rhs: FileItem) -> Bool {
-        let lhsIsBrowsableDirectory = lhs.isDirectory && !lhs.isPackage
-        let rhsIsBrowsableDirectory = rhs.isDirectory && !rhs.isPackage
+        if contentFilter == .allFiles {
+            let lhsIsBrowsableDirectory = lhs.isDirectory && !lhs.isPackage
+            let rhsIsBrowsableDirectory = rhs.isDirectory && !rhs.isPackage
 
-        if lhsIsBrowsableDirectory != rhsIsBrowsableDirectory {
-            return lhsIsBrowsableDirectory && !rhsIsBrowsableDirectory
+            if lhsIsBrowsableDirectory != rhsIsBrowsableDirectory {
+                return lhsIsBrowsableDirectory && !rhsIsBrowsableDirectory
+            }
         }
 
         switch sortDescriptor {

@@ -1,4 +1,6 @@
 import AppKit
+import AVFoundation
+import AVKit
 import ImageIO
 
 final class PreviewPaneViewController: NSViewController {
@@ -12,28 +14,28 @@ final class PreviewPaneViewController: NSViewController {
     private let positionLabel = NSTextField(labelWithString: "0 / 0")
     private let zoomOutButton = NSButton()
     private let zoomInButton = NSButton()
-    private let zoomSlider = NSSlider(value: 1.0, minValue: 0.05, maxValue: 8.0, target: nil, action: nil)
+    private let zoomSlider = NSSlider(value: 1.0, minValue: 0.001, maxValue: 8.0, target: nil, action: nil)
     private let zoomLabel = NSTextField(labelWithString: "100%")
     private let fitButton = NSButton()
     private let actualSizeButton = NSButton()
-    private let recursiveButton = NSButton(checkboxWithTitle: "Recursive", target: nil, action: nil)
 
     private let contentContainerView = NSView()
     private let scrollView = NSScrollView()
+    private let playerView = AVPlayerView()
     private let imageView = NSImageView()
-    private let emptyStateLabel = NSTextField(labelWithString: "Select an image file")
+    private let emptyStateLabel = NSTextField(labelWithString: "Select an image or video file")
 
     private var currentTheme: FilerTheme = .system
     private var backgroundOpacity: CGFloat = 1.0
 
     private var currentState: PreviewViewModel.State = .default
-    private var currentImageURLs: [URL] = []
-    private var currentImageURL: URL?
-    private var recursiveScanTask: Task<Void, Never>?
+    private var currentMediaURLs: [URL] = []
+    private var currentMediaURL: URL?
+    private var isFitModeActive = true
     private var imageLoadTask: Task<Void, Never>?
+    private var currentPlayer: AVPlayer?
     private let imageCache = NSCache<NSURL, NSImage>()
 
-    var onRecursiveModeChanged: ((Bool) -> Void)?
     var onImageSelectionChanged: ((URL?) -> Void)?
     var onNavigateRequested: ((URL) -> Void)?
 
@@ -47,8 +49,8 @@ final class PreviewPaneViewController: NSViewController {
     }
 
     deinit {
-        recursiveScanTask?.cancel()
         imageLoadTask?.cancel()
+        currentPlayer?.pause()
     }
 
     override func loadView() {
@@ -72,6 +74,9 @@ final class PreviewPaneViewController: NSViewController {
     override func viewDidLayout() {
         super.viewDidLayout()
         applyCurrentTheme()
+        if isFitModeActive {
+            fitImageToView()
+        }
     }
 
     private func configureView() {
@@ -122,10 +127,6 @@ final class PreviewPaneViewController: NSViewController {
         zoomLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
         zoomLabel.alignment = .right
 
-        recursiveButton.translatesAutoresizingMaskIntoConstraints = false
-        recursiveButton.target = self
-        recursiveButton.action = #selector(handleRecursiveToggle(_:))
-
         contentContainerView.translatesAutoresizingMaskIntoConstraints = false
         contentContainerView.wantsLayer = true
 
@@ -141,6 +142,10 @@ final class PreviewPaneViewController: NSViewController {
         imageView.imageScaling = .scaleNone
         imageView.frame = NSRect(x: 0, y: 0, width: 1, height: 1)
         scrollView.documentView = imageView
+
+        playerView.translatesAutoresizingMaskIntoConstraints = false
+        playerView.controlsStyle = .floating
+        playerView.isHidden = true
 
         emptyStateLabel.translatesAutoresizingMaskIntoConstraints = false
         emptyStateLabel.alignment = .center
@@ -163,9 +168,9 @@ final class PreviewPaneViewController: NSViewController {
         toolbarView.addSubview(zoomLabel)
         toolbarView.addSubview(fitButton)
         toolbarView.addSubview(actualSizeButton)
-        toolbarView.addSubview(recursiveButton)
 
         contentContainerView.addSubview(scrollView)
+        contentContainerView.addSubview(playerView)
         contentContainerView.addSubview(emptyStateLabel)
 
         NSLayoutConstraint.activate([
@@ -192,6 +197,11 @@ final class PreviewPaneViewController: NSViewController {
             scrollView.trailingAnchor.constraint(equalTo: contentContainerView.trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: contentContainerView.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: contentContainerView.bottomAnchor),
+
+            playerView.leadingAnchor.constraint(equalTo: contentContainerView.leadingAnchor),
+            playerView.trailingAnchor.constraint(equalTo: contentContainerView.trailingAnchor),
+            playerView.topAnchor.constraint(equalTo: contentContainerView.topAnchor),
+            playerView.bottomAnchor.constraint(equalTo: contentContainerView.bottomAnchor),
 
             emptyStateLabel.leadingAnchor.constraint(equalTo: contentContainerView.leadingAnchor, constant: 18),
             emptyStateLabel.trailingAnchor.constraint(equalTo: contentContainerView.trailingAnchor, constant: -18),
@@ -231,10 +241,7 @@ final class PreviewPaneViewController: NSViewController {
 
             actualSizeButton.leadingAnchor.constraint(equalTo: fitButton.trailingAnchor, constant: 6),
             actualSizeButton.centerYAnchor.constraint(equalTo: toolbarView.centerYAnchor),
-
-            recursiveButton.leadingAnchor.constraint(equalTo: actualSizeButton.trailingAnchor, constant: 12),
-            recursiveButton.centerYAnchor.constraint(equalTo: toolbarView.centerYAnchor),
-            recursiveButton.trailingAnchor.constraint(lessThanOrEqualTo: toolbarView.trailingAnchor, constant: -8)
+            actualSizeButton.trailingAnchor.constraint(lessThanOrEqualTo: toolbarView.trailingAnchor, constant: -8)
         ])
     }
 
@@ -254,86 +261,47 @@ final class PreviewPaneViewController: NSViewController {
     }
 
     private func applyState(_ state: PreviewViewModel.State) {
-        let previousState = currentState
         currentState = state
-        recursiveButton.state = state.recursiveEnabled ? .on : .off
         updatePathControl(for: state)
-
-        if state.recursiveEnabled {
-            let shouldRescan =
-                !previousState.recursiveEnabled ||
-                previousState.currentDirectoryURL != state.currentDirectoryURL ||
-                previousState.showHiddenFiles != state.showHiddenFiles
-
-            if shouldRescan {
-                startRecursiveScan(for: state)
-            } else {
-                applyImageURLs(currentImageURLs, selectedFileURL: state.selectedFileURL)
-            }
-        } else {
-            recursiveScanTask?.cancel()
-            applyImageURLs(state.siblingImageURLs, selectedFileURL: state.selectedFileURL)
-        }
+        applyMediaURLs(state.siblingMediaURLs, selectedFileURL: state.selectedFileURL)
     }
 
-    private func startRecursiveScan(for state: PreviewViewModel.State) {
-        recursiveScanTask?.cancel()
+    private func applyMediaURLs(_ urls: [URL], selectedFileURL: URL?) {
+        currentMediaURLs = urls.map(\.standardizedFileURL)
 
-        guard let rootDirectoryURL = state.currentDirectoryURL else {
-            applyImageURLs([], selectedFileURL: state.selectedFileURL)
-            return
-        }
-
-        positionLabel.stringValue = "Scanning..."
-
-        recursiveScanTask = Task { [weak self] in
-            let urls = await Self.collectImageURLsRecursively(
-                from: rootDirectoryURL,
-                includeHiddenFiles: state.showHiddenFiles
-            )
-
-            guard !Task.isCancelled else {
-                return
-            }
-
-            await MainActor.run {
-                self?.applyImageURLs(urls, selectedFileURL: state.selectedFileURL)
-            }
-        }
-    }
-
-    private func applyImageURLs(_ urls: [URL], selectedFileURL: URL?) {
-        currentImageURLs = urls.map(\.standardizedFileURL)
-
-        let selectedImageURL = selectedFileURL?.standardizedFileURL
-        let selectedIsImage = selectedImageURL?.isImageFile ?? false
+        let selectedMediaURL = selectedFileURL?.standardizedFileURL
+        let selectedIsMedia = selectedMediaURL?.isMediaFile ?? false
 
         if
-            let selectedImageURL,
-            selectedIsImage,
-            let index = currentImageURLs.firstIndex(of: selectedImageURL)
+            let selectedMediaURL,
+            selectedIsMedia,
+            let index = currentMediaURLs.firstIndex(of: selectedMediaURL)
         {
-            setCurrentImage(url: currentImageURLs[index], notifySelection: false)
+            setCurrentMedia(url: currentMediaURLs[index], notifySelection: false)
             return
         }
 
-        if selectedFileURL != nil, !selectedIsImage {
-            setCurrentImage(url: nil, notifySelection: false, message: "Image-only mode. Select an image file.")
+        if selectedFileURL != nil, !selectedIsMedia {
+            setCurrentMedia(url: nil, notifySelection: false, message: "Media preview supports images and videos.")
             return
         }
 
-        let fallbackMessage = currentImageURLs.isEmpty ? "No image files found" : "Image-only mode. Select an image file."
-        setCurrentImage(url: nil, notifySelection: false, message: fallbackMessage)
+        let fallbackMessage = currentMediaURLs.isEmpty ? "No media files found" : "Media preview supports images and videos."
+        setCurrentMedia(url: nil, notifySelection: false, message: fallbackMessage)
     }
 
-    private func setCurrentImage(url: URL?, notifySelection: Bool, message: String = "No image files found") {
-        currentImageURL = url?.standardizedFileURL
+    private func setCurrentMedia(url: URL?, notifySelection: Bool, message: String = "No media files found") {
+        currentMediaURL = url?.standardizedFileURL
         updateNavigationState()
 
-        guard let url = currentImageURL else {
+        guard let url = currentMediaURL else {
             imageLoadTask?.cancel()
             imageView.image = nil
             scrollView.isHidden = true
+            currentPlayer?.pause()
+            currentPlayer = nil
+            playerView.player = nil
+            playerView.isHidden = true
             emptyStateLabel.stringValue = message
             emptyStateLabel.isHidden = false
             if notifySelection {
@@ -342,15 +310,23 @@ final class PreviewPaneViewController: NSViewController {
             return
         }
 
-        loadAndDisplayImage(from: url)
+        if url.isImageFile {
+            loadAndDisplayImage(from: url)
+        } else if url.isVideoFile {
+            displayVideo(from: url)
+        } else {
+            setCurrentMedia(url: nil, notifySelection: notifySelection, message: "Unsupported media format")
+            return
+        }
+
         if notifySelection {
             onImageSelectionChanged?(url)
         }
     }
 
     private func updateNavigationState() {
-        let count = currentImageURLs.count
-        let currentIndex = currentImageURL.flatMap { currentImageURLs.firstIndex(of: $0) }
+        let count = currentMediaURLs.count
+        let currentIndex = currentMediaURL.flatMap { currentMediaURLs.firstIndex(of: $0) }
 
         if let currentIndex {
             positionLabel.stringValue = "\(currentIndex + 1) / \(count)"
@@ -360,7 +336,8 @@ final class PreviewPaneViewController: NSViewController {
 
         previousButton.isEnabled = (currentIndex ?? 0) > 0
         nextButton.isEnabled = count > 0 && ((currentIndex ?? -1) < count - 1)
-        let hasImage = currentImageURL != nil
+
+        let hasImage = currentMediaURL?.isImageFile ?? false
         zoomOutButton.isEnabled = hasImage
         zoomInButton.isEnabled = hasImage
         zoomSlider.isEnabled = hasImage
@@ -369,6 +346,11 @@ final class PreviewPaneViewController: NSViewController {
     }
 
     private func loadAndDisplayImage(from url: URL) {
+        currentPlayer?.pause()
+        currentPlayer = nil
+        playerView.player = nil
+        playerView.isHidden = true
+
         imageLoadTask?.cancel()
 
         if let cached = imageCache.object(forKey: url as NSURL) {
@@ -383,7 +365,7 @@ final class PreviewPaneViewController: NSViewController {
             }
 
             await MainActor.run {
-                guard let self, self.currentImageURL == url else {
+                guard let self, self.currentMediaURL == url else {
                     return
                 }
 
@@ -407,7 +389,22 @@ final class PreviewPaneViewController: NSViewController {
         scrollView.documentView = imageView
         scrollView.isHidden = false
         emptyStateLabel.isHidden = true
-        fitImageToView()
+        playerView.isHidden = true
+        applyDefaultFitForLoadedImage()
+    }
+
+    private func displayVideo(from url: URL) {
+        imageLoadTask?.cancel()
+        imageView.image = nil
+        scrollView.isHidden = true
+
+        let player = AVPlayer(url: url)
+        currentPlayer?.pause()
+        currentPlayer = player
+        playerView.player = player
+        playerView.isHidden = false
+        emptyStateLabel.isHidden = true
+        isFitModeActive = false
     }
 
     private func applyCurrentTheme() {
@@ -424,10 +421,19 @@ final class PreviewPaneViewController: NSViewController {
     }
 
     private func setZoomScale(_ scale: CGFloat) {
+        guard imageView.image != nil, !scrollView.isHidden else {
+            return
+        }
+
         let clamped = min(max(scale, CGFloat(zoomSlider.minValue)), CGFloat(zoomSlider.maxValue))
         scrollView.setMagnification(clamped, centeredAt: NSPoint(x: imageView.bounds.midX, y: imageView.bounds.midY))
         zoomSlider.doubleValue = Double(clamped)
-        zoomLabel.stringValue = "\(Int((clamped * 100).rounded()))%"
+        let percentValue = clamped * 100
+        if percentValue < 10 {
+            zoomLabel.stringValue = String(format: "%.1f%%", percentValue)
+        } else {
+            zoomLabel.stringValue = "\(Int(percentValue.rounded()))%"
+        }
     }
 
     private func fitImageToView() {
@@ -446,55 +452,73 @@ final class PreviewPaneViewController: NSViewController {
         setZoomScale(fitScale)
     }
 
+    private func applyDefaultFitForLoadedImage() {
+        isFitModeActive = true
+        fitImageToView()
+
+        // When selection changes rapidly, layout can settle a tick later.
+        // Re-apply fit once to ensure the new image starts in fit mode.
+        DispatchQueue.main.async { [weak self] in
+            guard
+                let self,
+                self.isFitModeActive,
+                self.imageView.image != nil,
+                !self.scrollView.isHidden
+            else {
+                return
+            }
+            self.fitImageToView()
+        }
+    }
+
     @objc
     private func handlePreviousImage() {
-        guard let currentImageURL, let currentIndex = currentImageURLs.firstIndex(of: currentImageURL), currentIndex > 0 else {
+        guard let currentMediaURL, let currentIndex = currentMediaURLs.firstIndex(of: currentMediaURL), currentIndex > 0 else {
             return
         }
-        setCurrentImage(url: currentImageURLs[currentIndex - 1], notifySelection: true)
+        setCurrentMedia(url: currentMediaURLs[currentIndex - 1], notifySelection: true)
     }
 
     @objc
     private func handleNextImage() {
-        guard let currentImageURL, let currentIndex = currentImageURLs.firstIndex(of: currentImageURL) else {
+        guard let currentMediaURL, let currentIndex = currentMediaURLs.firstIndex(of: currentMediaURL) else {
             return
         }
         let nextIndex = currentIndex + 1
-        guard currentImageURLs.indices.contains(nextIndex) else {
+        guard currentMediaURLs.indices.contains(nextIndex) else {
             return
         }
-        setCurrentImage(url: currentImageURLs[nextIndex], notifySelection: true)
+        setCurrentMedia(url: currentMediaURLs[nextIndex], notifySelection: true)
     }
 
     @objc
     private func handleZoomOut() {
+        isFitModeActive = false
         setZoomScale(scrollView.magnification * 0.85)
     }
 
     @objc
     private func handleZoomIn() {
+        isFitModeActive = false
         setZoomScale(scrollView.magnification * 1.15)
     }
 
     @objc
     private func handleZoomSliderChanged(_ sender: NSSlider) {
+        isFitModeActive = false
         setZoomScale(CGFloat(sender.doubleValue))
     }
 
     @objc
     private func handleFitImage() {
+        isFitModeActive = true
         fitImageToView()
     }
 
     @objc
     private func handleActualSize() {
+        isFitModeActive = false
         setZoomScale(1.0)
-    }
-
-    @objc
-    private func handleRecursiveToggle(_ sender: NSButton) {
-        let enabled = sender.state == .on
-        onRecursiveModeChanged?(enabled)
     }
 
     @objc
@@ -533,42 +557,6 @@ final class PreviewPaneViewController: NSViewController {
             }
             let size = NSSize(width: cgImage.width, height: cgImage.height)
             return NSImage(cgImage: cgImage, size: size)
-        }.value
-    }
-
-    private static func collectImageURLsRecursively(from rootDirectoryURL: URL, includeHiddenFiles: Bool) async -> [URL] {
-        await Task.detached(priority: .userInitiated) {
-            let resourceKeys: Set<URLResourceKey> = [.isDirectoryKey, .isPackageKey, .isHiddenKey]
-            let options: FileManager.DirectoryEnumerationOptions = includeHiddenFiles ? [.skipsPackageDescendants] : [.skipsHiddenFiles, .skipsPackageDescendants]
-
-            guard let enumerator = FileManager.default.enumerator(
-                at: rootDirectoryURL,
-                includingPropertiesForKeys: Array(resourceKeys),
-                options: options
-            ) else {
-                return []
-            }
-
-            var urls: [URL] = []
-            for case let url as URL in enumerator {
-                if Task.isCancelled {
-                    return []
-                }
-
-                let values = try? url.resourceValues(forKeys: resourceKeys)
-                let isDirectory = values?.isDirectory ?? false
-                if isDirectory {
-                    continue
-                }
-
-                if url.isImageFile {
-                    urls.append(url.standardizedFileURL)
-                }
-            }
-
-            return urls.sorted {
-                $0.path.localizedStandardCompare($1.path) == .orderedAscending
-            }
         }.value
     }
 }

@@ -65,13 +65,11 @@ struct BookmarkJumpInterpreter: Sendable {
             let key = event.key
 
             for (index, group) in bookmarksConfig.groups.enumerated() where !group.isDefault {
+                guard !keyedEntryCandidates(in: group).isEmpty else {
+                    continue
+                }
                 if normalizeShortcut(group.shortcutKey) == key {
                     let entryCandidates = keyedEntryCandidates(in: group)
-                    guard !entryCandidates.isEmpty else {
-                        reset()
-                        return .unhandled
-                    }
-
                     state = .awaitingProjectEntry(groupIndex: index)
                     return .pending(
                         hint: BookmarkJumpHint(
@@ -144,6 +142,9 @@ struct BookmarkJumpInterpreter: Sendable {
     private func keyedProjectCandidates() -> [BookmarkJumpHintCandidate] {
         bookmarksConfig.groups.compactMap { group in
             guard !group.isDefault, let key = normalizeShortcut(group.shortcutKey) else {
+                return nil
+            }
+            guard !keyedEntryCandidates(in: group).isEmpty else {
                 return nil
             }
             return BookmarkJumpHintCandidate(key: key, label: group.name)

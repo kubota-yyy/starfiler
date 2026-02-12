@@ -34,6 +34,8 @@ final class FilePaneViewModel {
     var onCursorChanged: ((Int) -> Void)?
     var onMarkedIndicesChanged: ((IndexSet) -> Void)?
     var onDirectoryChanged: ((URL) -> Void)?
+    var onDisplayModeChanged: ((PaneDisplayMode) -> Void)?
+    var onMediaRecursiveChanged: ((Bool) -> Void)?
 
     private let fileSystemService: FileSystemProviding
     private let securityScopedBookmarkService: any SecurityScopedBookmarkProviding
@@ -43,6 +45,8 @@ final class FilePaneViewModel {
     private nonisolated(unsafe) var spotlightSearchTask: Task<Void, Never>?
     private var isSpotlightSearchActive = false
     private(set) var spotlightSearchScope: SpotlightSearchScope
+    private(set) var displayMode: PaneDisplayMode
+    private(set) var mediaRecursiveEnabled: Bool
     private var pendingRevealURL: URL?
 
     init(
@@ -51,6 +55,8 @@ final class FilePaneViewModel {
         directoryMonitor: any DirectoryMonitoring = DirectoryMonitor(),
         spotlightSearchService: (any SpotlightSearching)? = nil,
         initialSpotlightSearchScope: SpotlightSearchScope = .currentDirectory,
+        initialDisplayMode: PaneDisplayMode = .browser,
+        initialMediaRecursiveEnabled: Bool = false,
         initialDirectory: URL = UserPaths.homeDirectoryURL
     ) {
         self.fileSystemService = fileSystemService
@@ -58,9 +64,11 @@ final class FilePaneViewModel {
         self.directoryMonitor = directoryMonitor
         self.spotlightSearchService = spotlightSearchService ?? SpotlightSearchService()
         self.spotlightSearchScope = initialSpotlightSearchScope
+        self.displayMode = initialDisplayMode
+        self.mediaRecursiveEnabled = initialMediaRecursiveEnabled
         let normalizedDirectory = initialDirectory.standardizedFileURL
         self.paneState = PaneState(currentDirectory: normalizedDirectory)
-        self.directoryContents = DirectoryContents()
+        self.directoryContents = DirectoryContents(contentFilter: initialDisplayMode == .media ? .mediaOnly : .allFiles)
         loadDirectory(at: normalizedDirectory, previousDirectory: nil)
     }
 
@@ -92,6 +100,10 @@ final class FilePaneViewModel {
 
     var markedCount: Int {
         paneState.markedIndices.count
+    }
+
+    var isMediaModeEnabled: Bool {
+        displayMode == .media
     }
 
     func markedOrSelectedURLs() -> [URL] {
@@ -191,6 +203,43 @@ final class FilePaneViewModel {
         }
 
         spotlightSearchScope = scope
+    }
+
+    func setDisplayMode(_ mode: PaneDisplayMode) {
+        guard displayMode != mode else {
+            return
+        }
+
+        displayMode = mode
+        onDisplayModeChanged?(mode)
+
+        var updatedContents = directoryContents
+        updatedContents.contentFilter = mode == .media ? .mediaOnly : .allFiles
+        updatedContents.recompute()
+        directoryContents = updatedContents
+        refreshCurrentDirectory(preservingSelectionByURL: false)
+    }
+
+    func toggleDisplayMode() {
+        setDisplayMode(displayMode == .browser ? .media : .browser)
+    }
+
+    func setMediaRecursiveEnabled(_ enabled: Bool) {
+        guard mediaRecursiveEnabled != enabled else {
+            return
+        }
+
+        mediaRecursiveEnabled = enabled
+        onMediaRecursiveChanged?(enabled)
+
+        guard displayMode == .media else {
+            return
+        }
+        refreshCurrentDirectory(preservingSelectionByURL: false)
+    }
+
+    func toggleMediaRecursive() {
+        setMediaRecursiveEnabled(!mediaRecursiveEnabled)
     }
 
     func updateSpotlightSearchQuery(_ query: String) {
@@ -361,8 +410,20 @@ final class FilePaneViewModel {
     }
 
     func setShowHiddenFiles(_ enabled: Bool) {
+        guard directoryContents.showHiddenFiles != enabled else {
+            return
+        }
+
         var updatedContents = directoryContents
         updatedContents.showHiddenFiles = enabled
+
+        // Recursive media scan must be reloaded to include/exclude hidden descendants.
+        if displayMode == .media {
+            directoryContents = updatedContents
+            refreshCurrentDirectory(preservingSelectionByURL: false)
+            return
+        }
+
         updatedContents.recompute()
         directoryContents = updatedContents
         clampCursorIndex()
@@ -476,13 +537,14 @@ final class FilePaneViewModel {
             }
 
             do {
-                let items = try await self.fileSystemService.contentsOfDirectory(at: currentDirectory)
+                let items = try await self.loadItemsForCurrentMode(at: currentDirectory)
                 guard !Task.isCancelled else {
                     return
                 }
 
                 var updatedContents = self.directoryContents
                 updatedContents.allItems = items
+                updatedContents.contentFilter = self.displayMode == .media ? .mediaOnly : .allFiles
                 updatedContents.recompute()
                 self.directoryContents = updatedContents
 
@@ -529,7 +591,7 @@ final class FilePaneViewModel {
                 try await self.securityScopedBookmarkService.startAccessing(directory)
                 didAcquireDestinationScope = true
 
-                let items = try await self.fileSystemService.contentsOfDirectory(at: directory)
+                let items = try await self.loadItemsForCurrentMode(at: directory)
                 guard !Task.isCancelled else {
                     if didAcquireDestinationScope {
                         await self.securityScopedBookmarkService.stopAccessing(directory)
@@ -547,6 +609,7 @@ final class FilePaneViewModel {
 
                 var updatedContents = self.directoryContents
                 updatedContents.allItems = items
+                updatedContents.contentFilter = self.displayMode == .media ? .mediaOnly : .allFiles
                 updatedContents.recompute()
                 self.directoryContents = updatedContents
 
@@ -567,6 +630,19 @@ final class FilePaneViewModel {
                     self.startMonitoringCurrentDirectory(previousDirectory)
                 }
             }
+        }
+    }
+
+    private func loadItemsForCurrentMode(at directory: URL) async throws -> [FileItem] {
+        switch displayMode {
+        case .browser:
+            return try await fileSystemService.contentsOfDirectory(at: directory)
+        case .media:
+            return try await fileSystemService.mediaItems(
+                in: directory,
+                recursive: mediaRecursiveEnabled,
+                includeHiddenFiles: directoryContents.showHiddenFiles
+            )
         }
     }
 

@@ -91,4 +91,32 @@ extension URL {
         ]
         return commonImageExtensions.contains(lowercasedExtension)
     }
+
+    var isVideoFile: Bool {
+        if hasDirectoryPath {
+            return false
+        }
+
+        if let type = (try? resourceValues(forKeys: [.contentTypeKey]))?.contentType {
+            return type.conforms(to: .movie) || type.conforms(to: .video)
+        }
+
+        let lowercasedExtension = pathExtension.lowercased()
+        guard !lowercasedExtension.isEmpty else {
+            return false
+        }
+
+        if let type = UTType(filenameExtension: lowercasedExtension) {
+            return type.conforms(to: .movie) || type.conforms(to: .video)
+        }
+
+        let commonVideoExtensions: Set<String> = [
+            "mp4", "mov", "m4v", "avi", "mkv", "webm", "wmv", "mpg", "mpeg", "3gp", "ts", "m2ts"
+        ]
+        return commonVideoExtensions.contains(lowercasedExtension)
+    }
+
+    var isMediaFile: Bool {
+        isImageFile || isVideoFile
+    }
 }

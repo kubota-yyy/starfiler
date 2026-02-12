@@ -7,16 +7,12 @@ final class PreviewViewModel {
     struct State: Sendable {
         var selectedFileURL: URL?
         var currentDirectoryURL: URL?
-        var siblingImageURLs: [URL]
-        var showHiddenFiles: Bool
-        var recursiveEnabled: Bool
+        var siblingMediaURLs: [URL]
 
         static let `default` = State(
             selectedFileURL: nil,
             currentDirectoryURL: nil,
-            siblingImageURLs: [],
-            showHiddenFiles: false,
-            recursiveEnabled: false
+            siblingMediaURLs: []
         )
     }
 
@@ -27,7 +23,6 @@ final class PreviewViewModel {
     }
 
     var onStateChanged: ((State) -> Void)?
-    var onRecursiveEnabledChanged: ((Bool) -> Void)?
 
     init(state: State = .default) {
         self.state = state
@@ -36,8 +31,7 @@ final class PreviewViewModel {
     func updateContext(
         selectedItem: FileItem?,
         currentDirectoryURL: URL,
-        displayedItems: [FileItem],
-        showHiddenFiles: Bool
+        displayedItems: [FileItem]
     ) {
         let selectedFileURL: URL?
         if let selectedItem, selectedItem.isDirectory, !selectedItem.isPackage {
@@ -46,19 +40,17 @@ final class PreviewViewModel {
             selectedFileURL = selectedItem?.url
         }
 
-        let siblingImageURLs = displayedItems.compactMap { item -> URL? in
+        let siblingMediaURLs = displayedItems.compactMap { item -> URL? in
             if item.isDirectory && !item.isPackage {
                 return nil
             }
-            return item.url.isImageFile ? item.url : nil
+            return item.url.isMediaFile ? item.url : nil
         }
 
         state = State(
             selectedFileURL: selectedFileURL,
             currentDirectoryURL: currentDirectoryURL,
-            siblingImageURLs: siblingImageURLs,
-            showHiddenFiles: showHiddenFiles,
-            recursiveEnabled: state.recursiveEnabled
+            siblingMediaURLs: siblingMediaURLs
         )
     }
 
@@ -66,15 +58,5 @@ final class PreviewViewModel {
         var updated = state
         updated.selectedFileURL = url
         state = updated
-    }
-
-    func setRecursiveEnabled(_ enabled: Bool) {
-        guard state.recursiveEnabled != enabled else {
-            return
-        }
-        var updated = state
-        updated.recursiveEnabled = enabled
-        state = updated
-        onRecursiveEnabledChanged?(enabled)
     }
 }

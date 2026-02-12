@@ -49,7 +49,10 @@ final class MainViewModel {
         initialPreviewVisible: Bool = false,
         initialSidebarVisible: Bool = true,
         initialSpotlightSearchScope: SpotlightSearchScope = .currentDirectory,
-        initialImagePreviewRecursiveEnabled: Bool = false,
+        initialLeftPaneDisplayMode: PaneDisplayMode = .browser,
+        initialRightPaneDisplayMode: PaneDisplayMode = .browser,
+        initialLeftPaneMediaRecursiveEnabled: Bool = false,
+        initialRightPaneMediaRecursiveEnabled: Bool = false,
         initialLeftDirectory: URL = UserPaths.homeDirectoryURL,
         initialRightDirectory: URL? = nil
     ) {
@@ -64,6 +67,8 @@ final class MainViewModel {
             fileSystemService: fileSystemService,
             securityScopedBookmarkService: securityScopedBookmarkService,
             initialSpotlightSearchScope: initialSpotlightSearchScope,
+            initialDisplayMode: initialLeftPaneDisplayMode,
+            initialMediaRecursiveEnabled: initialLeftPaneMediaRecursiveEnabled,
             initialDirectory: normalizedLeftDirectory
         )
 
@@ -71,6 +76,8 @@ final class MainViewModel {
             fileSystemService: fileSystemService,
             securityScopedBookmarkService: securityScopedBookmarkService,
             initialSpotlightSearchScope: initialSpotlightSearchScope,
+            initialDisplayMode: initialRightPaneDisplayMode,
+            initialMediaRecursiveEnabled: initialRightPaneMediaRecursiveEnabled,
             initialDirectory: normalizedRightDirectory
         )
 
@@ -91,7 +98,6 @@ final class MainViewModel {
         let sortDescriptor = Self.sortDescriptor(for: initialSortColumn, ascending: initialSortAscending)
         leftPane.setSortDescriptor(sortDescriptor)
         rightPane.setSortDescriptor(sortDescriptor)
-        previewPane.setRecursiveEnabled(initialImagePreviewRecursiveEnabled)
         refreshPreviewForActivePane()
     }
 
@@ -131,8 +137,7 @@ final class MainViewModel {
         previewPane.updateContext(
             selectedItem: pane.selectedItem,
             currentDirectoryURL: pane.paneState.currentDirectory,
-            displayedItems: pane.directoryContents.displayedItems,
-            showHiddenFiles: pane.directoryContents.showHiddenFiles
+            displayedItems: pane.directoryContents.displayedItems
         )
     }
 

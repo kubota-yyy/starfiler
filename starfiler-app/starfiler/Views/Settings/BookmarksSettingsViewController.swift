@@ -5,6 +5,7 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
 
     private struct BookmarkRow {
         let groupName: String
+        let isDefaultGroup: Bool
         let displayName: String
         let path: String
         let shortcutKey: String?
@@ -13,51 +14,34 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
 
     private struct EditorResult {
         let groupName: String
-        let groupShortcutKey: String?
         let displayName: String
         let path: String
         let shortcutKey: String?
     }
 
-    private final class GroupSelectionHandler: NSObject {
-        private let existingGroups: [BookmarkGroup]
-        private let newGroupField: NSTextField
-        private let groupShortcutField: NSTextField
-
-        init(existingGroups: [BookmarkGroup], newGroupField: NSTextField, groupShortcutField: NSTextField) {
-            self.existingGroups = existingGroups
-            self.newGroupField = newGroupField
-            self.groupShortcutField = groupShortcutField
-            super.init()
-        }
-
-        @objc
-        func selectionChanged(_ sender: NSPopUpButton) {
-            let selectedIndex = sender.indexOfSelectedItem
-            let isNewGroup = selectedIndex < 0 || selectedIndex >= existingGroups.count
-
-            newGroupField.isEnabled = isNewGroup
-            if isNewGroup {
-                return
-            }
-
-            let group = existingGroups[selectedIndex]
-            newGroupField.stringValue = ""
-            groupShortcutField.stringValue = group.shortcutKey ?? ""
-        }
+    private struct GroupEditorResult {
+        let name: String
+        let shortcutKey: String?
     }
 
     private let configManager: ConfigManager
 
     private let descriptionLabel = NSTextField(
-        wrappingLabelWithString: "Manage bookmark groups, paths, and bookmark jump shortcut keys."
+        wrappingLabelWithString:
+            "Configure group shortcut keys and folder shortcut keys separately. " +
+            "Set group keys with the group actions, then assign each folder to a group."
     )
+    private let groupActionsStack = NSStackView()
+    private let addGroupButton = NSButton(title: "Add Group", target: nil, action: nil)
+    private let editGroupButton = NSButton(title: "Edit Group", target: nil, action: nil)
+    private let deleteGroupButton = NSButton(title: "Delete Group", target: nil, action: nil)
+
     private let scrollView = NSScrollView()
     private let tableView = NSTableView()
 
-    private let addButton = NSButton(title: "Add", target: nil, action: nil)
-    private let editButton = NSButton(title: "Edit", target: nil, action: nil)
-    private let deleteButton = NSButton(title: "Delete", target: nil, action: nil)
+    private let addButton = NSButton(title: "Add Folder", target: nil, action: nil)
+    private let editButton = NSButton(title: "Edit Folder", target: nil, action: nil)
+    private let deleteButton = NSButton(title: "Delete Folder", target: nil, action: nil)
     private let reloadButton = NSButton(title: "Reload", target: nil, action: nil)
     private let openConfigButton = NSButton(title: "Open Config File", target: nil, action: nil)
 
@@ -88,8 +72,32 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         descriptionLabel.translatesAutoresizingMaskIntoConstraints = false
         descriptionLabel.font = .systemFont(ofSize: 12)
         descriptionLabel.textColor = .secondaryLabelColor
-        descriptionLabel.maximumNumberOfLines = 2
+        descriptionLabel.maximumNumberOfLines = 3
         descriptionLabel.lineBreakMode = .byWordWrapping
+
+        groupActionsStack.translatesAutoresizingMaskIntoConstraints = false
+        groupActionsStack.orientation = .horizontal
+        groupActionsStack.spacing = 8
+        groupActionsStack.alignment = .centerY
+
+        addGroupButton.translatesAutoresizingMaskIntoConstraints = false
+        addGroupButton.bezelStyle = .rounded
+        addGroupButton.target = self
+        addGroupButton.action = #selector(addGroup(_:))
+
+        editGroupButton.translatesAutoresizingMaskIntoConstraints = false
+        editGroupButton.bezelStyle = .rounded
+        editGroupButton.target = self
+        editGroupButton.action = #selector(editGroup(_:))
+
+        deleteGroupButton.translatesAutoresizingMaskIntoConstraints = false
+        deleteGroupButton.bezelStyle = .rounded
+        deleteGroupButton.target = self
+        deleteGroupButton.action = #selector(deleteGroup(_:))
+
+        groupActionsStack.addArrangedSubview(addGroupButton)
+        groupActionsStack.addArrangedSubview(editGroupButton)
+        groupActionsStack.addArrangedSubview(deleteGroupButton)
 
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.delegate = self
@@ -102,8 +110,8 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
 
         let groupColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("group"))
         groupColumn.title = "Group"
-        groupColumn.width = 120
-        groupColumn.minWidth = 90
+        groupColumn.width = 140
+        groupColumn.minWidth = 100
 
         let nameColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("name"))
         nameColumn.title = "Display Name"
@@ -117,7 +125,7 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
 
         let shortcutColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("shortcut"))
         shortcutColumn.title = "Shortcut"
-        shortcutColumn.width = 110
+        shortcutColumn.width = 120
         shortcutColumn.minWidth = 90
 
         tableView.addTableColumn(groupColumn)
@@ -157,6 +165,7 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
 
     private func configureLayout() {
         view.addSubview(descriptionLabel)
+        view.addSubview(groupActionsStack)
         view.addSubview(scrollView)
         view.addSubview(addButton)
         view.addSubview(editButton)
@@ -169,7 +178,11 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
             descriptionLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             descriptionLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
 
-            scrollView.topAnchor.constraint(equalTo: descriptionLabel.bottomAnchor, constant: 8),
+            groupActionsStack.topAnchor.constraint(equalTo: descriptionLabel.bottomAnchor, constant: 8),
+            groupActionsStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            groupActionsStack.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -12),
+
+            scrollView.topAnchor.constraint(equalTo: groupActionsStack.bottomAnchor, constant: 8),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
             scrollView.bottomAnchor.constraint(equalTo: addButton.topAnchor, constant: -8),
@@ -205,6 +218,7 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
                 result.append(
                     BookmarkRow(
                         groupName: group.name,
+                        isDefaultGroup: group.isDefault,
                         displayName: entry.displayName,
                         path: entry.path,
                         shortcutKey: entry.shortcutKey,
@@ -220,6 +234,11 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         let hasSelection = selectedRow != nil
         editButton.isEnabled = hasSelection
         deleteButton.isEnabled = hasSelection
+        addButton.isEnabled = !bookmarksConfig.groups.isEmpty
+
+        let hasGroups = !bookmarksConfig.groups.isEmpty
+        editGroupButton.isEnabled = hasGroups
+        deleteGroupButton.isEnabled = bookmarksConfig.groups.contains { !$0.isDefault }
     }
 
     private var selectedRow: BookmarkRow? {
@@ -231,8 +250,100 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
     }
 
     @objc
+    private func addGroup(_ sender: Any?) {
+        guard let result = presentGroupEditor(initialGroup: nil) else {
+            return
+        }
+
+        var groups = bookmarksConfig.groups
+        guard !hasGroup(named: result.name, in: groups) else {
+            presentWarning(
+                title: "Duplicate Group Name",
+                informativeText: "A group named \"\(result.name)\" already exists."
+            )
+            return
+        }
+
+        groups.append(
+            BookmarkGroup(
+                name: result.name,
+                entries: [],
+                shortcutKey: result.shortcutKey,
+                isDefault: false
+            )
+        )
+        persist(BookmarksConfig(groups: normalizeGroups(groups)))
+    }
+
+    @objc
+    private func editGroup(_ sender: Any?) {
+        guard let groupIndex = selectGroupIndex(
+            title: "Edit Group",
+            informativeText: "Choose a group to edit.",
+            allowDefault: true,
+            preferredGroupName: selectedRow?.groupName
+        ) else {
+            return
+        }
+
+        var groups = bookmarksConfig.groups
+        let existingGroup = groups[groupIndex]
+
+        guard let result = presentGroupEditor(initialGroup: existingGroup) else {
+            return
+        }
+
+        guard !hasGroup(named: result.name, in: groups, excludingIndex: groupIndex) else {
+            presentWarning(
+                title: "Duplicate Group Name",
+                informativeText: "A group named \"\(result.name)\" already exists."
+            )
+            return
+        }
+
+        groups[groupIndex].name = result.name
+        groups[groupIndex].shortcutKey = result.shortcutKey
+        persist(BookmarksConfig(groups: normalizeGroups(groups)))
+    }
+
+    @objc
+    private func deleteGroup(_ sender: Any?) {
+        guard let groupIndex = selectGroupIndex(
+            title: "Delete Group",
+            informativeText: "Choose a group to delete.",
+            allowDefault: false,
+            preferredGroupName: selectedRow?.groupName
+        ) else {
+            return
+        }
+
+        let group = bookmarksConfig.groups[groupIndex]
+        guard group.entries.isEmpty else {
+            presentWarning(
+                title: "Group Contains Folders",
+                informativeText: "Move or delete all folders in \"\(group.name)\" before deleting the group."
+            )
+            return
+        }
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Delete Group"
+        alert.informativeText = "Delete group \"\(group.name)\"?"
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            return
+        }
+
+        var groups = bookmarksConfig.groups
+        groups.remove(at: groupIndex)
+        persist(BookmarksConfig(groups: normalizeGroups(groups)))
+    }
+
+    @objc
     private func addBookmark(_ sender: Any?) {
-        guard let result = presentEditor(initialRow: nil) else {
+        guard let result = presentFolderEditor(initialRow: nil) else {
             return
         }
         upsertBookmark(with: result, replacing: nil)
@@ -243,7 +354,7 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         guard let selectedRow else {
             return
         }
-        guard let result = presentEditor(initialRow: selectedRow) else {
+        guard let result = presentFolderEditor(initialRow: selectedRow) else {
             return
         }
         upsertBookmark(with: result, replacing: selectedRow)
@@ -257,7 +368,7 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
 
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "Delete Bookmark"
+        alert.messageText = "Delete Folder Bookmark"
         alert.informativeText = "Delete \"\(selectedRow.displayName)\" from group \"\(selectedRow.groupName)\"?"
         alert.addButton(withTitle: "Delete")
         alert.addButton(withTitle: "Cancel")
@@ -272,10 +383,6 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
 
         groups[groupIndex].entries.removeAll { entry in
             entry.path == selectedRow.path && entry.displayName == selectedRow.displayName
-        }
-
-        if groups[groupIndex].entries.isEmpty, !groups[groupIndex].isDefault {
-            groups.remove(at: groupIndex)
         }
 
         persist(BookmarksConfig(groups: normalizeGroups(groups)))
@@ -297,75 +404,168 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         NSWorkspace.shared.open(url)
     }
 
-    private func presentEditor(initialRow: BookmarkRow?) -> EditorResult? {
+    private func selectGroupIndex(
+        title: String,
+        informativeText: String,
+        allowDefault: Bool,
+        preferredGroupName: String?
+    ) -> Int? {
+        let candidates = bookmarksConfig.groups.enumerated().compactMap { index, group -> (Int, BookmarkGroup)? in
+            guard allowDefault || !group.isDefault else {
+                return nil
+            }
+            return (index, group)
+        }
+
+        guard !candidates.isEmpty else {
+            presentWarning(
+                title: "No Groups",
+                informativeText: allowDefault
+                    ? "There are no groups available."
+                    : "Only the default group exists. It cannot be deleted."
+            )
+            return nil
+        }
+
         let alert = NSAlert()
         alert.alertStyle = .informational
-        alert.messageText = initialRow == nil ? "Add Bookmark" : "Edit Bookmark"
+        alert.messageText = title
+        alert.informativeText = informativeText
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+
+        let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 320, height: 24), pullsDown: false)
+        popup.addItems(withTitles: candidates.map { $0.1.name })
+        if let preferredGroupName,
+           let preferredIndex = candidates.firstIndex(where: { $0.1.name == preferredGroupName }) {
+            popup.selectItem(at: preferredIndex)
+        } else {
+            popup.selectItem(at: 0)
+        }
+        alert.accessoryView = popup
+
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            return nil
+        }
+
+        let selected = popup.indexOfSelectedItem
+        guard selected >= 0, candidates.indices.contains(selected) else {
+            return nil
+        }
+        return candidates[selected].0
+    }
+
+    private func presentGroupEditor(initialGroup: BookmarkGroup?) -> GroupEditorResult? {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = initialGroup == nil ? "Add Group" : "Edit Group"
         alert.addButton(withTitle: "Save")
         alert.addButton(withTitle: "Cancel")
 
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 112))
+
+        let nameLabel = NSTextField(labelWithString: "Group Name")
+        nameLabel.frame = NSRect(x: 0, y: 84, width: 240, height: 20)
+        nameLabel.font = .systemFont(ofSize: 11)
+        nameLabel.textColor = .secondaryLabelColor
+
+        let nameField = NSTextField(frame: NSRect(x: 0, y: 60, width: 260, height: 24))
+        nameField.placeholderString = "Group name"
+
+        let shortcutLabel = NSTextField(labelWithString: "Group Shortcut (1 char, optional)")
+        shortcutLabel.frame = NSRect(x: 0, y: 32, width: 240, height: 20)
+        shortcutLabel.font = .systemFont(ofSize: 11)
+        shortcutLabel.textColor = .secondaryLabelColor
+
+        let shortcutField = NSTextField(frame: NSRect(x: 0, y: 8, width: 70, height: 24))
+        shortcutField.alignment = .center
+        shortcutField.placeholderString = "Key"
+
+        if let initialGroup {
+            nameField.stringValue = initialGroup.name
+            shortcutField.stringValue = initialGroup.shortcutKey ?? ""
+        }
+
+        container.addSubview(nameLabel)
+        container.addSubview(nameField)
+        container.addSubview(shortcutLabel)
+        container.addSubview(shortcutField)
+        alert.accessoryView = container
+
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            return nil
+        }
+
+        let name = nameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else {
+            presentWarning(
+                title: "Missing Required Field",
+                informativeText: "Group name is required."
+            )
+            return nil
+        }
+
+        return GroupEditorResult(
+            name: name,
+            shortcutKey: normalizedShortcutKey(shortcutField.stringValue)
+        )
+    }
+
+    private func presentFolderEditor(initialRow: BookmarkRow?) -> EditorResult? {
         let existingGroups = bookmarksConfig.groups
+        guard !existingGroups.isEmpty else {
+            presentWarning(
+                title: "No Groups",
+                informativeText: "Add a group before adding folder bookmarks."
+            )
+            return nil
+        }
+
         let groupNames = existingGroups.map(\.name)
 
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 230))
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = initialRow == nil ? "Add Folder Bookmark" : "Edit Folder Bookmark"
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 186))
 
         let groupLabel = NSTextField(labelWithString: "Group")
-        groupLabel.frame = NSRect(x: 0, y: 204, width: 210, height: 20)
+        groupLabel.frame = NSRect(x: 0, y: 160, width: 220, height: 20)
         groupLabel.font = .systemFont(ofSize: 11)
         groupLabel.textColor = .secondaryLabelColor
 
-        let groupPopup = NSPopUpButton(frame: NSRect(x: 0, y: 180, width: 260, height: 24), pullsDown: false)
+        let groupPopup = NSPopUpButton(frame: NSRect(x: 0, y: 136, width: 260, height: 24), pullsDown: false)
         groupPopup.addItems(withTitles: groupNames)
-        groupPopup.addItem(withTitle: "New Group")
-
-        let groupShortcutLabel = NSTextField(labelWithString: "Group Shortcut (1 char, optional)")
-        groupShortcutLabel.frame = NSRect(x: 270, y: 204, width: 190, height: 20)
-        groupShortcutLabel.font = .systemFont(ofSize: 11)
-        groupShortcutLabel.textColor = .secondaryLabelColor
-
-        let groupShortcutField = NSTextField(frame: NSRect(x: 350, y: 180, width: 70, height: 24))
-        groupShortcutField.alignment = .center
-        groupShortcutField.placeholderString = "Key"
-
-        let newGroupLabel = NSTextField(labelWithString: "New Group Name (when New Group is selected)")
-        newGroupLabel.frame = NSRect(x: 0, y: 152, width: 300, height: 20)
-        newGroupLabel.font = .systemFont(ofSize: 11)
-        newGroupLabel.textColor = .secondaryLabelColor
-
-        let newGroupField = NSTextField(frame: NSRect(x: 0, y: 128, width: 300, height: 24))
-        newGroupField.placeholderString = "Group name"
 
         let displayNameLabel = NSTextField(labelWithString: "Display Name")
-        displayNameLabel.frame = NSRect(x: 0, y: 100, width: 200, height: 20)
+        displayNameLabel.frame = NSRect(x: 0, y: 108, width: 200, height: 20)
         displayNameLabel.font = .systemFont(ofSize: 11)
         displayNameLabel.textColor = .secondaryLabelColor
 
-        let displayNameField = NSTextField(frame: NSRect(x: 0, y: 76, width: 210, height: 24))
+        let displayNameField = NSTextField(frame: NSRect(x: 0, y: 84, width: 210, height: 24))
         displayNameField.placeholderString = "Bookmark name"
 
-        let entryShortcutLabel = NSTextField(labelWithString: "Entry Shortcut (1 char, optional)")
-        entryShortcutLabel.frame = NSRect(x: 220, y: 100, width: 240, height: 20)
+        let entryShortcutLabel = NSTextField(labelWithString: "Folder Shortcut (1 char, optional)")
+        entryShortcutLabel.frame = NSRect(x: 220, y: 108, width: 240, height: 20)
         entryShortcutLabel.font = .systemFont(ofSize: 11)
         entryShortcutLabel.textColor = .secondaryLabelColor
 
-        let entryShortcutField = NSTextField(frame: NSRect(x: 220, y: 76, width: 70, height: 24))
+        let entryShortcutField = NSTextField(frame: NSRect(x: 220, y: 84, width: 70, height: 24))
         entryShortcutField.alignment = .center
         entryShortcutField.placeholderString = "Key"
 
         let pathLabel = NSTextField(labelWithString: "Path")
-        pathLabel.frame = NSRect(x: 0, y: 48, width: 210, height: 20)
+        pathLabel.frame = NSRect(x: 0, y: 56, width: 210, height: 20)
         pathLabel.font = .systemFont(ofSize: 11)
         pathLabel.textColor = .secondaryLabelColor
 
-        let pathField = NSTextField(frame: NSRect(x: 0, y: 24, width: 460, height: 24))
+        let pathField = NSTextField(frame: NSRect(x: 0, y: 32, width: 460, height: 24))
         pathField.placeholderString = "/path/to/directory"
 
         container.addSubview(groupLabel)
         container.addSubview(groupPopup)
-        container.addSubview(groupShortcutLabel)
-        container.addSubview(groupShortcutField)
-        container.addSubview(newGroupLabel)
-        container.addSubview(newGroupField)
         container.addSubview(displayNameLabel)
         container.addSubview(displayNameField)
         container.addSubview(entryShortcutLabel)
@@ -378,56 +578,36 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
             if let selectedIndex = groupNames.firstIndex(of: initialRow.groupName) {
                 groupPopup.selectItem(at: selectedIndex)
             }
-            groupShortcutField.stringValue = initialRow.groupShortcutKey ?? ""
             displayNameField.stringValue = initialRow.displayName
             pathField.stringValue = initialRow.path
             entryShortcutField.stringValue = initialRow.shortcutKey ?? ""
-        } else if let firstGroup = existingGroups.first {
-            groupPopup.selectItem(at: 0)
-            groupShortcutField.stringValue = firstGroup.shortcutKey ?? ""
         } else {
             groupPopup.selectItem(at: 0)
-            newGroupField.isEnabled = true
         }
-
-        let selectionHandler = GroupSelectionHandler(
-            existingGroups: existingGroups,
-            newGroupField: newGroupField,
-            groupShortcutField: groupShortcutField
-        )
-        groupPopup.target = selectionHandler
-        groupPopup.action = #selector(GroupSelectionHandler.selectionChanged(_:))
-        selectionHandler.selectionChanged(groupPopup)
 
         guard alert.runModal() == .alertFirstButtonReturn else {
             return nil
         }
 
         let selectedGroupIndex = groupPopup.indexOfSelectedItem
-        let isNewGroup = selectedGroupIndex < 0 || selectedGroupIndex >= groupNames.count
-        let groupName: String
-        if isNewGroup {
-            groupName = newGroupField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        } else {
-            groupName = groupNames[selectedGroupIndex].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard selectedGroupIndex >= 0, groupNames.indices.contains(selectedGroupIndex) else {
+            return nil
         }
 
+        let groupName = groupNames[selectedGroupIndex].trimmingCharacters(in: .whitespacesAndNewlines)
         let displayName = displayNameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         let path = pathField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !groupName.isEmpty, !displayName.isEmpty, !path.isEmpty else {
-            let invalidAlert = NSAlert()
-            invalidAlert.alertStyle = .warning
-            invalidAlert.messageText = "Missing Required Fields"
-            invalidAlert.informativeText = "Group, display name, and path are required."
-            invalidAlert.addButton(withTitle: "OK")
-            invalidAlert.runModal()
+            presentWarning(
+                title: "Missing Required Fields",
+                informativeText: "Group, display name, and path are required."
+            )
             return nil
         }
 
         return EditorResult(
             groupName: groupName,
-            groupShortcutKey: normalizedShortcutKey(groupShortcutField.stringValue),
             displayName: displayName,
             path: path,
             shortcutKey: normalizedShortcutKey(entryShortcutField.stringValue)
@@ -445,13 +625,10 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
     private func upsertBookmark(with result: EditorResult, replacing existingRow: BookmarkRow?) {
         var groups = bookmarksConfig.groups
 
-        if let existingRow, let existingGroupIndex = groups.firstIndex(where: { $0.name == existingRow.groupName }) {
+        if let existingRow,
+           let existingGroupIndex = groups.firstIndex(where: { $0.name == existingRow.groupName }) {
             groups[existingGroupIndex].entries.removeAll { entry in
                 entry.path == existingRow.path && entry.displayName == existingRow.displayName
-            }
-
-            if groups[existingGroupIndex].entries.isEmpty, !groups[existingGroupIndex].isDefault {
-                groups.remove(at: existingGroupIndex)
             }
         }
 
@@ -462,8 +639,6 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         )
 
         if let targetGroupIndex = groups.firstIndex(where: { $0.name == result.groupName }) {
-            groups[targetGroupIndex].shortcutKey = result.groupShortcutKey
-
             if let existingEntryIndex = groups[targetGroupIndex].entries.firstIndex(where: { $0.path == result.path }) {
                 groups[targetGroupIndex].entries[existingEntryIndex] = newEntry
             } else {
@@ -474,7 +649,7 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
                 BookmarkGroup(
                     name: result.groupName,
                     entries: [newEntry],
-                    shortcutKey: result.groupShortcutKey,
+                    shortcutKey: nil,
                     isDefault: false
                 )
             )
@@ -484,15 +659,13 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
     }
 
     private func normalizeGroups(_ groups: [BookmarkGroup]) -> [BookmarkGroup] {
-        var normalized = groups
-            .map { group in
-                var updated = group
-                updated.entries.sort { lhs, rhs in
-                    lhs.displayName.localizedStandardCompare(rhs.displayName) == .orderedAscending
-                }
-                return updated
+        var normalized = groups.map { group in
+            var updated = group
+            updated.entries.sort { lhs, rhs in
+                lhs.displayName.localizedStandardCompare(rhs.displayName) == .orderedAscending
             }
-            .filter { $0.isDefault || !$0.entries.isEmpty }
+            return updated
+        }
 
         normalized.sort { lhs, rhs in
             if lhs.isDefault != rhs.isDefault {
@@ -502,6 +675,24 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         }
 
         return normalized
+    }
+
+    private func hasGroup(named name: String, in groups: [BookmarkGroup], excludingIndex: Int? = nil) -> Bool {
+        groups.enumerated().contains { index, group in
+            guard index != excludingIndex else {
+                return false
+            }
+            return group.name.caseInsensitiveCompare(name) == .orderedSame
+        }
+    }
+
+    private func presentWarning(title: String, informativeText: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = title
+        alert.informativeText = informativeText
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     private func persist(_ config: BookmarksConfig) {
@@ -576,11 +767,15 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
     }
 
     private func shortcutDescription(for row: BookmarkRow) -> String {
+        if row.isDefaultGroup {
+            if let entry = row.shortcutKey {
+                return "'\(entry)"
+            }
+            return "-"
+        }
+
         if let group = row.groupShortcutKey, let entry = row.shortcutKey {
             return "'\(group) \(entry)"
-        }
-        if let entry = row.shortcutKey {
-            return "'\(entry)"
         }
         return "-"
     }

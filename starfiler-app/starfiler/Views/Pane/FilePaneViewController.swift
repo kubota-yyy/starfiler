@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import ImageIO
 
 private final class AppearanceTrackingView: NSView {
@@ -151,7 +152,145 @@ private final class BookmarkJumpOverlayView: NSView {
     }
 }
 
-final class FilePaneViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate, KeyActionDelegate, NSTextFieldDelegate, NSSearchFieldDelegate {
+protocol MediaKeyActionDelegate: AnyObject {
+    func mediaCollectionView(_ collectionView: MediaCollectionView, didTrigger action: KeyAction) -> Bool
+}
+
+final class MediaCollectionView: NSCollectionView {
+    weak var keyActionDelegate: MediaKeyActionDelegate?
+    var didBecomeFirstResponderHandler: (() -> Void)?
+    private var keyInterpreter = KeyInterpreter()
+
+    override func keyDown(with event: NSEvent) {
+        if event.modifierFlags.contains(.command) {
+            keyInterpreter.clearPendingSequence()
+            super.keyDown(with: event)
+            return
+        }
+
+        guard let keyEvent = event.keyEvent else {
+            super.keyDown(with: event)
+            return
+        }
+
+        switch keyInterpreter.interpret(keyEvent) {
+        case .action(let action):
+            if keyActionDelegate?.mediaCollectionView(self, didTrigger: action) == true {
+                return
+            }
+        case .pending:
+            return
+        case .unhandled:
+            break
+        }
+
+        super.keyDown(with: event)
+    }
+
+    override func becomeFirstResponder() -> Bool {
+        let didBecome = super.becomeFirstResponder()
+        if didBecome {
+            didBecomeFirstResponderHandler?()
+        }
+        return didBecome
+    }
+
+    func setVimMode(_ mode: VimMode) {
+        keyInterpreter.setMode(mode)
+    }
+
+    func reloadKeybindings() {
+        keyInterpreter = KeyInterpreter(
+            mode: keyInterpreter.mode,
+            timeout: keyInterpreter.timeout
+        )
+    }
+}
+
+private final class MediaCollectionItem: NSCollectionViewItem {
+    static let identifier = NSUserInterfaceItemIdentifier("mediaCollectionItem")
+
+    private let titleLabel = NSTextField(labelWithString: "")
+    private let markBadge = NSTextField(labelWithString: "●")
+
+    override func loadView() {
+        view = NSView()
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        let imageView = NSImageView()
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.imageScaling = .scaleProportionallyUpOrDown
+        imageView.wantsLayer = true
+        imageView.layer?.cornerRadius = 6
+        imageView.layer?.masksToBounds = true
+        self.imageView = imageView
+
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.alignment = .center
+        titleLabel.font = .systemFont(ofSize: 11, weight: .regular)
+        titleLabel.lineBreakMode = .byTruncatingMiddle
+        titleLabel.maximumNumberOfLines = 2
+
+        markBadge.translatesAutoresizingMaskIntoConstraints = false
+        markBadge.font = .systemFont(ofSize: 12, weight: .bold)
+        markBadge.textColor = .systemOrange
+        markBadge.isHidden = true
+
+        view.wantsLayer = true
+        view.layer?.cornerRadius = 8
+        view.layer?.borderWidth = 1
+        view.layer?.masksToBounds = true
+
+        view.addSubview(imageView)
+        view.addSubview(titleLabel)
+        view.addSubview(markBadge)
+
+        NSLayoutConstraint.activate([
+            imageView.topAnchor.constraint(equalTo: view.topAnchor, constant: 8),
+            imageView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
+            imageView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
+            imageView.heightAnchor.constraint(equalTo: imageView.widthAnchor, multiplier: 0.75),
+
+            titleLabel.topAnchor.constraint(equalTo: imageView.bottomAnchor, constant: 6),
+            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 6),
+            titleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -6),
+            titleLabel.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor, constant: -8),
+
+            markBadge.topAnchor.constraint(equalTo: view.topAnchor, constant: 4),
+            markBadge.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -6)
+        ])
+    }
+
+    override var isSelected: Bool {
+        didSet {
+            applySelectionAppearance()
+        }
+    }
+
+    func configure(name: String, thumbnail: NSImage?, isMarked: Bool, palette: FilerThemePalette) {
+        titleLabel.stringValue = name
+        titleLabel.textColor = palette.primaryTextColor
+        imageView?.image = thumbnail
+        markBadge.isHidden = !isMarked
+        applySelectionAppearance(palette: palette)
+    }
+
+    private func applySelectionAppearance(palette: FilerThemePalette? = nil) {
+        let palette = palette ?? FilerTheme.system.palette
+        if isSelected {
+            view.layer?.borderColor = palette.activeBorderColor.cgColor
+            view.layer?.backgroundColor = palette.accentColor.withAlphaComponent(0.18).cgColor
+        } else {
+            view.layer?.borderColor = palette.inactiveBorderColor.cgColor
+            view.layer?.backgroundColor = palette.tableBackgroundColor.withAlphaComponent(0.35).cgColor
+        }
+    }
+}
+
+final class FilePaneViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSCollectionViewDataSource, NSCollectionViewDelegate, NSCollectionViewDelegateFlowLayout, NSMenuDelegate, KeyActionDelegate, MediaKeyActionDelegate, NSTextFieldDelegate, NSSearchFieldDelegate {
     private enum SearchMode: Int {
         case filter = 0
         case spotlight = 1
@@ -203,10 +342,14 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private let headerView = NSView()
     private let pathControl = NSPathControl()
     private let searchControlsStackView = NSStackView()
+    private let displayModeControl = NSSegmentedControl(labels: ["Files", "Media"], trackingMode: .selectOne, target: nil, action: nil)
+    private let mediaRecursiveButton = NSButton(checkboxWithTitle: "Recursive", target: nil, action: nil)
     private let searchField = NSSearchField()
     private let scrollView = NSScrollView()
     private let bookmarkJumpOverlayView = BookmarkJumpOverlayView()
     private let tableView = FileTableView()
+    private let mediaCollectionLayout = NSCollectionViewFlowLayout()
+    private let mediaCollectionView = MediaCollectionView()
     private let fileDragSource = FileDragSource()
 
     private lazy var fileDropTarget = FileDropTarget { [weak self] in
@@ -225,6 +368,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private var currentSearchMode: SearchMode = .filter
     private var searchMenuModeItems: [SearchMode: NSMenuItem] = [:]
     private var searchMenuScopeItems: [SpotlightSearchScope: NSMenuItem] = [:]
+    private var currentDisplayMode: PaneDisplayMode = .browser
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
     var onSelectionChanged: ((FileItem?) -> Void)?
@@ -237,6 +381,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     init(viewModel: FilePaneViewModel) {
         self.viewModel = viewModel
+        self.currentDisplayMode = viewModel.displayMode
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -256,6 +401,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         super.viewDidLoad()
         configureContainerAppearance()
         configureTableView()
+        configureCollectionView()
         configureLayout()
         configureSearchControls()
         configureDragAndDrop()
@@ -270,7 +416,11 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     func focusTable() {
-        view.window?.makeFirstResponder(tableView)
+        if currentDisplayMode == .media {
+            view.window?.makeFirstResponder(mediaCollectionView)
+        } else {
+            view.window?.makeFirstResponder(tableView)
+        }
     }
 
     func setActive(_ active: Bool) {
@@ -295,6 +445,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     func reloadKeybindings() {
         keybindingManager = KeybindingManager()
         tableView.reloadKeybindings()
+        mediaCollectionView.reloadKeybindings()
     }
 
     func setSpotlightSearchScope(_ scope: SpotlightSearchScope) {
@@ -324,6 +475,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         filerTheme = theme
         self.backgroundOpacity = backgroundOpacity
         tableView.reloadData()
+        mediaCollectionView.reloadData()
         updateActiveAppearance()
     }
 
@@ -340,6 +492,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         thumbnailTasks.removeAll()
         tableView.rowHeight = max(24, clampedSize + 8)
         tableView.reloadData()
+        mediaCollectionLayout.invalidateLayout()
+        mediaCollectionView.reloadData()
     }
 
     func numberOfRows(in tableView: NSTableView) -> Int {
@@ -407,7 +561,57 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         viewModel.setSortDescriptor(.init(column: targetSortColumn, ascending: nextAscending))
     }
 
+    func numberOfSections(in collectionView: NSCollectionView) -> Int {
+        1
+    }
+
+    func collectionView(_ collectionView: NSCollectionView, numberOfItemsInSection section: Int) -> Int {
+        viewModel.directoryContents.displayedItems.count
+    }
+
+    func collectionView(_ collectionView: NSCollectionView, itemForRepresentedObjectAt indexPath: IndexPath) -> NSCollectionViewItem {
+        let item = collectionView.makeItem(withIdentifier: MediaCollectionItem.identifier, for: indexPath)
+        guard
+            let mediaItem = item as? MediaCollectionItem,
+            viewModel.directoryContents.displayedItems.indices.contains(indexPath.item)
+        else {
+            return item
+        }
+
+        let fileItem = viewModel.directoryContents.displayedItems[indexPath.item]
+        let isMarked = viewModel.paneState.markedIndices.contains(indexPath.item)
+        mediaItem.configure(
+            name: fileItem.name,
+            thumbnail: icon(for: fileItem, row: indexPath.item),
+            isMarked: isMarked,
+            palette: filerTheme.palette
+        )
+        return mediaItem
+    }
+
+    func collectionView(_ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>) {
+        guard let indexPath = indexPaths.first else {
+            return
+        }
+        viewModel.setCursor(index: indexPath.item)
+    }
+
+    func collectionView(_ collectionView: NSCollectionView, layout collectionViewLayout: NSCollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> NSSize {
+        let insets = mediaCollectionLayout.sectionInset
+        let interitemSpacing = mediaCollectionLayout.minimumInteritemSpacing
+        let availableWidth = max(120, collectionView.bounds.width - insets.left - insets.right)
+        let minWidth: CGFloat = 160
+        let columns = max(Int((availableWidth + interitemSpacing) / (minWidth + interitemSpacing)), 1)
+        let totalSpacing = CGFloat(max(columns - 1, 0)) * interitemSpacing
+        let width = floor((availableWidth - totalSpacing) / CGFloat(columns))
+        return NSSize(width: width, height: width * 0.78 + 34)
+    }
+
     func fileTableView(_ tableView: FileTableView, didTrigger action: KeyAction) -> Bool {
+        handleKeyAction(action)
+    }
+
+    func mediaCollectionView(_ collectionView: MediaCollectionView, didTrigger action: KeyAction) -> Bool {
         handleKeyAction(action)
     }
 
@@ -432,6 +636,19 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         searchControlsStackView.spacing = 6
         searchControlsStackView.setContentHuggingPriority(.required, for: .horizontal)
         searchControlsStackView.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        displayModeControl.translatesAutoresizingMaskIntoConstraints = false
+        displayModeControl.segmentStyle = .rounded
+        displayModeControl.selectedSegment = 0
+        displayModeControl.target = self
+        displayModeControl.action = #selector(handleDisplayModeChanged(_:))
+        displayModeControl.setContentHuggingPriority(.required, for: .horizontal)
+
+        mediaRecursiveButton.translatesAutoresizingMaskIntoConstraints = false
+        mediaRecursiveButton.target = self
+        mediaRecursiveButton.action = #selector(handleMediaRecursiveToggle(_:))
+        mediaRecursiveButton.isHidden = true
+        mediaRecursiveButton.setContentHuggingPriority(.required, for: .horizontal)
 
         searchField.translatesAutoresizingMaskIntoConstraints = false
         searchField.controlSize = .small
@@ -492,6 +709,30 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
     }
 
+    private func configureCollectionView() {
+        mediaCollectionLayout.minimumInteritemSpacing = 10
+        mediaCollectionLayout.minimumLineSpacing = 10
+        mediaCollectionLayout.sectionInset = NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
+
+        mediaCollectionView.translatesAutoresizingMaskIntoConstraints = false
+        mediaCollectionView.collectionViewLayout = mediaCollectionLayout
+        mediaCollectionView.delegate = self
+        mediaCollectionView.dataSource = self
+        mediaCollectionView.isSelectable = true
+        mediaCollectionView.allowsMultipleSelection = false
+        mediaCollectionView.backgroundColors = [filerTheme.palette.tableBackgroundColor]
+        mediaCollectionView.register(MediaCollectionItem.self, forItemWithIdentifier: MediaCollectionItem.identifier)
+        mediaCollectionView.keyActionDelegate = self
+        mediaCollectionView.setVimMode(vimModeState.mode)
+        mediaCollectionView.didBecomeFirstResponderHandler = { [weak self] in
+            self?.onDidRequestActivate?()
+        }
+
+        let doubleClickGesture = NSClickGestureRecognizer(target: self, action: #selector(handleMediaDoubleClick(_:)))
+        doubleClickGesture.numberOfClicksRequired = 2
+        mediaCollectionView.addGestureRecognizer(doubleClickGesture)
+    }
+
     private func configureLayout() {
         view.addSubview(headerView)
         view.addSubview(scrollView)
@@ -499,6 +740,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         headerView.addSubview(pathControl)
         headerView.addSubview(searchControlsStackView)
+        searchControlsStackView.addArrangedSubview(displayModeControl)
+        searchControlsStackView.addArrangedSubview(mediaRecursiveButton)
         searchControlsStackView.addArrangedSubview(searchField)
 
         NSLayoutConstraint.activate([
@@ -532,12 +775,35 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private func configureSearchControls() {
         updateSearchModeUI()
         updateSearchMenuSelectionStates()
+        updateDisplayModeControls()
+    }
+
+    private func applyDisplayMode(_ mode: PaneDisplayMode) {
+        currentDisplayMode = mode
+        updateDisplayModeControls()
+
+        if mode == .media {
+            scrollView.documentView = mediaCollectionView
+            mediaCollectionView.reloadData()
+        } else {
+            scrollView.documentView = tableView
+        }
+
+        syncSelectionFromViewModel()
+        focusTable()
+    }
+
+    private func updateDisplayModeControls() {
+        displayModeControl.selectedSegment = currentDisplayMode == .media ? 1 : 0
+        mediaRecursiveButton.state = viewModel.mediaRecursiveEnabled ? .on : .off
+        mediaRecursiveButton.isHidden = currentDisplayMode != .media
     }
 
     private func configureContextMenu() {
         let menu = NSMenu()
         menu.delegate = self
         tableView.menu = menu
+        mediaCollectionView.menu = menu
     }
 
     private func configureDragAndDrop() {
@@ -579,6 +845,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             self.thumbnailCache.removeAllObjects()
 
             self.tableView.reloadData()
+            self.mediaCollectionView.reloadData()
             self.updateColumnHeaderTitles()
             self.syncSelectionFromViewModel()
             self.publishStatus()
@@ -596,13 +863,25 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             }
 
             self.tableView.reloadData()
+            self.mediaCollectionView.reloadData()
             self.syncSelectionFromViewModel()
             self.publishStatus()
+        }
+
+        viewModel.onDisplayModeChanged = { [weak self] mode in
+            self?.applyDisplayMode(mode)
+            self?.publishStatus()
+            self?.publishSelection()
+        }
+
+        viewModel.onMediaRecursiveChanged = { [weak self] _ in
+            self?.updateDisplayModeControls()
         }
 
         publishStatus()
         publishSelection()
         updateColumnHeaderTitles()
+        applyDisplayMode(viewModel.displayMode)
     }
 
     private func syncSelectionFromViewModel() {
@@ -611,12 +890,19 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         guard rowCount > 0 else {
             tableView.deselectAll(nil)
+            mediaCollectionView.deselectAll(nil)
             return
         }
 
         let clampedRow = min(max(row, 0), rowCount - 1)
-        tableView.selectRowIndexes(IndexSet(integer: clampedRow), byExtendingSelection: false)
-        tableView.scrollRowToVisible(clampedRow)
+        if currentDisplayMode == .media {
+            let indexPath = IndexPath(item: clampedRow, section: 0)
+            mediaCollectionView.selectionIndexPaths = [indexPath]
+            mediaCollectionView.scrollToItems(at: [indexPath], scrollPosition: .centeredVertically)
+        } else {
+            tableView.selectRowIndexes(IndexSet(integer: clampedRow), byExtendingSelection: false)
+            tableView.scrollRowToVisible(clampedRow)
+        }
     }
 
     private func publishStatus() {
@@ -647,6 +933,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         searchField.textColor = palette.primaryTextColor
         searchField.backgroundColor = palette.filterBarBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
         tableView.backgroundColor = palette.tableBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
+        mediaCollectionView.backgroundColors = [palette.tableBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)]
         scrollView.backgroundColor = palette.tableBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
         scrollView.alphaValue = isPaneActive ? palette.activePaneAlpha : palette.inactivePaneAlpha
         bookmarkJumpOverlayView.applyPalette(palette, backgroundOpacity: backgroundOpacity)
@@ -664,6 +951,28 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         viewModel.navigate(to: targetURL)
+    }
+
+    @objc
+    private func handleDisplayModeChanged(_ sender: NSSegmentedControl) {
+        let mode: PaneDisplayMode = sender.selectedSegment == 1 ? .media : .browser
+        viewModel.setDisplayMode(mode)
+    }
+
+    @objc
+    private func handleMediaRecursiveToggle(_ sender: NSButton) {
+        viewModel.setMediaRecursiveEnabled(sender.state == .on)
+    }
+
+    @objc
+    private func handleMediaDoubleClick(_ recognizer: NSClickGestureRecognizer) {
+        let point = recognizer.location(in: mediaCollectionView)
+        guard let indexPath = mediaCollectionView.indexPathForItem(at: point) else {
+            return
+        }
+
+        viewModel.setCursor(index: indexPath.item)
+        openSelectedFile()
     }
 
     private func makeNameCell(for item: FileItem, row: Int) -> NSTableCellView {
@@ -712,7 +1021,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private func icon(for item: FileItem, row: Int) -> NSImage {
-        if !item.isDirectory && item.url.isImageFile {
+        if !item.isDirectory && item.url.isMediaFile {
             let thumbnailKey = thumbnailCacheKey(for: item)
 
             if let thumbnail = thumbnailCache.object(forKey: thumbnailKey) {
@@ -785,29 +1094,49 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
                 let rowIndexes = IndexSet(integer: row)
                 let columnIndexes = IndexSet(integersIn: 0 ..< self.tableView.numberOfColumns)
                 self.tableView.reloadData(forRowIndexes: rowIndexes, columnIndexes: columnIndexes)
+                self.mediaCollectionView.reloadItems(at: [IndexPath(item: row, section: 0)])
             }
         }
     }
 
     private static func generateThumbnail(for url: URL, maxPixelSize: Int) async -> NSImage? {
         await Task.detached(priority: .utility) {
-            guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
-                return nil
+            if url.isImageFile {
+                guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+                    return nil
+                }
+
+                let options: [CFString: Any] = [
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceShouldCacheImmediately: false,
+                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
+                ]
+
+                guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+                    return nil
+                }
+
+                let size = NSSize(width: cgImage.width, height: cgImage.height)
+                return NSImage(cgImage: cgImage, size: size)
             }
 
-            let options: [CFString: Any] = [
-                kCGImageSourceCreateThumbnailFromImageAlways: true,
-                kCGImageSourceShouldCacheImmediately: false,
-                kCGImageSourceCreateThumbnailWithTransform: true,
-                kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
-            ]
+            if url.isVideoFile {
+                let asset = AVURLAsset(url: url)
+                let generator = AVAssetImageGenerator(asset: asset)
+                generator.appliesPreferredTrackTransform = true
+                generator.maximumSize = CGSize(width: maxPixelSize, height: maxPixelSize)
 
-            guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
-                return nil
+                let time = CMTime(seconds: 0.5, preferredTimescale: 600)
+                guard let cgImage = try? generator.copyCGImage(at: time, actualTime: nil) else {
+                    return nil
+                }
+
+                let size = NSSize(width: cgImage.width, height: cgImage.height)
+                return NSImage(cgImage: cgImage, size: size)
             }
 
-            let size = NSSize(width: cgImage.width, height: cgImage.height)
-            return NSImage(cgImage: cgImage, size: size)
+            return nil
         }.value
     }
 
@@ -841,6 +1170,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         vimModeState.enterFilterMode()
         tableView.setVimMode(vimModeState.mode)
+        mediaCollectionView.setVimMode(vimModeState.mode)
 
         view.window?.makeFirstResponder(searchField)
         if let editor = searchField.currentEditor() {
@@ -857,6 +1187,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         vimModeState.enterNormalMode()
         tableView.setVimMode(vimModeState.mode)
+        mediaCollectionView.setVimMode(vimModeState.mode)
         focusTable()
     }
 
@@ -951,12 +1282,14 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             if vimModeState.mode != .visual {
                 vimModeState.enterVisualMode(anchorIndex: viewModel.paneState.cursorIndex)
                 tableView.setVimMode(vimModeState.mode)
+                mediaCollectionView.setVimMode(vimModeState.mode)
                 viewModel.enterVisualMode()
             }
             handled = true
         case .exitVisualMode:
             vimModeState.exitVisualMode()
             tableView.setVimMode(vimModeState.mode)
+            mediaCollectionView.setVimMode(vimModeState.mode)
             viewModel.exitVisualMode()
             handled = true
         case .openFile:
@@ -965,7 +1298,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         case .openFileInFinder:
             revealSelectedInFinder()
             handled = true
-        case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo, .togglePreview, .toggleSidebar, .openBookmarkSearch, .openHistory, .addBookmark, .batchRename, .syncPanes:
+        case .toggleMediaMode:
+            viewModel.toggleDisplayMode()
+            handled = true
+        case .toggleMediaRecursive:
+            viewModel.toggleMediaRecursive()
+            handled = true
+        case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo, .togglePreview, .toggleSidebar, .toggleLeftPane, .toggleRightPane, .toggleSinglePane, .openBookmarkSearch, .openHistory, .addBookmark, .batchRename, .syncPanes:
             handled = onFileOperationRequested?(action) ?? false
         case .enterFilterMode:
             focusSearch(mode: .filter)
@@ -1048,6 +1387,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         vimModeState.enterFilterMode()
         tableView.setVimMode(vimModeState.mode)
+        mediaCollectionView.setVimMode(vimModeState.mode)
     }
 
     func controlTextDidChange(_ obj: Notification) {
@@ -1079,6 +1419,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
             vimModeState.enterNormalMode()
             tableView.setVimMode(vimModeState.mode)
+            mediaCollectionView.setVimMode(vimModeState.mode)
             focusTable()
             return true
         }
@@ -1150,7 +1491,16 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
 
-        let clickedRow = tableView.clickedRow
+        let clickedRow: Int
+        if currentDisplayMode == .media {
+            if let selectedIndex = mediaCollectionView.selectionIndexPaths.first?.item {
+                clickedRow = selectedIndex
+            } else {
+                clickedRow = -1
+            }
+        } else {
+            clickedRow = tableView.clickedRow
+        }
         let hasClickedItem = viewModel.directoryContents.displayedItems.indices.contains(clickedRow)
         let clickedItem = hasClickedItem ? viewModel.directoryContents.displayedItems[clickedRow] : nil
         let contextItem = clickedItem ?? viewModel.selectedItem
@@ -1263,11 +1613,15 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         menu.addItem(makeContextMenuItem(title: "Refresh", action: .refresh))
         menu.addItem(makeContextMenuItem(title: "Toggle Hidden Files", action: .toggleHiddenFiles))
         menu.addItem(makeSortMenuItem())
+        menu.addItem(makeContextMenuItem(title: "Toggle Media Mode", action: .toggleMediaMode))
+        menu.addItem(makeContextMenuItem(title: "Toggle Media Recursive", action: .toggleMediaRecursive))
 
         menu.addItem(NSMenuItem.separator())
 
         menu.addItem(makeContextMenuItem(title: "Toggle Sidebar", action: .toggleSidebar))
         menu.addItem(makeContextMenuItem(title: "Toggle Preview", action: .togglePreview))
+        menu.addItem(makeContextMenuItem(title: "Toggle Left Pane", action: .toggleLeftPane))
+        menu.addItem(makeContextMenuItem(title: "Toggle Right Pane", action: .toggleRightPane))
         menu.addItem(makeContextMenuItem(title: "Switch Pane", action: .switchPane))
     }
 
@@ -1385,7 +1739,16 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             return true
         }
 
-        let clickedRow = tableView.clickedRow
+        let clickedRow: Int
+        if currentDisplayMode == .media {
+            if let selectedIndex = mediaCollectionView.selectionIndexPaths.first?.item {
+                clickedRow = selectedIndex
+            } else {
+                clickedRow = -1
+            }
+        } else {
+            clickedRow = tableView.clickedRow
+        }
         if viewModel.directoryContents.displayedItems.indices.contains(clickedRow) {
             viewModel.setCursor(index: clickedRow)
             return true
