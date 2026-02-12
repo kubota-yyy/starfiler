@@ -3,14 +3,18 @@ import AppKit
 final class AdvancedSettingsViewController: NSViewController {
     private let configManager: ConfigManager
 
+    var onConfigDirectoryChanged: (() -> Void)?
+
     private let titleLabel = NSTextField(labelWithString: "Advanced")
     private let descriptionLabel = NSTextField(
-        wrappingLabelWithString: "Utilities for inspecting internal app configuration paths."
+        wrappingLabelWithString: "Configure the folder where all settings data (bookmarks, keybindings, etc.) is stored."
     )
-    private let favoritesPathTitleLabel = NSTextField(labelWithString: "Favorites File")
-    private let favoritesPathLabel = NSTextField(labelWithString: "")
-    private let copyFavoritesPathButton = NSButton(title: "Copy Favorites File Path", target: nil, action: nil)
-    private let copyStatusLabel = NSTextField(labelWithString: "")
+    private let dataFolderTitleLabel = NSTextField(labelWithString: "Data Folder")
+    private let dataFolderPathLabel = NSTextField(labelWithString: "")
+    private let changeButton = NSButton(title: "Change...", target: nil, action: nil)
+    private let resetButton = NSButton(title: "Reset to Default", target: nil, action: nil)
+    private let copyPathButton = NSButton(title: "Copy Path", target: nil, action: nil)
+    private let statusLabel = NSTextField(labelWithString: "")
 
     init(configManager: ConfigManager = ConfigManager()) {
         self.configManager = configManager
@@ -29,7 +33,7 @@ final class AdvancedSettingsViewController: NSViewController {
         super.viewDidLoad()
         configureUI()
         configureLayout()
-        updateFavoritesPath()
+        updateDataFolderPath()
     }
 
     private func configureUI() {
@@ -42,31 +46,46 @@ final class AdvancedSettingsViewController: NSViewController {
         descriptionLabel.maximumNumberOfLines = 2
         descriptionLabel.lineBreakMode = .byWordWrapping
 
-        favoritesPathTitleLabel.translatesAutoresizingMaskIntoConstraints = false
-        favoritesPathTitleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+        dataFolderTitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        dataFolderTitleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
 
-        favoritesPathLabel.translatesAutoresizingMaskIntoConstraints = false
-        favoritesPathLabel.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
-        favoritesPathLabel.lineBreakMode = .byTruncatingMiddle
-        favoritesPathLabel.isSelectable = true
+        dataFolderPathLabel.translatesAutoresizingMaskIntoConstraints = false
+        dataFolderPathLabel.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+        dataFolderPathLabel.lineBreakMode = .byTruncatingMiddle
+        dataFolderPathLabel.isSelectable = true
 
-        copyFavoritesPathButton.translatesAutoresizingMaskIntoConstraints = false
-        copyFavoritesPathButton.bezelStyle = .rounded
-        copyFavoritesPathButton.target = self
-        copyFavoritesPathButton.action = #selector(copyFavoritesPath(_:))
+        changeButton.translatesAutoresizingMaskIntoConstraints = false
+        changeButton.bezelStyle = .rounded
+        changeButton.target = self
+        changeButton.action = #selector(changeDataFolder(_:))
 
-        copyStatusLabel.translatesAutoresizingMaskIntoConstraints = false
-        copyStatusLabel.font = .systemFont(ofSize: 12)
-        copyStatusLabel.textColor = .secondaryLabelColor
+        resetButton.translatesAutoresizingMaskIntoConstraints = false
+        resetButton.bezelStyle = .rounded
+        resetButton.target = self
+        resetButton.action = #selector(resetToDefault(_:))
+
+        copyPathButton.translatesAutoresizingMaskIntoConstraints = false
+        copyPathButton.bezelStyle = .rounded
+        copyPathButton.target = self
+        copyPathButton.action = #selector(copyPath(_:))
+
+        statusLabel.translatesAutoresizingMaskIntoConstraints = false
+        statusLabel.font = .systemFont(ofSize: 12)
+        statusLabel.textColor = .secondaryLabelColor
     }
 
     private func configureLayout() {
         view.addSubview(titleLabel)
         view.addSubview(descriptionLabel)
-        view.addSubview(favoritesPathTitleLabel)
-        view.addSubview(favoritesPathLabel)
-        view.addSubview(copyFavoritesPathButton)
-        view.addSubview(copyStatusLabel)
+        view.addSubview(dataFolderTitleLabel)
+        view.addSubview(dataFolderPathLabel)
+
+        let buttonStack = NSStackView(views: [changeButton, resetButton, copyPathButton])
+        buttonStack.translatesAutoresizingMaskIntoConstraints = false
+        buttonStack.orientation = .horizontal
+        buttonStack.spacing = 8
+        view.addSubview(buttonStack)
+        view.addSubview(statusLabel)
 
         NSLayoutConstraint.activate([
             titleLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: 20),
@@ -76,32 +95,93 @@ final class AdvancedSettingsViewController: NSViewController {
             descriptionLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             descriptionLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
 
-            favoritesPathTitleLabel.topAnchor.constraint(equalTo: descriptionLabel.bottomAnchor, constant: 20),
-            favoritesPathTitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            dataFolderTitleLabel.topAnchor.constraint(equalTo: descriptionLabel.bottomAnchor, constant: 20),
+            dataFolderTitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
 
-            favoritesPathLabel.topAnchor.constraint(equalTo: favoritesPathTitleLabel.bottomAnchor, constant: 8),
-            favoritesPathLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            favoritesPathLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            dataFolderPathLabel.topAnchor.constraint(equalTo: dataFolderTitleLabel.bottomAnchor, constant: 8),
+            dataFolderPathLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            dataFolderPathLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
 
-            copyFavoritesPathButton.topAnchor.constraint(equalTo: favoritesPathLabel.bottomAnchor, constant: 12),
-            copyFavoritesPathButton.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            buttonStack.topAnchor.constraint(equalTo: dataFolderPathLabel.bottomAnchor, constant: 12),
+            buttonStack.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
 
-            copyStatusLabel.centerYAnchor.constraint(equalTo: copyFavoritesPathButton.centerYAnchor),
-            copyStatusLabel.leadingAnchor.constraint(equalTo: copyFavoritesPathButton.trailingAnchor, constant: 10),
-            copyStatusLabel.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20),
+            statusLabel.centerYAnchor.constraint(equalTo: buttonStack.centerYAnchor),
+            statusLabel.leadingAnchor.constraint(equalTo: buttonStack.trailingAnchor, constant: 10),
+            statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20),
         ])
     }
 
-    private func updateFavoritesPath() {
-        favoritesPathLabel.stringValue = configManager.bookmarksConfigURL.path
+    private func updateDataFolderPath() {
+        dataFolderPathLabel.stringValue = configManager.configDirectory.path
+        let isCustom = ConfigManager.customConfigDirectoryURL() != nil
+        resetButton.isEnabled = isCustom
     }
 
     @objc
-    private func copyFavoritesPath(_ sender: NSButton) {
-        let path = configManager.bookmarksConfigURL.path
+    private func changeDataFolder(_ sender: NSButton) {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Select"
+        panel.message = "Choose a folder to store Starfiler settings data."
+
+        guard panel.runModal() == .OK, let selectedURL = panel.url else {
+            return
+        }
+
+        let currentDirectory = configManager.configDirectory
+
+        if selectedURL.standardizedFileURL == currentDirectory.standardizedFileURL {
+            statusLabel.stringValue = "Same folder selected."
+            return
+        }
+
+        do {
+            try ConfigManager.migrateConfigFiles(from: currentDirectory, to: selectedURL)
+        } catch {
+            statusLabel.stringValue = "Failed to copy files."
+            return
+        }
+
+        ConfigManager.setCustomConfigDirectory(selectedURL)
+        dataFolderPathLabel.stringValue = selectedURL.path
+        resetButton.isEnabled = true
+        statusLabel.stringValue = ""
+        promptRestart()
+    }
+
+    @objc
+    private func resetToDefault(_ sender: NSButton) {
+        ConfigManager.setCustomConfigDirectory(nil)
+        let defaultDir = ConfigManager.defaultFallbackConfigDirectory()
+        dataFolderPathLabel.stringValue = defaultDir.path
+        resetButton.isEnabled = false
+        statusLabel.stringValue = ""
+        promptRestart()
+    }
+
+    @objc
+    private func copyPath(_ sender: NSButton) {
+        let path = dataFolderPathLabel.stringValue
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(path, forType: .string)
-        copyStatusLabel.stringValue = "Copied"
+        statusLabel.stringValue = "Copied"
+    }
+
+    private func promptRestart() {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Restart Required"
+        alert.informativeText = "The data folder has been changed. Starfiler needs to restart for the change to take effect."
+        alert.addButton(withTitle: "Restart Now")
+        alert.addButton(withTitle: "Later")
+
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            onConfigDirectoryChanged?()
+        }
     }
 }

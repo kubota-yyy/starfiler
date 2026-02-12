@@ -546,6 +546,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let advancedVC = AdvancedSettingsViewController()
+        advancedVC.onConfigDirectoryChanged = {
+            let executablePath = Bundle.main.executablePath ?? ProcessInfo.processInfo.arguments[0]
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: executablePath)
+            try? process.run()
+            NSApp.terminate(nil)
+        }
 
         let controller = SettingsWindowController(
             appearanceVC: appearanceVC,

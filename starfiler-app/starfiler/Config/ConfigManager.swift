@@ -125,7 +125,29 @@ final class ConfigManager {
         configDirectory.appendingPathComponent(FileName.pinnedItemsConfig, isDirectory: false)
     }
 
-    private static func defaultConfigDirectory(fileManager: FileManager, bundleIdentifier: String) -> URL {
+    // MARK: - Custom Config Directory
+
+    private static let customConfigDirectoryKey = "customConfigDirectory"
+
+    static func customConfigDirectoryURL() -> URL? {
+        guard let path = UserDefaults.standard.string(forKey: customConfigDirectoryKey) else {
+            return nil
+        }
+        return URL(fileURLWithPath: path, isDirectory: true)
+    }
+
+    static func setCustomConfigDirectory(_ url: URL?) {
+        if let url {
+            UserDefaults.standard.set(url.path, forKey: customConfigDirectoryKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: customConfigDirectoryKey)
+        }
+    }
+
+    static func defaultFallbackConfigDirectory(
+        fileManager: FileManager = .default,
+        bundleIdentifier: String = Bundle.main.bundleIdentifier ?? "com.nilone.starfiler"
+    ) -> URL {
         let baseURL = (try? fileManager.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,
@@ -136,6 +158,29 @@ final class ConfigManager {
         return baseURL
             .appendingPathComponent(bundleIdentifier, isDirectory: true)
             .appendingPathComponent("Config", isDirectory: true)
+    }
+
+    static func migrateConfigFiles(from source: URL, to destination: URL, fileManager: FileManager = .default) throws {
+        if !fileManager.fileExists(atPath: destination.path) {
+            try fileManager.createDirectory(at: destination, withIntermediateDirectories: true)
+        }
+
+        let contents = try fileManager.contentsOfDirectory(at: source, includingPropertiesForKeys: nil)
+        for fileURL in contents where fileURL.pathExtension == "json" {
+            let destFileURL = destination.appendingPathComponent(fileURL.lastPathComponent)
+            if fileManager.fileExists(atPath: destFileURL.path) {
+                try fileManager.removeItem(at: destFileURL)
+            }
+            try fileManager.copyItem(at: fileURL, to: destFileURL)
+        }
+    }
+
+    private static func defaultConfigDirectory(fileManager: FileManager, bundleIdentifier: String) -> URL {
+        if let customURL = customConfigDirectoryURL() {
+            return customURL
+        }
+
+        return defaultFallbackConfigDirectory(fileManager: fileManager, bundleIdentifier: bundleIdentifier)
     }
 
     private func createConfigDirectoryIfNeeded() {
