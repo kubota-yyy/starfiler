@@ -9,6 +9,8 @@ PROJECT_FILE="$PROJECT_DIR/starfiler.xcodeproj"
 SCHEME="${SCHEME:-starfiler}"
 CONFIGURATION="${CONFIGURATION:-Debug}"
 DERIVED_DATA_PATH="${DERIVED_DATA_PATH:-$PROJECT_DIR/.derivedData}"
+DEVELOPMENT_TEAM="${DEVELOPMENT_TEAM:-}"
+CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY:-Apple Development}"
 APP_NAME="${APP_NAME:-Starfiler.app}"
 APP_SOURCE="$DERIVED_DATA_PATH/Build/Products/$CONFIGURATION/$APP_NAME"
 APP_DEST="${APP_DEST:-/Applications/$APP_NAME}"
@@ -68,21 +70,42 @@ fi
 echo "[build] scheme=$SCHEME configuration=$CONFIGURATION"
 echo "[build] derivedData=$DERIVED_DATA_PATH"
 
+if [[ -z "$DEVELOPMENT_TEAM" ]]; then
+  AUTO_DETECTED_TEAM="$({ /usr/bin/security find-identity -v -p codesigning 2>/dev/null || true; } \
+    | /usr/bin/grep -Eo '\([A-Z0-9]{10}\)' \
+    | /usr/bin/tr -d '()' \
+    | /usr/bin/sort -u || true)"
+  TEAM_COUNT="$(printf '%s\n' "$AUTO_DETECTED_TEAM" | /usr/bin/sed '/^$/d' | /usr/bin/wc -l | /usr/bin/tr -d ' ')"
+  if [[ "$TEAM_COUNT" == "1" ]]; then
+    DEVELOPMENT_TEAM="$AUTO_DETECTED_TEAM"
+    echo "[sign] auto-detected DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM"
+  elif [[ "$TEAM_COUNT" -gt 1 ]]; then
+    echo "[sign] multiple code signing teams detected; set DEVELOPMENT_TEAM to use non-adhoc signing"
+  else
+    echo "[sign] no code signing identity found; falling back to ad-hoc signing"
+  fi
+fi
+
+XCODEBUILD_ARGS=(
+  -project "$PROJECT_FILE"
+  -scheme "$SCHEME"
+  -configuration "$CONFIGURATION"
+  -derivedDataPath "$DERIVED_DATA_PATH"
+  build
+)
+
+if [[ -n "$DEVELOPMENT_TEAM" ]]; then
+  XCODEBUILD_ARGS+=(
+    "DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM"
+    "CODE_SIGN_IDENTITY=$CODE_SIGN_IDENTITY"
+    "CODE_SIGN_STYLE=Automatic"
+  )
+fi
+
 if [[ "$QUIET" == true ]]; then
-  /usr/bin/xcodebuild \
-    -project "$PROJECT_FILE" \
-    -scheme "$SCHEME" \
-    -configuration "$CONFIGURATION" \
-    -derivedDataPath "$DERIVED_DATA_PATH" \
-    build \
-    -quiet
+  /usr/bin/xcodebuild "${XCODEBUILD_ARGS[@]}" -quiet
 else
-  /usr/bin/xcodebuild \
-    -project "$PROJECT_FILE" \
-    -scheme "$SCHEME" \
-    -configuration "$CONFIGURATION" \
-    -derivedDataPath "$DERIVED_DATA_PATH" \
-    build
+  /usr/bin/xcodebuild "${XCODEBUILD_ARGS[@]}"
 fi
 
 if [[ ! -d "$APP_SOURCE" ]]; then
@@ -103,8 +126,13 @@ if [[ "$APP_DEST" == "/Applications/Starfiler.app" ]] && /usr/bin/pgrep -x "$LEG
 fi
 
 echo "[install] $APP_DEST"
-/bin/rm -rf "$APP_DEST"
-/bin/cp -R "$APP_SOURCE" "$APP_DEST"
+if [[ -d "$APP_DEST" ]]; then
+  echo "[install] updating existing app bundle in-place"
+  /bin/rm -rf "$APP_DEST/Contents"
+  /usr/bin/ditto "$APP_SOURCE/Contents" "$APP_DEST/Contents"
+else
+  /bin/cp -R "$APP_SOURCE" "$APP_DEST"
+fi
 
 if [[ "$APP_DEST" == "/Applications/Starfiler.app" ]] && [[ "$NORMALIZED_APP_DEST" != "$NORMALIZED_LEGACY_APP_DEST" ]] && [[ -d "$LEGACY_APP_DEST" ]]; then
   echo "[install] removing legacy app: $LEGACY_APP_DEST"
@@ -113,6 +141,20 @@ fi
 
 /usr/bin/xattr -dr com.apple.quarantine "$APP_DEST" >/dev/null 2>&1 || true
 /usr/bin/codesign --verify --deep --strict "$APP_DEST"
+
+SIGNATURE_INFO="$(/usr/bin/codesign -dvv "$APP_DEST" 2>&1)"
+if printf '%s' "$SIGNATURE_INFO" | /usr/bin/grep -Fq 'Signature=adhoc'; then
+  echo "[sign] installed app is ad-hoc signed"
+  echo "[sign] ad-hoc signing may cause folder access prompts on every rebuild"
+  echo "[sign] set DEVELOPMENT_TEAM (and optionally CODE_SIGN_IDENTITY) to persist permissions"
+else
+  SIGNER_LINE="$(printf '%s\n' "$SIGNATURE_INFO" | /usr/bin/grep '^Authority=' | /usr/bin/head -n 1 || true)"
+  if [[ -n "$SIGNER_LINE" ]]; then
+    echo "[sign] ${SIGNER_LINE#Authority=}"
+  else
+    echo "[sign] installed app is signed with a non-adhoc identity"
+  fi
+fi
 
 if [[ ! -f "$SOURCE_EXECUTABLE" ]]; then
   echo "Source executable not found: $SOURCE_EXECUTABLE" >&2
