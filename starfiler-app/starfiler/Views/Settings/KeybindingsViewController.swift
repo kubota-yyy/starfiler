@@ -16,6 +16,7 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
     private var currentMode: String = "all"
     private var displayedBindings: [(sequence: String, action: String, isReadOnly: Bool, mode: String)] = []
     private var allBindings: [String: [(sequence: String, action: String, isReadOnly: Bool)]] = [:]
+    private var conflictKeys: Set<String> = []
 
     override func loadView() {
         view = NSView()
@@ -240,7 +241,26 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
         }
 
         displayedBindings = entries
+        buildConflictKeys()
         tableView.reloadData()
+    }
+
+    private func buildConflictKeys() {
+        conflictKeys = []
+        var seen: [String: Int] = [:]
+        for entry in displayedBindings {
+            let key = "\(entry.mode):\(entry.sequence)"
+            seen[key, default: 0] += 1
+        }
+        for (key, count) in seen where count > 1 {
+            conflictKeys.insert(key)
+        }
+    }
+
+    private func isConflict(at row: Int) -> Bool {
+        guard displayedBindings.indices.contains(row) else { return false }
+        let entry = displayedBindings[row]
+        return conflictKeys.contains("\(entry.mode):\(entry.sequence)")
     }
 
     @objc
@@ -440,7 +460,14 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
             ])
         }
 
-        let textColor: NSColor = binding.isReadOnly ? .tertiaryLabelColor : .labelColor
+        let textColor: NSColor
+        if isConflict(at: row) {
+            textColor = .systemRed
+        } else if binding.isReadOnly {
+            textColor = .tertiaryLabelColor
+        } else {
+            textColor = .labelColor
+        }
 
         switch identifier.rawValue {
         case "sequence":
