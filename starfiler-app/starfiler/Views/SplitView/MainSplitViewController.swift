@@ -74,7 +74,8 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
 
         self.sidebarViewModel = SidebarViewModel(
             configManager: configManager,
-            visitHistoryService: viewModel.visitHistoryService
+            visitHistoryService: viewModel.visitHistoryService,
+            pinnedItemsService: viewModel.pinnedItemsService
         )
         self.sidebarViewController = SidebarViewController(viewModel: sidebarViewModel)
         self.sidebarSplitItem = NSSplitViewItem(viewController: sidebarViewController)
@@ -595,6 +596,12 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         case .syncPanesRightToLeft:
             let changed = viewModel.syncPanesRightToLeft()
             if changed { showActionToast("Synced: Right → Left") }
+            return true
+        case .togglePin:
+            let wasPinned = viewModel.isPinnedActiveItem()
+            viewModel.togglePinForActivePane()
+            sidebarViewModel.reloadSections()
+            showActionToast(wasPinned ? "Unpinned" : "Pinned")
             return true
         case .launchClaude, .launchCodex, .toggleTerminalPanel:
             onTerminalAction?(action)

@@ -6,6 +6,7 @@ import Observation
 final class SidebarViewModel {
     enum SectionKind: Hashable, Sendable {
         case favorites
+        case pinned
         case recent
         case bookmarkGroup(name: String)
     }
@@ -50,11 +51,17 @@ final class SidebarViewModel {
 
     private let configManager: ConfigManager
     private let visitHistoryService: (any VisitHistoryProviding)?
+    private let pinnedItemsService: (any PinnedItemsProviding)?
     private var navigationHistorySection: SidebarSection?
 
-    init(configManager: ConfigManager, visitHistoryService: (any VisitHistoryProviding)? = nil) {
+    init(
+        configManager: ConfigManager,
+        visitHistoryService: (any VisitHistoryProviding)? = nil,
+        pinnedItemsService: (any PinnedItemsProviding)? = nil
+    ) {
         self.configManager = configManager
         self.visitHistoryService = visitHistoryService
+        self.pinnedItemsService = pinnedItemsService
         reloadSections()
     }
 
@@ -89,6 +96,20 @@ final class SidebarViewModel {
                 ]
             }
             result.append(SidebarSection(kind: .favorites, title: favoritesTitle, items: favorites))
+        }
+
+        if let pinnedItemsService {
+            let pinnedItems = pinnedItemsService.allPinnedItems()
+            if !pinnedItems.isEmpty {
+                let entries = pinnedItems.map { item in
+                    SidebarEntry(
+                        displayName: item.displayName,
+                        path: item.path,
+                        iconName: "pin.fill"
+                    )
+                }
+                result.append(SidebarSection(kind: .pinned, title: "Pinned", items: entries))
+            }
         }
 
         if let navigationHistorySection {
@@ -164,6 +185,11 @@ final class SidebarViewModel {
             return nil
         }
         return isDirectory.boolValue ? url : url.deletingLastPathComponent().standardizedFileURL
+    }
+
+    func removePinnedEntry(_ entry: SidebarEntry) {
+        pinnedItemsService?.unpin(path: entry.path)
+        reloadSections()
     }
 
     func removeBookmarkEntry(_ entry: SidebarEntry, fromGroup groupName: String) {

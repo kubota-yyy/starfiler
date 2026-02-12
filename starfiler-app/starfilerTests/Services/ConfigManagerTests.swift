@@ -101,5 +101,29 @@ final class ConfigManagerTests: XCTestCase {
         XCTAssertTrue(sut.batchRenamePresetsConfigURL.path.hasSuffix("BatchRenamePresets.json"))
         XCTAssertTrue(sut.syncletsConfigURL.path.hasSuffix("Synclets.json"))
         XCTAssertTrue(sut.visitHistoryConfigURL.path.hasSuffix("VisitHistory.json"))
+        XCTAssertTrue(sut.pinnedItemsConfigURL.path.hasSuffix("PinnedItems.json"))
+    }
+
+    // MARK: - PinnedItemsConfig
+
+    func testLoadPinnedItemsConfigReturnsDefaultWhenNoFile() {
+        let config = sut.loadPinnedItemsConfig()
+
+        XCTAssertTrue(config.items.isEmpty)
+        XCTAssertEqual(config.maxItems, 50)
+    }
+
+    func testSaveAndLoadPinnedItemsConfig() throws {
+        let item = PinnedItem(path: "/tmp/pinned", displayName: "pinned", isDirectory: true)
+        let config = PinnedItemsConfig(items: [item], maxItems: 30)
+
+        try sut.savePinnedItemsConfig(config)
+        let loaded = sut.loadPinnedItemsConfig()
+
+        XCTAssertEqual(loaded.items.count, 1)
+        XCTAssertEqual(loaded.items[0].path, "/tmp/pinned")
+        XCTAssertEqual(loaded.items[0].displayName, "pinned")
+        XCTAssertTrue(loaded.items[0].isDirectory)
+        XCTAssertEqual(loaded.maxItems, 30)
     }
 }

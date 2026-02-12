@@ -66,11 +66,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         let rightDirectory = Self.resolveDirectory(path: appConfig.lastRightPanePath, fallback: leftDirectory)
 
         let visitHistoryService = VisitHistoryService(configManager: configManager)
+        let pinnedItemsService = PinnedItemsService(configManager: configManager)
 
         self.mainViewModel = MainViewModel(
             fileSystemService: fileSystemService,
             securityScopedBookmarkService: securityScopedBookmarkService,
             visitHistoryService: visitHistoryService,
+            pinnedItemsService: pinnedItemsService,
             initialShowHiddenFiles: appConfig.showHiddenFiles,
             initialSortColumn: appConfig.defaultSortColumn,
             initialSortAscending: appConfig.defaultSortAscending,

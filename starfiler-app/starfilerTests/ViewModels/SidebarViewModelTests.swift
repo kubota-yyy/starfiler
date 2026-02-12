@@ -86,6 +86,72 @@ final class SidebarViewModelTests: XCTestCase {
         XCTAssertEqual(recentSection?.items.count, 3)
     }
 
+    func testPinnedSectionAppearsWhenItemsPinned() {
+        let pinnedService = MockPinnedItemsService()
+        pinnedService.pin(url: URL(fileURLWithPath: "/tmp/pinned"), isDirectory: true)
+
+        let sut = SidebarViewModel(
+            configManager: configManager,
+            pinnedItemsService: pinnedService
+        )
+
+        XCTAssertTrue(sut.sections.contains(where: { $0.kind == .pinned }))
+        let pinnedSection = sut.sections.first(where: { $0.kind == .pinned })
+        XCTAssertEqual(pinnedSection?.title, "Pinned")
+        XCTAssertEqual(pinnedSection?.items.count, 1)
+        XCTAssertEqual(pinnedSection?.items.first?.iconName, "pin.fill")
+    }
+
+    func testPinnedSectionHiddenWhenNoItems() {
+        let pinnedService = MockPinnedItemsService()
+
+        let sut = SidebarViewModel(
+            configManager: configManager,
+            pinnedItemsService: pinnedService
+        )
+
+        XCTAssertFalse(sut.sections.contains(where: { $0.kind == .pinned }))
+    }
+
+    func testPinnedSectionAppearsAfterFavorites() {
+        let pinnedService = MockPinnedItemsService()
+        pinnedService.pin(url: URL(fileURLWithPath: "/tmp/pinned"), isDirectory: true)
+
+        let sut = SidebarViewModel(
+            configManager: configManager,
+            pinnedItemsService: pinnedService
+        )
+
+        let favoritesIndex = sut.sections.firstIndex(where: { $0.kind == .favorites })
+        let pinnedIndex = sut.sections.firstIndex(where: { $0.kind == .pinned })
+        XCTAssertNotNil(favoritesIndex)
+        XCTAssertNotNil(pinnedIndex)
+        if let fIdx = favoritesIndex, let pIdx = pinnedIndex {
+            XCTAssertTrue(pIdx > fIdx)
+        }
+    }
+
+    func testRemovePinnedEntryUpdatesSection() {
+        let pinnedService = MockPinnedItemsService()
+        pinnedService.pin(url: URL(fileURLWithPath: "/tmp/pinA"), isDirectory: true)
+        pinnedService.pin(url: URL(fileURLWithPath: "/tmp/pinB"), isDirectory: true)
+
+        let sut = SidebarViewModel(
+            configManager: configManager,
+            pinnedItemsService: pinnedService
+        )
+
+        let entry = SidebarViewModel.SidebarEntry(
+            displayName: "pinA",
+            path: "/tmp/pinA",
+            iconName: "pin.fill"
+        )
+        sut.removePinnedEntry(entry)
+
+        let pinnedSection = sut.sections.first(where: { $0.kind == .pinned })
+        XCTAssertEqual(pinnedSection?.items.count, 1)
+    }
+
     func testRemoveBookmarkEntry() throws {
         let group = BookmarkGroup(
             name: "TestGroup",

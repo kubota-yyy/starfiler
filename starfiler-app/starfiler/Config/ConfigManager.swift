@@ -8,6 +8,7 @@ final class ConfigManager {
         static let batchRenamePresetsConfig = "BatchRenamePresets.json"
         static let syncletsConfig = "Synclets.json"
         static let visitHistoryConfig = "VisitHistory.json"
+        static let pinnedItemsConfig = "PinnedItems.json"
     }
 
     let configDirectory: URL
@@ -110,6 +111,18 @@ final class ConfigManager {
 
     var visitHistoryConfigURL: URL {
         configDirectory.appendingPathComponent(FileName.visitHistoryConfig, isDirectory: false)
+    }
+
+    func loadPinnedItemsConfig() -> PinnedItemsConfig {
+        load(PinnedItemsConfig.self, from: pinnedItemsConfigURL) ?? PinnedItemsConfig()
+    }
+
+    func savePinnedItemsConfig(_ config: PinnedItemsConfig) throws {
+        try save(config, to: pinnedItemsConfigURL)
+    }
+
+    var pinnedItemsConfigURL: URL {
+        configDirectory.appendingPathComponent(FileName.pinnedItemsConfig, isDirectory: false)
     }
 
     private static func defaultConfigDirectory(fileManager: FileManager, bundleIdentifier: String) -> URL {

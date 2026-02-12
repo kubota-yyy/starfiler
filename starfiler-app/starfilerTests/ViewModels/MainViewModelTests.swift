@@ -50,6 +50,7 @@ final class MainViewModelTests: XCTestCase {
             securityScopedBookmarkService: bookmarkService,
             fileOperationQueue: fileOpQueue,
             visitHistoryService: visitHistory,
+            pinnedItemsService: MockPinnedItemsService(),
             initialLeftDirectory: initialLeftDirectory ?? testDir,
             initialRightDirectory: initialRightDirectory ?? testDir
         )
@@ -259,6 +260,7 @@ final class MainViewModelTests: XCTestCase {
             securityScopedBookmarkService: bookmarkService,
             fileOperationQueue: fileOpQueue,
             visitHistoryService: visitHistory,
+            pinnedItemsService: MockPinnedItemsService(),
             initialLeftDirectory: leftDir,
             initialRightDirectory: rightDir
         )
@@ -302,5 +304,32 @@ final class MainViewModelTests: XCTestCase {
         await waitForLoad()
 
         XCTAssertNotNil(capturedRecord)
+    }
+
+    // MARK: - Toggle Pin
+
+    func testTogglePinForActivePanePinsCurrentDirectory() async {
+        let pinnedService = MockPinnedItemsService()
+        let sut = MainViewModel(
+            fileSystemService: fileSystem,
+            securityScopedBookmarkService: bookmarkService,
+            fileOperationQueue: fileOpQueue,
+            visitHistoryService: visitHistory,
+            pinnedItemsService: pinnedService,
+            initialLeftDirectory: testDir,
+            initialRightDirectory: testDir
+        )
+        await waitForLoad()
+
+        sut.togglePinForActivePane()
+
+        XCTAssertEqual(pinnedService.togglePinCallCount, 1)
+    }
+
+    func testIsPinnedActiveItemReturnsFalseWhenNotPinned() async {
+        let sut = makeSUT()
+        await waitForLoad()
+
+        XCTAssertFalse(sut.isPinnedActiveItem())
     }
 }

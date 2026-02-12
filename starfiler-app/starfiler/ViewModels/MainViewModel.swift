@@ -24,6 +24,7 @@ final class MainViewModel {
     let terminalSessionListViewModel: TerminalSessionListViewModel
     let securityScopedBookmarkService: any SecurityScopedBookmarkProviding
     let visitHistoryService: any VisitHistoryProviding
+    let pinnedItemsService: any PinnedItemsProviding
 
     private let fileOperationQueue: FileOperationQueue
 
@@ -43,6 +44,7 @@ final class MainViewModel {
         securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared,
         fileOperationQueue: FileOperationQueue = FileOperationQueue(),
         visitHistoryService: any VisitHistoryProviding,
+        pinnedItemsService: any PinnedItemsProviding,
         initialShowHiddenFiles: Bool = false,
         initialSortColumn: AppConfig.SortColumn = .name,
         initialSortAscending: Bool = true,
@@ -60,6 +62,7 @@ final class MainViewModel {
         self.securityScopedBookmarkService = securityScopedBookmarkService
         self.fileOperationQueue = fileOperationQueue
         self.visitHistoryService = visitHistoryService
+        self.pinnedItemsService = pinnedItemsService
 
         let normalizedLeftDirectory = initialLeftDirectory.standardizedFileURL
         let normalizedRightDirectory = (initialRightDirectory ?? normalizedLeftDirectory).standardizedFileURL
@@ -178,6 +181,31 @@ final class MainViewModel {
         guard leftDir != rightDir else { return false }
         leftPane.navigate(to: rightDir)
         return true
+    }
+
+    func togglePinForActivePane() {
+        let pane = activePane
+        let url: URL
+        let isDirectory: Bool
+        if let selectedItem = pane.selectedItem {
+            url = selectedItem.url.standardizedFileURL
+            isDirectory = selectedItem.isDirectory
+        } else {
+            url = pane.paneState.currentDirectory.standardizedFileURL
+            isDirectory = true
+        }
+        pinnedItemsService.togglePin(for: url, isDirectory: isDirectory)
+    }
+
+    func isPinnedActiveItem() -> Bool {
+        let pane = activePane
+        let path: String
+        if let selectedItem = pane.selectedItem {
+            path = selectedItem.url.standardizedFileURL.path
+        } else {
+            path = pane.paneState.currentDirectory.standardizedFileURL.path
+        }
+        return pinnedItemsService.isPinned(path: path)
     }
 
     func refreshPreviewForActivePane() {

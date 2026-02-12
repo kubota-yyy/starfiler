@@ -1,7 +1,8 @@
 import Foundation
 @testable import Starfiler
 
-final class MockFileSystemService: FileSystemProviding {
+@MainActor
+final class MockFileSystemService: FileSystemProviding, @unchecked Sendable {
     // MARK: - contentsOfDirectory
 
     var contentsOfDirectoryResult: Result<[FileItem], Error> = .success([])
