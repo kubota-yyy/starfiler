@@ -173,12 +173,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let editMenuItem = NSMenuItem()
         mainMenu.addItem(editMenuItem)
         let editMenu = NSMenu(title: "Edit")
-        editMenu.addItem(withTitle: "Undo", action: #selector(menuUndo(_:)), keyEquivalent: "z")
+        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
         editMenu.addItem(NSMenuItem.separator())
-        editMenu.addItem(withTitle: "Copy", action: #selector(menuCopy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Cut", action: Selector(("cut:")), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy", action: Selector(("copy:")), keyEquivalent: "c")
         let copyItemPathItem = editMenu.addItem(withTitle: "Copy File/Folder Path", action: #selector(menuCopySelectedItemPath(_:)), keyEquivalent: "c")
         copyItemPathItem.keyEquivalentModifierMask = [.command, .option]
-        editMenu.addItem(withTitle: "Paste", action: #selector(menuPaste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Paste", action: Selector(("paste:")), keyEquivalent: "v")
         editMenu.addItem(NSMenuItem.separator())
         editMenu.addItem(withTitle: "Move to Trash", action: #selector(menuDelete(_:)), keyEquivalent: "\u{08}")
         editMenu.addItem(withTitle: "Rename...", action: #selector(menuRename(_:)), keyEquivalent: "")
@@ -289,11 +290,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc private func menuUndo(_ sender: Any?) {
+    @objc func undo(_ sender: Any?) {
         mainWindowController?.performAction { $0.undo() }
     }
 
-    @objc private func menuCopy(_ sender: Any?) {
+    @objc func copy(_ sender: Any?) {
         mainWindowController?.performAction { $0.copyMarked() }
     }
 
@@ -310,7 +311,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc private func menuPaste(_ sender: Any?) {
+    @objc func paste(_ sender: Any?) {
         mainWindowController?.performAction { $0.paste() }
     }
 
