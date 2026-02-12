@@ -160,7 +160,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let fileMenuItem = NSMenuItem()
         mainMenu.addItem(fileMenuItem)
         let fileMenu = NSMenu(title: "File")
-        fileMenu.addItem(withTitle: "New Folder", action: #selector(menuCreateDirectory(_:)), keyEquivalent: "n")
+        let newFolderItem = fileMenu.addItem(withTitle: "New Folder", action: #selector(menuCreateDirectory(_:)), keyEquivalent: "n")
+        newFolderItem.keyEquivalentModifierMask = [.command, .shift]
         fileMenu.addItem(NSMenuItem.separator())
         fileMenu.addItem(withTitle: "Open", action: #selector(menuOpenFile(_:)), keyEquivalent: "\r")
         let showInFinderItem = fileMenu.addItem(withTitle: "Show in Finder", action: #selector(menuRevealInFinder(_:)), keyEquivalent: "f")
