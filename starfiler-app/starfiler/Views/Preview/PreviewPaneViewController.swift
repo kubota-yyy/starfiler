@@ -100,9 +100,6 @@ final class PreviewPaneViewController: NSViewController {
 
     private func configureView() {
         view.wantsLayer = true
-        view.layer?.borderWidth = 1
-        view.layer?.cornerRadius = 6
-        view.layer?.masksToBounds = true
 
         pathBarView.translatesAutoresizingMaskIntoConstraints = false
         pathBarView.wantsLayer = true
@@ -202,7 +199,7 @@ final class PreviewPaneViewController: NSViewController {
         NSLayoutConstraint.activate([
             pathBarView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             pathBarView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            pathBarView.topAnchor.constraint(equalTo: view.topAnchor),
+            pathBarView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             pathBarView.heightAnchor.constraint(equalToConstant: 30),
 
             pathControl.leadingAnchor.constraint(equalTo: pathBarView.leadingAnchor, constant: 10),

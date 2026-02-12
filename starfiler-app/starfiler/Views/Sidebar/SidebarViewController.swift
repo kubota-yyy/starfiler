@@ -4,12 +4,13 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     private let viewModel: SidebarViewModel
     private let scrollView = NSScrollView()
     private let outlineView = NSOutlineView()
-    private let recentContainerView = NSView()
     private let recentSeparatorView = NSView()
     private let recentHeaderLabel = NSTextField(labelWithString: "Recent")
     private let recentScrollView = NSScrollView()
     private let recentOutlineView = NSOutlineView()
-    private var recentContainerHeightConstraint: NSLayoutConstraint?
+    private var scrollViewBottomToRecent: NSLayoutConstraint!
+    private var scrollViewBottomToView: NSLayoutConstraint!
+    private var recentScrollViewHeightConstraint: NSLayoutConstraint!
 
     private var regularSections: [SidebarViewModel.SidebarSection] = []
     private var recentSection: SidebarViewModel.SidebarSection?
@@ -52,8 +53,6 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
         view.wantsLayer = true
         view.layer?.backgroundColor = backgroundColor.cgColor
-        recentContainerView.wantsLayer = true
-        recentContainerView.layer?.backgroundColor = backgroundColor.cgColor
         recentSeparatorView.wantsLayer = true
         recentSeparatorView.layer?.backgroundColor = NSColor.separatorColor.withAlphaComponent(0.25).cgColor
         recentHeaderLabel.textColor = palette.sidebarSectionHeaderColor
@@ -99,9 +98,6 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     }
 
     private func configureRecentOutlineView() {
-        recentContainerView.translatesAutoresizingMaskIntoConstraints = false
-        recentContainerView.wantsLayer = true
-
         recentSeparatorView.translatesAutoresizingMaskIntoConstraints = false
         recentSeparatorView.wantsLayer = true
 
@@ -133,41 +129,58 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         recentScrollView.drawsBackground = true
     }
 
+    private var recentConstraints: [NSLayoutConstraint] = []
+
     private func configureLayout() {
         view.addSubview(scrollView)
-        view.addSubview(recentContainerView)
+        view.addSubview(recentSeparatorView)
+        view.addSubview(recentHeaderLabel)
+        view.addSubview(recentScrollView)
 
-        recentContainerView.addSubview(recentSeparatorView)
-        recentContainerView.addSubview(recentHeaderLabel)
-        recentContainerView.addSubview(recentScrollView)
+        scrollViewBottomToRecent = scrollView.bottomAnchor.constraint(equalTo: recentSeparatorView.topAnchor)
+        scrollViewBottomToView = scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        recentScrollViewHeightConstraint = recentScrollView.heightAnchor.constraint(equalToConstant: 0)
+        recentScrollViewHeightConstraint.priority = .defaultHigh
+
+        recentConstraints = [
+            recentSeparatorView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            recentSeparatorView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            recentSeparatorView.heightAnchor.constraint(equalToConstant: 1),
+
+            recentHeaderLabel.topAnchor.constraint(equalTo: recentSeparatorView.bottomAnchor, constant: 4),
+            recentHeaderLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 2),
+            recentHeaderLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -4),
+
+            recentScrollView.topAnchor.constraint(equalTo: recentHeaderLabel.bottomAnchor, constant: 2),
+            recentScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            recentScrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            recentScrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            recentScrollViewHeightConstraint,
+        ]
 
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: recentContainerView.topAnchor),
-
-            recentContainerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            recentContainerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            recentContainerView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-
-            recentSeparatorView.topAnchor.constraint(equalTo: recentContainerView.topAnchor),
-            recentSeparatorView.leadingAnchor.constraint(equalTo: recentContainerView.leadingAnchor),
-            recentSeparatorView.trailingAnchor.constraint(equalTo: recentContainerView.trailingAnchor),
-            recentSeparatorView.heightAnchor.constraint(equalToConstant: 1),
-
-            recentHeaderLabel.topAnchor.constraint(equalTo: recentSeparatorView.bottomAnchor, constant: 4),
-            recentHeaderLabel.leadingAnchor.constraint(equalTo: recentContainerView.leadingAnchor, constant: 2),
-            recentHeaderLabel.trailingAnchor.constraint(equalTo: recentContainerView.trailingAnchor, constant: -4),
-
-            recentScrollView.topAnchor.constraint(equalTo: recentHeaderLabel.bottomAnchor, constant: 2),
-            recentScrollView.leadingAnchor.constraint(equalTo: recentContainerView.leadingAnchor),
-            recentScrollView.trailingAnchor.constraint(equalTo: recentContainerView.trailingAnchor),
-            recentScrollView.bottomAnchor.constraint(equalTo: recentContainerView.bottomAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
         ])
 
-        recentContainerHeightConstraint = recentContainerView.heightAnchor.constraint(equalToConstant: 0)
-        recentContainerHeightConstraint?.isActive = true
+        setRecentSectionVisible(false)
+    }
+
+    private func setRecentSectionVisible(_ visible: Bool) {
+        recentSeparatorView.isHidden = !visible
+        recentHeaderLabel.isHidden = !visible
+        recentScrollView.isHidden = !visible
+
+        if visible {
+            scrollViewBottomToView.isActive = false
+            NSLayoutConstraint.activate(recentConstraints)
+            scrollViewBottomToRecent.isActive = true
+        } else {
+            scrollViewBottomToRecent.isActive = false
+            NSLayoutConstraint.deactivate(recentConstraints)
+            scrollViewBottomToView.isActive = true
+        }
     }
 
     private func bindViewModel() {
@@ -203,15 +216,14 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     private func updateRecentSectionLayout() {
         let recentCount = recentSection?.items.count ?? 0
         let hasRecent = recentCount > 0
-        recentContainerView.isHidden = !hasRecent
+        setRecentSectionVisible(hasRecent)
 
         guard hasRecent else {
-            recentContainerHeightConstraint?.constant = 0
             return
         }
 
-        let contentHeight = 1 + 4 + sectionHeaderHeight + 2 + (CGFloat(recentCount) * entryRowHeight)
-        recentContainerHeightConstraint?.constant = contentHeight
+        let scrollHeight = CGFloat(recentCount) * entryRowHeight
+        recentScrollViewHeightConstraint.constant = scrollHeight
         recentScrollView.hasVerticalScroller = false
     }
 

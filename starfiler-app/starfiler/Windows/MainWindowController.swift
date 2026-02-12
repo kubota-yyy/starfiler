@@ -25,7 +25,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         initialRightPaneVisible: rightPaneVisible
     )
     private let appUndoManager = UndoManager()
-    private weak var containerView: NSView?
 
     init(
         fileSystemService: FileSystemProviding = FileSystemService(),
@@ -293,26 +292,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             window.center()
         }
 
-        let containerViewController = NSViewController()
-        let containerView = NSView()
-        containerView.translatesAutoresizingMaskIntoConstraints = false
-        containerView.wantsLayer = true
-        containerViewController.view = containerView
-        self.containerView = containerView
-
-        containerViewController.addChild(mainSplitViewController)
-        let splitView = mainSplitViewController.view
-        splitView.translatesAutoresizingMaskIntoConstraints = false
-
-        containerView.addSubview(splitView)
-
-        NSLayoutConstraint.activate([
-            splitView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
-            splitView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
-            splitView.topAnchor.constraint(equalTo: containerView.topAnchor),
-            splitView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
-        ])
-
         mainSplitViewController.onSpotlightSearchScopeChanged = { [weak self] scope in
             self?.updateSpotlightSearchScope(scope)
         }
@@ -327,7 +306,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
         applyCurrentAppearance()
         mainSplitViewController.setStarEffectsEnabled(starEffectsEnabled)
-        window.contentViewController = containerViewController
+        window.contentViewController = mainSplitViewController
     }
 
     private var backgroundOpacity: CGFloat {
@@ -335,19 +314,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func applyCurrentAppearance() {
-        let palette = filerTheme.palette
         let opacity = backgroundOpacity
 
         mainSplitViewController.setFilerTheme(filerTheme, backgroundOpacity: opacity)
-
-        containerView?.layer?.backgroundColor = palette.windowBackgroundColor.applyingBackgroundOpacity(opacity).cgColor
 
         if let window {
             window.isOpaque = !transparentBackground
             if transparentBackground {
                 window.backgroundColor = .clear
             } else {
-                window.backgroundColor = palette.windowBackgroundColor
+                window.backgroundColor = filerTheme.palette.windowBackgroundColor
             }
             window.hasShadow = true
         }

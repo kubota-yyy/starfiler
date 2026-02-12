@@ -176,7 +176,12 @@ protocol MediaKeyActionDelegate: AnyObject {
 final class MediaCollectionView: NSCollectionView {
     weak var keyActionDelegate: MediaKeyActionDelegate?
     var didBecomeFirstResponderHandler: (() -> Void)?
+    var dragSourceHandler: FileDragSource?
+    var dragURLsProvider: (() -> [URL])?
     private var keyInterpreter = KeyInterpreter()
+    private var mouseDownLocation: NSPoint?
+    private var isDragging = false
+    private static let minimumDragDistance: CGFloat = 5
 
     override func keyDown(with event: NSEvent) {
         if event.modifierFlags.contains(.command) {
@@ -210,6 +215,50 @@ final class MediaCollectionView: NSCollectionView {
             didBecomeFirstResponderHandler?()
         }
         return didBecome
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        mouseDownLocation = convert(event.locationInWindow, from: nil)
+        isDragging = false
+        super.mouseDown(with: event)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard !isDragging else {
+            return
+        }
+
+        guard let origin = mouseDownLocation else {
+            super.mouseDragged(with: event)
+            return
+        }
+
+        let current = convert(event.locationInWindow, from: nil)
+        let dx = current.x - origin.x
+        let dy = current.y - origin.y
+        let distance = sqrt(dx * dx + dy * dy)
+
+        guard distance >= Self.minimumDragDistance else {
+            super.mouseDragged(with: event)
+            return
+        }
+
+        if
+            let dragSourceHandler,
+            let dragURLsProvider,
+            dragSourceHandler.beginDragging(from: self, with: event, urls: dragURLsProvider())
+        {
+            isDragging = true
+            return
+        }
+
+        super.mouseDragged(with: event)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        mouseDownLocation = nil
+        isDragging = false
+        super.mouseUp(with: event)
     }
 
     func setVimMode(_ mode: VimMode) {
@@ -646,9 +695,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     private func configureContainerAppearance() {
         view.wantsLayer = true
-        view.layer?.cornerRadius = 6
-        view.layer?.borderWidth = 2
-        view.layer?.masksToBounds = true
 
         headerView.translatesAutoresizingMaskIntoConstraints = false
         headerView.wantsLayer = true
@@ -779,7 +825,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         NSLayoutConstraint.activate([
             headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            headerView.topAnchor.constraint(equalTo: view.topAnchor),
+            headerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             headerView.heightAnchor.constraint(equalToConstant: 30),
 
             pathControl.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 10),
@@ -847,6 +893,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             self?.viewModel.markedOrSelectedURLs() ?? []
         }
         tableView.dropTargetHandler = fileDropTarget
+
+        mediaCollectionView.setDraggingSourceOperationMask([.copy, .move], forLocal: true)
+        mediaCollectionView.setDraggingSourceOperationMask([.copy], forLocal: false)
+        mediaCollectionView.dragSourceHandler = fileDragSource
+        mediaCollectionView.dragURLsProvider = { [weak self] in
+            self?.viewModel.markedOrSelectedURLs() ?? []
+        }
 
         fileDropTarget.onHighlightChanged = { [weak self] highlighted in
             guard let self else {
@@ -949,18 +1002,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     private func updateActiveAppearance() {
         let palette = filerTheme.palette
-        let borderColor: NSColor
+        let headerColor: NSColor
         if isDropTargetHighlighted {
-            borderColor = palette.dropTargetBorderColor
-        } else if isPaneActive && starEffectsEnabled {
-            borderColor = palette.starAccentColor
+            headerColor = palette.dropTargetBorderColor
         } else {
-            borderColor = isPaneActive ? palette.activeBorderColor : palette.inactiveBorderColor
+            headerColor = isPaneActive ? palette.activeHeaderColor : palette.inactiveHeaderColor
         }
 
-        let headerColor = isPaneActive ? palette.activeHeaderColor : palette.inactiveHeaderColor
-
-        view.layer?.borderColor = borderColor.cgColor
         view.layer?.backgroundColor = palette.paneBackgroundColor.applyingBackgroundOpacity(backgroundOpacity).cgColor
         headerView.layer?.backgroundColor = headerColor.cgColor
         pathControl.alphaValue = isPaneActive ? 1.0 : 0.82
@@ -971,17 +1019,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         scrollView.backgroundColor = palette.tableBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
         scrollView.alphaValue = isPaneActive ? palette.activePaneAlpha : palette.inactivePaneAlpha
         bookmarkJumpOverlayView.applyPalette(palette, backgroundOpacity: backgroundOpacity)
-
-        // Star effects: glow shadow on active pane border
-        if isPaneActive && starEffectsEnabled {
-            view.layer?.shadowColor = palette.starAccentColor.cgColor
-            view.layer?.shadowRadius = 8
-            view.layer?.shadowOpacity = 0.6
-            view.layer?.shadowOffset = .zero
-        } else {
-            view.layer?.shadowOpacity = 0
-        }
-
     }
 
     @objc
@@ -1318,6 +1355,21 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         case .goToParent:
             viewModel.goToParent()
             handled = true
+        case .goHome:
+            viewModel.navigate(to: UserPaths.homeDirectoryURL)
+            handled = true
+        case .goDesktop:
+            navigateToUserSubdirectory("Desktop")
+            handled = true
+        case .goDocuments:
+            navigateToUserSubdirectory("Documents")
+            handled = true
+        case .goDownloads:
+            navigateToUserSubdirectory("Downloads")
+            handled = true
+        case .goApplications:
+            viewModel.navigate(to: URL(fileURLWithPath: "/Applications", isDirectory: true))
+            handled = true
         case .enterDirectory:
             openSelectedFile()
             handled = true
@@ -1351,6 +1403,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             handled = true
         case .openFileInFinder:
             revealSelectedInFinder()
+            handled = true
+        case .copySelectedItemPath:
+            copySelectedItemPathToPasteboard()
             handled = true
         case .toggleMediaMode:
             viewModel.toggleDisplayMode()
@@ -1423,6 +1478,22 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             return
         }
         NSWorkspace.shared.activateFileViewerSelecting([item.url])
+    }
+
+    private func navigateToUserSubdirectory(_ name: String) {
+        let url = URL(fileURLWithPath: UserPaths.homeDirectoryPath + "/\(name)", isDirectory: true)
+        viewModel.navigate(to: url)
+    }
+
+    private func copySelectedItemPathToPasteboard() {
+        guard let item = viewModel.selectedItem else {
+            NSSound.beep()
+            return
+        }
+
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(item.url.standardizedFileURL.path, forType: .string)
     }
 
     private func presentDropError(_ message: String) {
@@ -1620,6 +1691,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             enabled: hasContextItem
         ))
         menu.addItem(makeContextMenuItem(
+            title: "Copy File/Folder Path",
+            action: .copySelectedItemPath,
+            requiresContextItem: true,
+            enabled: hasContextItem
+        ))
+        menu.addItem(makeContextMenuItem(
             title: "Cut",
             action: .move,
             requiresContextItem: true,
@@ -1664,6 +1741,11 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         menu.addItem(makeContextMenuItem(title: "Back", action: .goBack))
         menu.addItem(makeContextMenuItem(title: "Forward", action: .goForward))
         menu.addItem(makeContextMenuItem(title: "Enclosing Folder", action: .goToParent))
+        menu.addItem(makeContextMenuItem(title: "Home", action: .goHome))
+        menu.addItem(makeContextMenuItem(title: "Desktop", action: .goDesktop))
+        menu.addItem(makeContextMenuItem(title: "Documents", action: .goDocuments))
+        menu.addItem(makeContextMenuItem(title: "Downloads", action: .goDownloads))
+        menu.addItem(makeContextMenuItem(title: "Applications", action: .goApplications))
         menu.addItem(makeContextMenuItem(title: "Refresh", action: .refresh))
         menu.addItem(makeContextMenuItem(title: "Toggle Hidden Files", action: .toggleHiddenFiles))
         menu.addItem(makeSortMenuItem())

@@ -332,18 +332,22 @@ final class MainSplitViewController: NSSplitViewController {
         sidebarSplitItem.minimumThickness = Self.sidebarWidthRange.lowerBound
         sidebarSplitItem.maximumThickness = Self.sidebarWidthRange.upperBound
         sidebarSplitItem.canCollapse = true
+        sidebarSplitItem.titlebarSeparatorStyle = .none
         addSplitViewItem(sidebarSplitItem)
 
         leftSplitItem.minimumThickness = 280
         leftSplitItem.canCollapse = true
+        leftSplitItem.titlebarSeparatorStyle = .none
         addSplitViewItem(leftSplitItem)
 
         rightSplitItem.minimumThickness = 280
         rightSplitItem.canCollapse = true
+        rightSplitItem.titlebarSeparatorStyle = .none
         addSplitViewItem(rightSplitItem)
 
         previewSplitItem.minimumThickness = 260
         previewSplitItem.canCollapse = true
+        previewSplitItem.titlebarSeparatorStyle = .none
         addSplitViewItem(previewSplitItem)
         lastReportedPreviewWidth = max(lastReportedPreviewWidth, previewSplitItem.minimumThickness)
     }
@@ -971,7 +975,7 @@ final class MainSplitViewController: NSSplitViewController {
             ))
         }
 
-        bookmarksConfig.groups = groups.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        bookmarksConfig.groups = groups
 
         do {
             try configManager.saveBookmarksConfig(bookmarksConfig)
