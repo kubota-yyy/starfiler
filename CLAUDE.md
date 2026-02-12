@@ -78,6 +78,10 @@ cd /Users/workspace/NilOne/starfiler
 - `scripts/build_and_install.sh`
 - `scripts/watch_and_install.sh`
 
+## エージェント運用ルール（必須）
+- Codex CLI / Claude Code が **ソースコードを1文字でも編集した場合**、作業完了前に必ず次を実行すること:
+  - `/Users/workspace/NilOne/starfiler/scripts/build_and_install.sh`
+
 ## 環境変数での上書き
 - `SCHEME`（既定: `starfiler`）
 - `CONFIGURATION`（既定: `Debug`）
