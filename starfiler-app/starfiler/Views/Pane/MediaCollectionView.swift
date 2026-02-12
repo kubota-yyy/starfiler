@@ -12,7 +12,16 @@ final class MediaCollectionView: NSCollectionView {
 
     override func keyDown(with event: NSEvent) {
         if event.modifierFlags.contains(.command) {
-            keyInterpreter.clearPendingSequence()
+            if let keyEvent = event.keyEvent {
+                switch keyInterpreter.interpret(keyEvent) {
+                case .action(let action):
+                    if keyActionDelegate?.mediaCollectionView(self, didTrigger: action) == true {
+                        return
+                    }
+                case .pending, .unhandled:
+                    break
+                }
+            }
             super.keyDown(with: event)
             return
         }

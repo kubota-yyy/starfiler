@@ -35,8 +35,17 @@ final class FileTableView: NSTableView {
         let isAwaitingBookmarkJump = bookmarkJumpInterpreter?.state != .idle
 
         if event.modifierFlags.contains(.command), !isAwaitingBookmarkJump {
-            keyInterpreter.clearPendingSequence()
             bookmarkJumpInterpreter?.reset()
+            if let keyEvent = event.keyEvent {
+                switch keyInterpreter.interpret(keyEvent) {
+                case .action(let action):
+                    if keyActionDelegate?.fileTableView(self, didTrigger: action) == true {
+                        return
+                    }
+                case .pending, .unhandled:
+                    break
+                }
+            }
             super.keyDown(with: event)
             return
         }
