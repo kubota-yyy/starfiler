@@ -318,10 +318,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         mainSplitViewController.presentBatchRenameWindow()
     }
 
-    func presentSyncWindow() {
-        mainSplitViewController.presentSyncWindow()
-    }
-
     func togglePreviewPane() {
         mainSplitViewController.togglePreviewPane()
     }

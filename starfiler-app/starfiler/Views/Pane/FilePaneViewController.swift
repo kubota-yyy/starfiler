@@ -1292,7 +1292,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         case .toggleMediaRecursive:
             viewModel.toggleMediaRecursive()
             handled = true
-        case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo, .togglePreview, .toggleSidebar, .toggleLeftPane, .toggleRightPane, .toggleSinglePane, .equalizePaneWidths, .matchOtherPaneDirectory, .goToOtherPaneDirectory, .openBookmarkSearch, .openHistory, .addBookmark, .batchRename, .syncPanes, .toggleTerminalPanel, .launchClaude, .launchCodex:
+        case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo, .togglePreview, .toggleSidebar, .toggleLeftPane, .toggleRightPane, .toggleSinglePane, .equalizePaneWidths, .matchOtherPaneDirectory, .goToOtherPaneDirectory, .openBookmarkSearch, .openHistory, .addBookmark, .batchRename, .syncPanesLeftToRight, .syncPanesRightToLeft, .toggleTerminalPanel, .launchClaude, .launchCodex:
             handled = onFileOperationRequested?(action) ?? false
         case .enterFilterMode:
             focusSearch(mode: .filter)
@@ -1645,7 +1645,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             requiresContextItem: true,
             enabled: hasContextItem
         ))
-        menu.addItem(makeContextMenuItem(title: "Sync Panes...", action: .syncPanes))
+        menu.addItem(makeContextMenuItem(title: "Sync: Left → Right", action: .syncPanesLeftToRight))
+        menu.addItem(makeContextMenuItem(title: "Sync: Right → Left", action: .syncPanesRightToLeft))
 
         menu.addItem(NSMenuItem.separator())
 

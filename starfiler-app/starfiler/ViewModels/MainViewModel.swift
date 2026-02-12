@@ -23,7 +23,7 @@ final class MainViewModel {
     let previewPane: PreviewViewModel
     let terminalSessionListViewModel: TerminalSessionListViewModel
     let securityScopedBookmarkService: any SecurityScopedBookmarkProviding
-    let visitHistoryService: VisitHistoryService
+    let visitHistoryService: any VisitHistoryProviding
 
     private let fileOperationQueue: FileOperationQueue
 
@@ -42,7 +42,7 @@ final class MainViewModel {
         fileSystemService: FileSystemProviding = FileSystemService(),
         securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared,
         fileOperationQueue: FileOperationQueue = FileOperationQueue(),
-        visitHistoryService: VisitHistoryService,
+        visitHistoryService: any VisitHistoryProviding,
         initialShowHiddenFiles: Bool = false,
         initialSortColumn: AppConfig.SortColumn = .name,
         initialSortAscending: Bool = true,
@@ -159,6 +159,24 @@ final class MainViewModel {
         }
 
         activePane.navigate(to: destinationDirectory)
+        return true
+    }
+
+    @discardableResult
+    func syncPanesLeftToRight() -> Bool {
+        let leftDir = leftPane.paneState.currentDirectory.standardizedFileURL
+        let rightDir = rightPane.paneState.currentDirectory.standardizedFileURL
+        guard rightDir != leftDir else { return false }
+        rightPane.navigate(to: leftDir)
+        return true
+    }
+
+    @discardableResult
+    func syncPanesRightToLeft() -> Bool {
+        let rightDir = rightPane.paneState.currentDirectory.standardizedFileURL
+        let leftDir = leftPane.paneState.currentDirectory.standardizedFileURL
+        guard leftDir != rightDir else { return false }
+        leftPane.navigate(to: rightDir)
         return true
     }
 

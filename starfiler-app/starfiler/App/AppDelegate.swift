@@ -185,7 +185,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editMenu.addItem(withTitle: "Rename...", action: #selector(menuRename(_:)), keyEquivalent: "")
         editMenu.addItem(withTitle: "Batch Rename...", action: #selector(menuBatchRename(_:)), keyEquivalent: "")
         editMenu.addItem(NSMenuItem.separator())
-        editMenu.addItem(withTitle: "Sync Panes...", action: #selector(menuSyncPanes(_:)), keyEquivalent: "")
+        editMenu.addItem(withTitle: "Sync: Left → Right", action: #selector(menuSyncLeftToRight(_:)), keyEquivalent: "")
+        editMenu.addItem(withTitle: "Sync: Right → Left", action: #selector(menuSyncRightToLeft(_:)), keyEquivalent: "")
         editMenu.addItem(NSMenuItem.separator())
         editMenu.addItem(withTitle: "Select All", action: #selector(menuSelectAll(_:)), keyEquivalent: "a")
         editMenuItem.submenu = editMenu
@@ -327,8 +328,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainWindowController?.presentBatchRename()
     }
 
-    @objc private func menuSyncPanes(_ sender: Any?) {
-        mainWindowController?.presentSyncWindow()
+    @objc private func menuSyncLeftToRight(_ sender: Any?) {
+        mainWindowController?.performAction { $0.syncPanesLeftToRight() }
+    }
+
+    @objc private func menuSyncRightToLeft(_ sender: Any?) {
+        mainWindowController?.performAction { $0.syncPanesRightToLeft() }
     }
 
     @objc private func menuSelectAll(_ sender: Any?) {

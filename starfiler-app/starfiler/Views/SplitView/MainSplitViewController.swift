@@ -28,7 +28,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     private var bookmarkSearchPanelController: BookmarkSearchPanelController?
     private var markdownPreviewPanelController: MarkdownPreviewPanelController?
     private var batchRenameWindowController: NSWindowController?
-    private var syncWindowController: NSWindowController?
+
 
     private var leftPaneStatus: PaneStatus
     private var rightPaneStatus: PaneStatus
@@ -588,8 +588,13 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         case .batchRename:
             presentBatchRenameWindow()
             return true
-        case .syncPanes:
-            presentSyncWindow()
+        case .syncPanesLeftToRight:
+            let changed = viewModel.syncPanesLeftToRight()
+            if changed { showActionToast("Synced: Left → Right") }
+            return true
+        case .syncPanesRightToLeft:
+            let changed = viewModel.syncPanesRightToLeft()
+            if changed { showActionToast("Synced: Right → Left") }
             return true
         case .launchClaude, .launchCodex, .toggleTerminalPanel:
             onTerminalAction?(action)
@@ -1455,31 +1460,6 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         let wc = NSWindowController(window: window)
         wc.showWindow(nil)
         batchRenameWindowController = wc
-    }
-
-    // MARK: - Sync Panes
-
-    func presentSyncWindow() {
-        let leftDir = viewModel.leftPane.paneState.currentDirectory
-        let rightDir = viewModel.rightPane.paneState.currentDirectory
-
-        let syncVM = SyncViewModel(
-            leftDirectory: leftDir,
-            rightDirectory: rightDir,
-            configManager: configManager
-        )
-
-        let vc = SyncViewController(viewModel: syncVM)
-        let window = NSWindow(contentViewController: vc)
-        window.title = "Sync Panes"
-        window.setContentSize(NSSize(width: 800, height: 600))
-        window.styleMask = [.titled, .closable, .resizable]
-        window.minSize = NSSize(width: 640, height: 400)
-        window.center()
-
-        let wc = NSWindowController(window: window)
-        wc.showWindow(nil)
-        syncWindowController = wc
     }
 
     // MARK: - Markdown Preview
