@@ -581,6 +581,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         if !(searchField.cell is CenteredSearchFieldCell) {
             searchField.cell = CenteredSearchFieldCell(textCell: "")
         }
+        // Re-enable text editing after replacing the default search cell.
+        searchField.isEditable = true
+        searchField.isSelectable = true
         searchField.controlSize = .small
         searchField.isBezeled = false
         searchField.drawsBackground = true
