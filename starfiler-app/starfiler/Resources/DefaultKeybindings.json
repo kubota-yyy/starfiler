@@ -16,6 +16,8 @@
       "Ctrl-d": "pageDown",
       "Return": "enterDirectory",
       "Backspace": "goToParent",
+      "Cmd-Left": "goToParent",
+      "Cmd-Right": "enterDirectory",
       "H": "goBack",
       "L": "goForward",
       "Shift-Left": "goBack",
