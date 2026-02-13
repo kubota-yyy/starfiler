@@ -138,11 +138,28 @@ final class AdvancedSettingsViewController: NSViewController {
             return
         }
 
-        do {
-            try ConfigManager.migrateConfigFiles(from: currentDirectory, to: selectedURL)
-        } catch {
-            statusLabel.stringValue = "Failed to copy files."
-            return
+        let existingFiles = ConfigManager.existingConfigFileNames(in: selectedURL)
+        if !existingFiles.isEmpty {
+            switch promptExistingConfig(fileNames: existingFiles) {
+            case .overwrite:
+                do {
+                    try ConfigManager.migrateConfigFiles(from: currentDirectory, to: selectedURL)
+                } catch {
+                    statusLabel.stringValue = "Failed to copy files."
+                    return
+                }
+            case .import:
+                break // 既存の設定をそのまま使う
+            case .cancel:
+                return
+            }
+        } else {
+            do {
+                try ConfigManager.migrateConfigFiles(from: currentDirectory, to: selectedURL)
+            } catch {
+                statusLabel.stringValue = "Failed to copy files."
+                return
+            }
         }
 
         ConfigManager.setCustomConfigDirectory(selectedURL)
@@ -169,6 +186,33 @@ final class AdvancedSettingsViewController: NSViewController {
         pasteboard.clearContents()
         pasteboard.setString(path, forType: .string)
         statusLabel.stringValue = "Copied"
+    }
+
+    private enum ExistingConfigAction {
+        case overwrite
+        case `import`
+        case cancel
+    }
+
+    private func promptExistingConfig(fileNames: [String]) -> ExistingConfigAction {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Existing Configuration Found"
+        let fileList = fileNames.joined(separator: ", ")
+        alert.informativeText = "The selected folder already contains configuration files:\n\(fileList)\n\nWould you like to overwrite them with your current settings, or import the existing settings?"
+        alert.addButton(withTitle: "Overwrite")
+        alert.addButton(withTitle: "Import")
+        alert.addButton(withTitle: "Cancel")
+
+        let response = alert.runModal()
+        switch response {
+        case .alertFirstButtonReturn:
+            return .overwrite
+        case .alertSecondButtonReturn:
+            return .import
+        default:
+            return .cancel
+        }
     }
 
     private func promptRestart() {

@@ -160,6 +160,17 @@ final class ConfigManager {
             .appendingPathComponent("Config", isDirectory: true)
     }
 
+    static func existingConfigFileNames(in directory: URL, fileManager: FileManager = .default) -> [String] {
+        guard fileManager.fileExists(atPath: directory.path),
+              let contents = try? fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+        else {
+            return []
+        }
+        return contents
+            .filter { $0.pathExtension == "json" }
+            .map { $0.lastPathComponent }
+    }
+
     static func migrateConfigFiles(from source: URL, to destination: URL, fileManager: FileManager = .default) throws {
         if !fileManager.fileExists(atPath: destination.path) {
             try fileManager.createDirectory(at: destination, withIntermediateDirectories: true)
