@@ -76,6 +76,10 @@ struct KeyInterpreter: Sendable {
         return .unhandled
     }
 
+    func hasExactBinding(for event: KeyEvent) -> Bool {
+        keybindingManager.lookup(sequence: [event], mode: mode) != nil
+    }
+
     private mutating func evaluatePendingSequence(now: Date) -> KeyInterpreterResult {
         if let action = keybindingManager.lookup(sequence: pendingSequence, mode: mode) {
             clearPendingSequence()

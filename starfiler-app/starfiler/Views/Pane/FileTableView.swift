@@ -212,8 +212,8 @@ final class FileTableView: NSTableView {
             return false
         }
 
-        // Keep "/" available for "enterFilterMode" even when type select is enabled.
-        if event.key == "/" {
+        // Keep explicit single-key shortcuts (e.g. "b") responsive even when type select is enabled.
+        if keyInterpreter.hasExactBinding(for: event) {
             return false
         }
 

@@ -174,6 +174,35 @@ final class KeyInterpreterTests: XCTestCase {
         XCTAssertEqual(result, .action(.goToBottom))
     }
 
+    // MARK: - Type Select Guard
+
+    func testHasExactBindingReturnsTrueForSingleKeyAction() {
+        let bindings: [String: [String: String]] = [
+            "normal": [
+                "b": "openBookmarkSearch",
+                "g g": "goToTop",
+            ]
+        ]
+        let interpreter = makeInterpreter(bindings: bindings)
+        XCTAssertTrue(interpreter.hasExactBinding(for: KeyEvent(key: "b")))
+    }
+
+    func testHasExactBindingReturnsFalseForPrefixOnlyKey() {
+        let bindings: [String: [String: String]] = [
+            "normal": [
+                "g g": "goToTop"
+            ]
+        ]
+        let interpreter = makeInterpreter(bindings: bindings)
+        XCTAssertFalse(interpreter.hasExactBinding(for: KeyEvent(key: "g")))
+    }
+
+    func testHasExactBindingReturnsFalseForUnmappedKey() {
+        var interpreter = makeInterpreter(bindings: baseBindings)
+        _ = interpreter.interpret(KeyEvent(key: "g"))
+        XCTAssertFalse(interpreter.hasExactBinding(for: KeyEvent(key: "z")))
+    }
+
     // MARK: - Clear Pending Sequence
 
     func testClearPendingSequence() {
