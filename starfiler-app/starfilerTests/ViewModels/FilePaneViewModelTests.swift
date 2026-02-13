@@ -62,6 +62,7 @@ final class FilePaneViewModelTests: XCTestCase {
     ) -> FilePaneViewModel {
         let resolvedItems = items ?? sampleItems
         fileSystem.contentsOfDirectoryResult = .success(resolvedItems)
+        fileSystem.recursiveContentsOfDirectoryResult = .success(resolvedItems)
         return FilePaneViewModel(
             fileSystemService: fileSystem,
             securityScopedBookmarkService: bookmarkService,
@@ -548,6 +549,38 @@ final class FilePaneViewModelTests: XCTestCase {
         await waitForLoad()
 
         XCTAssertEqual(capturedMode, .media)
+    }
+
+    func testSetFilesRecursiveEnabledInBrowserReloadsRecursively() async {
+        let sut = makeSUT(items: [makeFileItem(name: "top.txt")])
+        await waitForLoad()
+
+        fileSystem.recursiveContentsOfDirectoryResult = .success([
+            makeFileItem(name: "child.txt"),
+            makeFileItem(name: "nested", isDirectory: true)
+        ])
+
+        sut.setFilesRecursiveEnabled(true)
+        await waitForLoad()
+
+        XCTAssertTrue(sut.filesRecursiveEnabled)
+        XCTAssertEqual(fileSystem.recursiveContentsOfDirectoryCallCount, 1)
+        XCTAssertEqual(sut.directoryContents.displayedItems.count, 2)
+    }
+
+    func testToggleHiddenFilesReloadsWhenFilesRecursiveEnabled() async {
+        let sut = makeSUT()
+        await waitForLoad()
+
+        sut.setFilesRecursiveEnabled(true)
+        await waitForLoad()
+        let beforeToggleCallCount = fileSystem.recursiveContentsOfDirectoryCallCount
+
+        sut.toggleHiddenFiles()
+        await waitForLoad()
+
+        XCTAssertEqual(fileSystem.recursiveContentsOfDirectoryCallCount, beforeToggleCallCount + 1)
+        XCTAssertEqual(fileSystem.recursiveContentsOfDirectoryCapturedArgs.last?.includeHiddenFiles, true)
     }
 
     // MARK: - Directory Changed Callback

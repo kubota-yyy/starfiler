@@ -59,7 +59,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private let searchControlsStackView = NSStackView()
     private let filesModeButton = NSButton(title: "Files", target: nil, action: nil)
     private let mediaModeButton = NSButton(title: "Media", target: nil, action: nil)
-    private let mediaRecursiveButton = NSButton(checkboxWithTitle: "Recursive", target: nil, action: nil)
+    private let filesRecursiveButton = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+    private let mediaRecursiveButton = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let mediaIconSizeSlider = NSSlider(value: 16, minValue: 12, maxValue: 40, target: nil, action: nil)
     private let mediaIconSizeValueLabel = NSTextField(labelWithString: "16 px")
     private let searchField = NSSearchField()
@@ -487,10 +488,18 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         mediaModeButton.layer?.borderWidth = 0.5
         mediaModeButton.layer?.borderColor = NSColor.separatorColor.cgColor
 
+        filesRecursiveButton.translatesAutoresizingMaskIntoConstraints = false
+        filesRecursiveButton.target = self
+        filesRecursiveButton.action = #selector(handleFilesRecursiveToggle(_:))
+        filesRecursiveButton.isHidden = true
+        filesRecursiveButton.toolTip = "Recursive"
+        filesRecursiveButton.setContentHuggingPriority(.required, for: .horizontal)
+
         mediaRecursiveButton.translatesAutoresizingMaskIntoConstraints = false
         mediaRecursiveButton.target = self
         mediaRecursiveButton.action = #selector(handleMediaRecursiveToggle(_:))
         mediaRecursiveButton.isHidden = true
+        mediaRecursiveButton.toolTip = "Recursive"
         mediaRecursiveButton.setContentHuggingPriority(.required, for: .horizontal)
 
         mediaIconSizeSlider.translatesAutoresizingMaskIntoConstraints = false
@@ -612,11 +621,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         headerView.addSubview(searchControlsStackView)
         searchControlsStackView.addArrangedSubview(filesModeButton)
         searchControlsStackView.addArrangedSubview(mediaModeButton)
+        searchControlsStackView.addArrangedSubview(filesRecursiveButton)
         searchControlsStackView.addArrangedSubview(mediaRecursiveButton)
         searchControlsStackView.addArrangedSubview(mediaIconSizeSlider)
         searchControlsStackView.addArrangedSubview(mediaIconSizeValueLabel)
         searchControlsStackView.addArrangedSubview(searchField)
         searchControlsStackView.setCustomSpacing(8, after: mediaModeButton)
+        searchControlsStackView.setCustomSpacing(8, after: filesRecursiveButton)
         searchControlsStackView.setCustomSpacing(8, after: mediaRecursiveButton)
         searchControlsStackView.setCustomSpacing(4, after: mediaIconSizeSlider)
         searchControlsStackView.setCustomSpacing(12, after: mediaIconSizeValueLabel)
@@ -687,6 +698,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         mediaModeButton.layer?.backgroundColor = isMediaMode ? selectedBg : unselectedBg
         filesModeButton.contentTintColor = isMediaMode ? .secondaryLabelColor : .labelColor
         mediaModeButton.contentTintColor = isMediaMode ? .labelColor : .secondaryLabelColor
+        filesRecursiveButton.state = viewModel.filesRecursiveEnabled ? .on : .off
+        filesRecursiveButton.isHidden = isMediaMode
         mediaRecursiveButton.state = viewModel.mediaRecursiveEnabled ? .on : .off
         mediaRecursiveButton.isHidden = !isMediaMode
         mediaIconSizeSlider.isHidden = !isMediaMode
@@ -800,6 +813,10 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             self?.applyDisplayMode(mode)
             self?.publishStatus()
             self?.publishSelection()
+        }
+
+        viewModel.onFilesRecursiveChanged = { [weak self] _ in
+            self?.updateDisplayModeControls()
         }
 
         viewModel.onMediaRecursiveChanged = { [weak self] _ in
@@ -921,6 +938,11 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private func handleDisplayModeChanged(_ sender: NSButton) {
         let mode: PaneDisplayMode = sender.tag == 1 ? .media : .browser
         viewModel.setDisplayMode(mode)
+    }
+
+    @objc
+    private func handleFilesRecursiveToggle(_ sender: NSButton) {
+        viewModel.setFilesRecursiveEnabled(sender.state == .on)
     }
 
     @objc

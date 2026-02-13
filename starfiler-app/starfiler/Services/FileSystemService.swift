@@ -2,6 +2,7 @@ import Foundation
 
 protocol FileSystemProviding {
     func contentsOfDirectory(at url: URL) async throws -> [FileItem]
+    func recursiveContentsOfDirectory(at url: URL, includeHiddenFiles: Bool) async throws -> [FileItem]
     func mediaItems(in directory: URL, recursive: Bool, includeHiddenFiles: Bool) async throws -> [FileItem]
 }
 
@@ -33,6 +34,34 @@ struct FileSystemService: FileSystemProviding {
         return urls.map { entryURL in
             let values = try? entryURL.resourceValues(forKeys: self.resourceKeys)
             return Self.makeFileItem(from: entryURL, values: values)
+        }
+    }
+
+    func recursiveContentsOfDirectory(at url: URL, includeHiddenFiles: Bool) async throws -> [FileItem] {
+        let options: FileManager.DirectoryEnumerationOptions = includeHiddenFiles
+            ? [.skipsPackageDescendants]
+            : [.skipsPackageDescendants, .skipsHiddenFiles]
+
+        guard let enumerator = fileManager.enumerator(
+            at: url,
+            includingPropertiesForKeys: Array(resourceKeys),
+            options: options
+        ) else {
+            return []
+        }
+
+        var items: [FileItem] = []
+        while let entryURL = enumerator.nextObject() as? URL {
+            let values = try? entryURL.resourceValues(forKeys: resourceKeys)
+            let item = Self.makeFileItem(from: entryURL, values: values)
+            if !includeHiddenFiles, item.isHidden {
+                continue
+            }
+            items.append(item)
+        }
+
+        return items.sorted {
+            $0.url.path.localizedStandardCompare($1.url.path) == .orderedAscending
         }
     }
 

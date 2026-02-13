@@ -15,6 +15,18 @@ final class MockFileSystemService: FileSystemProviding, @unchecked Sendable {
         return try contentsOfDirectoryResult.get()
     }
 
+    // MARK: - recursiveContentsOfDirectory
+
+    var recursiveContentsOfDirectoryResult: Result<[FileItem], Error> = .success([])
+    private(set) var recursiveContentsOfDirectoryCallCount = 0
+    private(set) var recursiveContentsOfDirectoryCapturedArgs: [(url: URL, includeHiddenFiles: Bool)] = []
+
+    func recursiveContentsOfDirectory(at url: URL, includeHiddenFiles: Bool) async throws -> [FileItem] {
+        recursiveContentsOfDirectoryCallCount += 1
+        recursiveContentsOfDirectoryCapturedArgs.append((url, includeHiddenFiles))
+        return try recursiveContentsOfDirectoryResult.get()
+    }
+
     // MARK: - mediaItems
 
     var mediaItemsResult: Result<[FileItem], Error> = .success([])
