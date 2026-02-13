@@ -599,6 +599,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         searchField.setContentHuggingPriority(.defaultLow, for: .horizontal)
         searchField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         configureSearchFieldMenuTemplate()
+        configureSearchFieldButtonAction()
 
         bookmarkJumpOverlayView.isHidden = true
     }
@@ -1826,6 +1827,28 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         searchField.searchMenuTemplate = menu
         updateSearchMenuSelectionStates()
+    }
+
+    private func configureSearchFieldButtonAction() {
+        guard let cell = searchField.cell as? NSSearchFieldCell else {
+            return
+        }
+        cell.searchButtonCell?.target = self
+        cell.searchButtonCell?.action = #selector(handleSearchFieldButtonClick(_:))
+    }
+
+    @objc
+    private func handleSearchFieldButtonClick(_ sender: Any?) {
+        guard let menu = searchField.searchMenuTemplate else {
+            return
+        }
+
+        if let event = NSApp.currentEvent {
+            NSMenu.popUpContextMenu(menu, with: event, for: searchField)
+            return
+        }
+
+        menu.popUp(positioning: nil, at: .zero, in: searchField)
     }
 
     @objc
