@@ -27,6 +27,10 @@ final class MarkdownPreviewPanelController {
     private var webViewDelegate: MarkdownWebViewDelegate?
     var onDismiss: (() -> Void)?
 
+    func focus() {
+        panel?.makeKeyAndOrderFront(nil)
+    }
+
     func showRelativeTo(window: NSWindow, fileURL: URL, palette: FilerThemePalette) {
         dismiss()
 

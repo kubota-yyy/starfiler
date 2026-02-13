@@ -26,7 +26,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
 
     private var bookmarksConfig: BookmarksConfig
     private var bookmarkSearchPanelController: BookmarkSearchPanelController?
-    private var markdownPreviewPanelController: MarkdownPreviewPanelController?
+    private var markdownPreviewPanelControllers: [URL: MarkdownPreviewPanelController] = [:]
     private var batchRenameWindowController: NSWindowController?
 
 
@@ -506,8 +506,8 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         pane.onFileIconSizeChanged = { [weak self] size in
             self?.handleFileIconSizeChanged(size, side: side)
         }
-        pane.onMarkdownPreviewRequested = { [weak self] url in
-            self?.presentMarkdownPreview(for: url)
+        pane.onMarkdownPreviewRequested = { [weak self] urls in
+            self?.presentMarkdownPreviews(for: urls)
         }
     }
 
@@ -1496,21 +1496,27 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
 
     // MARK: - Markdown Preview
 
-    private func presentMarkdownPreview(for fileURL: URL) {
-        markdownPreviewPanelController?.dismiss()
-
+    private func presentMarkdownPreviews(for fileURLs: [URL]) {
         guard let window = view.window else {
             return
         }
 
-        let panel = MarkdownPreviewPanelController()
-        panel.onDismiss = { [weak self] in
-            self?.markdownPreviewPanelController = nil
-            self?.focusActivePane()
-        }
-
         let palette = currentFilerTheme.palette
-        panel.showRelativeTo(window: window, fileURL: fileURL, palette: palette)
-        markdownPreviewPanelController = panel
+        let normalizedURLs = Array(Set(fileURLs.map(\.standardizedFileURL)))
+        for fileURL in normalizedURLs {
+            if let panel = markdownPreviewPanelControllers[fileURL] {
+                panel.focus()
+                continue
+            }
+
+            let panel = MarkdownPreviewPanelController()
+            panel.onDismiss = { [weak self] in
+                self?.markdownPreviewPanelControllers.removeValue(forKey: fileURL)
+                self?.focusActivePane()
+            }
+
+            panel.showRelativeTo(window: window, fileURL: fileURL, palette: palette)
+            markdownPreviewPanelControllers[fileURL] = panel
+        }
     }
 }

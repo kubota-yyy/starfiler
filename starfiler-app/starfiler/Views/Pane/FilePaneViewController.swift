@@ -100,7 +100,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     var onDropOperationCompleted: ((NSDragOperation, Int) -> Void)?
     var onSpotlightSearchScopeChanged: ((SpotlightSearchScope) -> Void)?
     var onFileIconSizeChanged: ((CGFloat) -> Void)?
-    var onMarkdownPreviewRequested: ((URL) -> Void)?
+    var onMarkdownPreviewRequested: (([URL]) -> Void)?
     var onDirectoryLoadFailed: ((URL, Error) -> Void)?
 
     init(viewModel: FilePaneViewModel) {
@@ -1455,7 +1455,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         if item.isDirectory && !item.isPackage {
             viewModel.enterSelected()
         } else if item.url.isMarkdownFile {
-            onMarkdownPreviewRequested?(item.url)
+            let markdownURLs = viewModel.markedOrSelectedURLs()
+                .filter(\.isMarkdownFile)
+            if markdownURLs.isEmpty {
+                onMarkdownPreviewRequested?([item.url])
+            } else {
+                onMarkdownPreviewRequested?(markdownURLs)
+            }
         } else {
             NSWorkspace.shared.open(item.url)
         }
