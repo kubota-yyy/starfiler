@@ -225,14 +225,10 @@ final class MainViewModel {
     }
 
     func copyMarked() {
-        let urls = activePane.markedOrSelectedURLs()
-        guard !urls.isEmpty else {
+        let normalizedURLs = copyMarkedToClipboard()
+        guard !normalizedURLs.isEmpty else {
             return
         }
-
-        let normalizedURLs = urls.map(\.standardizedFileURL)
-        clipboard = normalizedURLs
-        clipboardOperation = .copy
 
         let destinationDirectory = inactivePane.paneState.currentDirectory.standardizedFileURL
         execute(
@@ -243,23 +239,59 @@ final class MainViewModel {
     }
 
     func cutMarked() {
-        let urls = activePane.markedOrSelectedURLs()
-        guard !urls.isEmpty else {
-            return
-        }
-
-        clipboard = urls.map(\.standardizedFileURL)
-        clipboardOperation = .cut
+        _ = cutMarkedToClipboard()
     }
 
     func paste() {
+        let destinationDirectory = inactivePane.paneState.currentDirectory.standardizedFileURL
+        paste(to: destinationDirectory)
+    }
+
+    @discardableResult
+    func copyMarkedToClipboard() -> [URL] {
+        stageClipboard(operation: .copy)
+    }
+
+    @discardableResult
+    func cutMarkedToClipboard() -> [URL] {
+        stageClipboard(operation: .cut)
+    }
+
+    func replaceClipboard(urls: [URL], operation: ClipboardOperation) {
+        let normalizedURLs = urls.map(\.standardizedFileURL)
+        guard !normalizedURLs.isEmpty else {
+            clipboard.removeAll()
+            clipboardOperation = nil
+            return
+        }
+
+        clipboard = normalizedURLs
+        clipboardOperation = operation
+    }
+
+    func pasteToActivePane() {
+        let destinationDirectory = activePane.paneState.currentDirectory.standardizedFileURL
+        paste(to: destinationDirectory)
+    }
+
+    func pasteToActivePaneAsMove() {
+        let destinationDirectory = activePane.paneState.currentDirectory.standardizedFileURL
+        paste(to: destinationDirectory, forceMoveFromCopy: true)
+    }
+
+    private func paste(to destinationDirectory: URL, forceMoveFromCopy: Bool = false) {
         guard !clipboard.isEmpty, let clipboardOperation else {
             return
         }
 
-        let destinationDirectory = inactivePane.paneState.currentDirectory.standardizedFileURL
+        let effectiveOperation: ClipboardOperation
+        if forceMoveFromCopy, clipboardOperation == .copy {
+            effectiveOperation = .cut
+        } else {
+            effectiveOperation = clipboardOperation
+        }
 
-        switch clipboardOperation {
+        switch effectiveOperation {
         case .copy:
             execute(
                 operation: .copy(items: clipboard, destinationDirectory: destinationDirectory),
@@ -282,6 +314,18 @@ final class MainViewModel {
                 clearCutClipboardOnSuccess: true
             )
         }
+    }
+
+    private func stageClipboard(operation: ClipboardOperation) -> [URL] {
+        let urls = activePane.markedOrSelectedURLs()
+        guard !urls.isEmpty else {
+            return []
+        }
+
+        let normalizedURLs = urls.map(\.standardizedFileURL)
+        clipboard = normalizedURLs
+        clipboardOperation = operation
+        return normalizedURLs
     }
 
     func deleteMarked() {
