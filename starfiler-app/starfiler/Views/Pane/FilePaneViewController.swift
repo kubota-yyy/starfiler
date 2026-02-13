@@ -57,7 +57,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private let pathControl = NSPathControl()
     private let forwardPeekButton = NSButton(title: "", target: nil, action: nil)
     private let searchControlsStackView = NSStackView()
-    private let displayModeControl = NSSegmentedControl(labels: ["Files", "Media"], trackingMode: .selectOne, target: nil, action: nil)
+    private let filesModeButton = NSButton(title: "Files", target: nil, action: nil)
+    private let mediaModeButton = NSButton(title: "Media", target: nil, action: nil)
     private let mediaRecursiveButton = NSButton(checkboxWithTitle: "Recursive", target: nil, action: nil)
     private let mediaIconSizeLabel = NSTextField(labelWithString: "Icon")
     private let mediaIconSizeSlider = NSSlider(value: 16, minValue: 12, maxValue: 40, target: nil, action: nil)
@@ -132,12 +133,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         configureContextMenu()
         bindViewModel()
         setActive(false)
-    }
-
-    override func viewDidLayout() {
-        super.viewDidLayout()
-        flattenCornerRadius(displayModeControl)
-        flattenCornerRadius(searchField)
     }
 
     deinit {
@@ -460,13 +455,29 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         searchControlsStackView.setContentHuggingPriority(.required, for: .horizontal)
         searchControlsStackView.setContentCompressionResistancePriority(.required, for: .horizontal)
 
-        displayModeControl.translatesAutoresizingMaskIntoConstraints = false
-        displayModeControl.segmentStyle = .smallSquare
-        displayModeControl.controlSize = .small
-        displayModeControl.selectedSegment = 0
-        displayModeControl.target = self
-        displayModeControl.action = #selector(handleDisplayModeChanged(_:))
-        displayModeControl.setContentHuggingPriority(.required, for: .horizontal)
+        filesModeButton.translatesAutoresizingMaskIntoConstraints = false
+        filesModeButton.isBordered = false
+        filesModeButton.wantsLayer = true
+        filesModeButton.font = .systemFont(ofSize: 11, weight: .medium)
+        filesModeButton.alignment = .center
+        filesModeButton.target = self
+        filesModeButton.action = #selector(handleDisplayModeChanged(_:))
+        filesModeButton.tag = 0
+        filesModeButton.setContentHuggingPriority(.required, for: .horizontal)
+        filesModeButton.layer?.borderWidth = 0.5
+        filesModeButton.layer?.borderColor = NSColor.separatorColor.cgColor
+
+        mediaModeButton.translatesAutoresizingMaskIntoConstraints = false
+        mediaModeButton.isBordered = false
+        mediaModeButton.wantsLayer = true
+        mediaModeButton.font = .systemFont(ofSize: 11, weight: .medium)
+        mediaModeButton.alignment = .center
+        mediaModeButton.target = self
+        mediaModeButton.action = #selector(handleDisplayModeChanged(_:))
+        mediaModeButton.tag = 1
+        mediaModeButton.setContentHuggingPriority(.required, for: .horizontal)
+        mediaModeButton.layer?.borderWidth = 0.5
+        mediaModeButton.layer?.borderColor = NSColor.separatorColor.cgColor
 
         mediaRecursiveButton.translatesAutoresizingMaskIntoConstraints = false
         mediaRecursiveButton.target = self
@@ -500,8 +511,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         searchField.translatesAutoresizingMaskIntoConstraints = false
         searchField.controlSize = .small
-        searchField.bezelStyle = .squareBezel
+        searchField.isBezeled = false
+        searchField.drawsBackground = true
         searchField.focusRingType = .none
+        searchField.wantsLayer = true
+        searchField.layer?.borderWidth = 0.5
+        searchField.layer?.borderColor = NSColor.separatorColor.cgColor
         searchField.placeholderString = SearchMode.filter.placeholder
         searchField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         searchField.delegate = self
@@ -594,7 +609,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         headerView.addSubview(navigationStackView)
         headerView.addSubview(searchControlsStackView)
-        searchControlsStackView.addArrangedSubview(displayModeControl)
+        searchControlsStackView.addArrangedSubview(filesModeButton)
+        searchControlsStackView.addArrangedSubview(mediaModeButton)
         searchControlsStackView.addArrangedSubview(mediaRecursiveButton)
         searchControlsStackView.addArrangedSubview(mediaIconSizeLabel)
         searchControlsStackView.addArrangedSubview(mediaIconSizeSlider)
@@ -616,6 +632,11 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             searchControlsStackView.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -10),
             searchControlsStackView.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
             searchControlsStackView.leadingAnchor.constraint(greaterThanOrEqualTo: headerView.leadingAnchor, constant: 260),
+            filesModeButton.heightAnchor.constraint(equalToConstant: 22),
+            filesModeButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 46),
+            mediaModeButton.heightAnchor.constraint(equalToConstant: 22),
+            mediaModeButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 50),
+            searchField.heightAnchor.constraint(equalToConstant: 22),
             mediaIconSizeSlider.widthAnchor.constraint(equalToConstant: 110),
             mediaIconSizeValueLabel.widthAnchor.constraint(equalToConstant: 44),
             searchField.widthAnchor.constraint(greaterThanOrEqualToConstant: 132),
@@ -656,7 +677,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     private func updateDisplayModeControls() {
         let isMediaMode = currentDisplayMode == .media
-        displayModeControl.selectedSegment = currentDisplayMode == .media ? 1 : 0
+        let selectedBg = NSColor.controlAccentColor.withAlphaComponent(0.18).cgColor
+        let unselectedBg = CGColor.clear
+        filesModeButton.layer?.backgroundColor = isMediaMode ? unselectedBg : selectedBg
+        mediaModeButton.layer?.backgroundColor = isMediaMode ? selectedBg : unselectedBg
+        filesModeButton.contentTintColor = isMediaMode ? .secondaryLabelColor : .labelColor
+        mediaModeButton.contentTintColor = isMediaMode ? .labelColor : .secondaryLabelColor
         mediaRecursiveButton.state = viewModel.mediaRecursiveEnabled ? .on : .off
         mediaRecursiveButton.isHidden = !isMediaMode
         mediaIconSizeLabel.isHidden = !isMediaMode
@@ -860,28 +886,18 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         view.layer?.backgroundColor = palette.paneBackgroundColor.applyingBackgroundOpacity(backgroundOpacity).cgColor
         headerView.layer?.backgroundColor = headerColor.cgColor
         pathControl.alphaValue = isPaneActive ? 1.0 : 0.82
+        let borderColor = NSColor.separatorColor.cgColor
+        filesModeButton.layer?.borderColor = borderColor
+        mediaModeButton.layer?.borderColor = borderColor
+        searchField.layer?.borderColor = borderColor
         searchField.textColor = palette.primaryTextColor
         searchField.backgroundColor = palette.filterBarBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
+        updateDisplayModeControls()
         tableView.backgroundColor = palette.tableBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
         mediaCollectionView.backgroundColors = [palette.tableBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)]
         scrollView.backgroundColor = palette.tableBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
         scrollView.alphaValue = isPaneActive ? palette.activePaneAlpha : palette.inactivePaneAlpha
         bookmarkJumpOverlayView.applyPalette(palette, backgroundOpacity: backgroundOpacity)
-    }
-
-    private func flattenCornerRadius(_ target: NSView) {
-        target.wantsLayer = true
-        if let layer = target.layer {
-            flattenLayerCornerRadius(layer)
-        }
-        for child in target.subviews {
-            flattenCornerRadius(child)
-        }
-    }
-
-    private func flattenLayerCornerRadius(_ layer: CALayer) {
-        layer.cornerRadius = 0
-        layer.sublayers?.forEach { flattenLayerCornerRadius($0) }
     }
 
     @objc
@@ -899,8 +915,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     @objc
-    private func handleDisplayModeChanged(_ sender: NSSegmentedControl) {
-        let mode: PaneDisplayMode = sender.selectedSegment == 1 ? .media : .browser
+    private func handleDisplayModeChanged(_ sender: NSButton) {
+        let mode: PaneDisplayMode = sender.tag == 1 ? .media : .browser
         viewModel.setDisplayMode(mode)
     }
 
