@@ -452,7 +452,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         navigationStackView.translatesAutoresizingMaskIntoConstraints = false
         navigationStackView.orientation = .horizontal
         navigationStackView.alignment = .centerY
-        navigationStackView.spacing = 4
+        navigationStackView.spacing = 3
         navigationStackView.distribution = .fill
 
         backPeekButton.translatesAutoresizingMaskIntoConstraints = false
@@ -478,6 +478,11 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         pathControl.translatesAutoresizingMaskIntoConstraints = false
         pathControl.pathStyle = .standard
         pathControl.controlSize = .small
+        pathControl.wantsLayer = true
+        pathControl.focusRingType = .none
+        pathControl.font = .systemFont(ofSize: 11, weight: .medium)
+        pathControl.layer?.cornerRadius = 5
+        pathControl.layer?.borderWidth = 0.5
         pathControl.target = self
         pathControl.action = #selector(handlePathControlClick(_:))
 
@@ -665,15 +670,16 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             headerView.topAnchor.constraint(equalTo: view.topAnchor),
-            headerView.heightAnchor.constraint(equalToConstant: 30),
+            headerView.heightAnchor.constraint(equalToConstant: 28),
 
-            navigationStackView.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 10),
-            navigationStackView.trailingAnchor.constraint(lessThanOrEqualTo: searchControlsStackView.leadingAnchor, constant: -16),
+            navigationStackView.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 8),
+            navigationStackView.trailingAnchor.constraint(lessThanOrEqualTo: searchControlsStackView.leadingAnchor, constant: -12),
             navigationStackView.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
 
-            searchControlsStackView.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -10),
+            searchControlsStackView.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -8),
             searchControlsStackView.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
-            searchControlsStackView.leadingAnchor.constraint(greaterThanOrEqualTo: headerView.leadingAnchor, constant: 300),
+            searchControlsStackView.leadingAnchor.constraint(greaterThanOrEqualTo: headerView.leadingAnchor, constant: 280),
+            pathControl.heightAnchor.constraint(equalToConstant: 22),
             filesModeButton.heightAnchor.constraint(equalToConstant: 22),
             filesModeButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 46),
             mediaModeButton.heightAnchor.constraint(equalToConstant: 22),
@@ -886,9 +892,19 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     private func publishStatus() {
         let directoryURL = viewModel.paneState.currentDirectory.standardizedFileURL
-        pathControl.url = directoryURL
+        updatePathControl(for: directoryURL)
         onStatusChanged?(directoryURL.path, viewModel.directoryContents.displayedItems.count, viewModel.markedCount)
         updateNavigationPeekLabels()
+    }
+
+    private func updatePathControl(for directoryURL: URL) {
+        pathControl.url = directoryURL
+        // Use text-only path segments for a denser, cleaner header.
+        let compactItems = pathControl.pathItems.map { item -> NSPathControlItem in
+            item.image = nil
+            return item
+        }
+        pathControl.pathItems = compactItems
     }
 
     private func updateNavigationPeekLabels() {
@@ -936,6 +952,10 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         view.layer?.backgroundColor = palette.paneBackgroundColor.applyingBackgroundOpacity(backgroundOpacity).cgColor
         headerView.layer?.backgroundColor = headerColor.cgColor
         pathControl.alphaValue = isPaneActive ? 1.0 : 0.82
+        pathControl.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.65).cgColor
+        pathControl.layer?.backgroundColor = palette.filterBarBackgroundColor
+            .applyingBackgroundOpacity(backgroundOpacity)
+            .cgColor
         let borderColor = NSColor.separatorColor.cgColor
         filesModeButton.layer?.borderColor = borderColor
         mediaModeButton.layer?.borderColor = borderColor
