@@ -212,6 +212,11 @@ final class FileTableView: NSTableView {
             return false
         }
 
+        // Keep "/" available for "enterFilterMode" even when type select is enabled.
+        if event.key == "/" {
+            return false
+        }
+
         let unsupportedModifiers = event.modifiers.subtracting([.shift])
         return unsupportedModifiers.isEmpty
     }
