@@ -1517,6 +1517,16 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         applySearchFromHeader()
     }
 
+    func searchFieldDidEndSearching(_ sender: NSSearchField) {
+        guard sender === searchField else {
+            return
+        }
+
+        // NSSearchField's clear (x) button does not always emit controlTextDidChange.
+        // Ensure filter/spotlight state is synced when the field is cleared from the chrome.
+        applySearchFromHeader()
+    }
+
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         guard control === searchField else {
             return false
