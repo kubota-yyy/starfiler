@@ -326,22 +326,33 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         }
 
         let normalizedPaths = entries.map { normalizePath($0.path) }
+        let shortcutSequences = entries.map(shortcutSequenceTokens(for:))
         var parentIndexByChildIndex: [Int: Int] = [:]
 
         for childIndex in entries.indices {
             let childPath = normalizedPaths[childIndex]
+            let childShortcut = shortcutSequences[childIndex]
             var bestParentIndex: Int?
             var bestParentPathLength: Int = -1
+            var bestParentShortcutDepth: Int = -1
 
             for candidateIndex in entries.indices where candidateIndex != childIndex {
                 let candidatePath = normalizedPaths[candidateIndex]
+                let candidateShortcut = shortcutSequences[candidateIndex]
                 guard isDescendantPath(childPath, of: candidatePath) else {
                     continue
                 }
+                guard isShortcutDescendant(childShortcut, of: candidateShortcut) else {
+                    continue
+                }
 
-                if candidatePath.count > bestParentPathLength {
+                if
+                    candidateShortcut.count > bestParentShortcutDepth ||
+                    (candidateShortcut.count == bestParentShortcutDepth && candidatePath.count > bestParentPathLength)
+                {
                     bestParentIndex = candidateIndex
                     bestParentPathLength = candidatePath.count
+                    bestParentShortcutDepth = candidateShortcut.count
                 }
             }
 
@@ -366,6 +377,29 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         return entries.indices
             .filter { parentIndexByChildIndex[$0] == nil }
             .map { makeNode(entryIndex: $0) }
+    }
+
+    private func shortcutSequenceTokens(for entry: SidebarViewModel.SidebarEntry) -> [String] {
+        guard let shortcutHint = entry.shortcutHint else {
+            return []
+        }
+
+        let trimmedHint = shortcutHint.trimmingCharacters(in: .whitespacesAndNewlines)
+        let body: String
+        if trimmedHint.first == "'" {
+            body = String(trimmedHint.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            body = trimmedHint
+        }
+
+        return BookmarkShortcut.tokens(from: body)
+    }
+
+    private func isShortcutDescendant(_ child: [String], of parent: [String]) -> Bool {
+        guard !parent.isEmpty, child.count > parent.count else {
+            return false
+        }
+        return Array(child.prefix(parent.count)) == parent
     }
 
     private func normalizePath(_ rawPath: String) -> String {
