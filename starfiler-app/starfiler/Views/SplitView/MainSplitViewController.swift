@@ -1,7 +1,7 @@
 import AppKit
 
 final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
-    private static let defaultSidebarWidth = CGFloat(260)
+    private static let defaultSidebarWidth = CGFloat(AppConfig.defaultSidebarWidth)
     private static let defaultPreviewWidth = CGFloat(320)
     private static let sidebarWidthRange: ClosedRange<CGFloat> = CGFloat(AppConfig.sidebarWidthRange.lowerBound) ... CGFloat(AppConfig.sidebarWidthRange.upperBound)
     private static var lastSelectedBookmarkGroupIndex: Int = 0

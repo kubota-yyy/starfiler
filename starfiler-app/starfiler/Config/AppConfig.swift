@@ -85,7 +85,8 @@ enum SpotlightSearchScope: String, Codable, CaseIterable, Sendable {
 
 struct AppConfig: Codable, Sendable {
     static let sidebarRecentItemsLimitRange: ClosedRange<Int> = 0 ... 20
-    static let sidebarWidthRange: ClosedRange<Double> = 180 ... 420
+    static let defaultSidebarWidth: Double = 260
+    static let sidebarWidthRange: ClosedRange<Double> = 180 ... 720
 
     enum SortColumn: String, Codable, CaseIterable, Sendable {
         case name
@@ -149,7 +150,7 @@ struct AppConfig: Codable, Sendable {
         rightPaneFileIconSize: Double? = nil,
         sidebarFavoritesVisible: Bool = true,
         sidebarRecentItemsLimit: Int = 10,
-        sidebarWidth: Double = 260,
+        sidebarWidth: Double = defaultSidebarWidth,
         leftPaneDisplayMode: PaneDisplayMode = .browser,
         rightPaneDisplayMode: PaneDisplayMode = .browser,
         leftPaneMediaRecursiveEnabled: Bool = false,
@@ -249,7 +250,7 @@ struct AppConfig: Codable, Sendable {
         sidebarFavoritesVisible = try container.decodeIfPresent(Bool.self, forKey: .sidebarFavoritesVisible) ?? true
         let recentItemsLimit = try container.decodeIfPresent(Int.self, forKey: .sidebarRecentItemsLimit) ?? 10
         sidebarRecentItemsLimit = Self.clampedSidebarRecentItemsLimit(recentItemsLimit)
-        let sidebarWidthValue = try container.decodeIfPresent(Double.self, forKey: .sidebarWidth) ?? 260
+        let sidebarWidthValue = try container.decodeIfPresent(Double.self, forKey: .sidebarWidth) ?? Self.defaultSidebarWidth
         sidebarWidth = Self.clampedSidebarWidth(sidebarWidthValue)
         leftPaneDisplayMode = try container.decodeIfPresent(PaneDisplayMode.self, forKey: .leftPaneDisplayMode) ?? .browser
         rightPaneDisplayMode = try container.decodeIfPresent(PaneDisplayMode.self, forKey: .rightPaneDisplayMode) ?? .browser
