@@ -84,6 +84,12 @@ final class FileTableView: NSTableView {
             }
         }
 
+        if shouldPreferTypeSelect(for: keyEvent) {
+            keyInterpreter.clearPendingSequence()
+            super.keyDown(with: event)
+            return
+        }
+
         switch keyInterpreter.interpret(keyEvent) {
         case .action(let action):
             if keyActionDelegate?.fileTableView(self, didTrigger: action) == true {
@@ -197,7 +203,16 @@ final class FileTableView: NSTableView {
     private func configureTableBehavior() {
         usesAutomaticRowHeights = false
         rowHeight = 24
-        allowsTypeSelect = false
+        allowsTypeSelect = true
         selectionHighlightStyle = .regular
+    }
+
+    private func shouldPreferTypeSelect(for event: KeyEvent) -> Bool {
+        guard event.key.count == 1 else {
+            return false
+        }
+
+        let unsupportedModifiers = event.modifiers.subtracting([.shift])
+        return unsupportedModifiers.isEmpty
     }
 }

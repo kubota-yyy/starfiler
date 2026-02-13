@@ -364,6 +364,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         return rowView
     }
 
+    func tableView(_ tableView: NSTableView, typeSelectStringFor tableColumn: NSTableColumn?, row: Int) -> String? {
+        guard viewModel.directoryContents.displayedItems.indices.contains(row) else {
+            return nil
+        }
+        return viewModel.directoryContents.displayedItems[row].name
+    }
+
     func tableViewSelectionDidChange(_ notification: Notification) {
         let selectedRow = tableView.selectedRow
         guard selectedRow >= 0 else {
