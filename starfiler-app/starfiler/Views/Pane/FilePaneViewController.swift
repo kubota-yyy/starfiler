@@ -134,6 +134,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         setActive(false)
     }
 
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        flattenCornerRadius(displayModeControl)
+        flattenCornerRadius(searchField)
+    }
+
     deinit {
         thumbnailTasks.values.forEach { $0.cancel() }
         thumbnailTasks.removeAll()
@@ -861,6 +867,21 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         scrollView.backgroundColor = palette.tableBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
         scrollView.alphaValue = isPaneActive ? palette.activePaneAlpha : palette.inactivePaneAlpha
         bookmarkJumpOverlayView.applyPalette(palette, backgroundOpacity: backgroundOpacity)
+    }
+
+    private func flattenCornerRadius(_ target: NSView) {
+        target.wantsLayer = true
+        if let layer = target.layer {
+            flattenLayerCornerRadius(layer)
+        }
+        for child in target.subviews {
+            flattenCornerRadius(child)
+        }
+    }
+
+    private func flattenLayerCornerRadius(_ layer: CALayer) {
+        layer.cornerRadius = 0
+        layer.sublayers?.forEach { flattenLayerCornerRadius($0) }
     }
 
     @objc
