@@ -2,6 +2,30 @@ import AppKit
 import AVFoundation
 import ImageIO
 
+private final class CenteredSearchFieldCell: NSSearchFieldCell {
+    // Keep search text and placeholder vertically centered in compact header height.
+    private func verticallyCenteredRect(_ rect: NSRect) -> NSRect {
+        let activeFont = font ?? NSFont.systemFont(ofSize: NSFont.systemFontSize(for: controlSize))
+        let textHeight = ceil(activeFont.ascender - activeFont.descender)
+        guard rect.height > textHeight else {
+            return rect
+        }
+
+        var centeredRect = rect
+        centeredRect.origin.y = rect.origin.y + floor((rect.height - textHeight) / 2)
+        centeredRect.size.height = textHeight
+        return centeredRect
+    }
+
+    override func searchTextRect(forBounds rect: NSRect) -> NSRect {
+        verticallyCenteredRect(super.searchTextRect(forBounds: rect))
+    }
+
+    override func drawingRect(forBounds rect: NSRect) -> NSRect {
+        verticallyCenteredRect(super.drawingRect(forBounds: rect))
+    }
+}
+
 final class FilePaneViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSCollectionViewDataSource, NSCollectionViewDelegate, NSCollectionViewDelegateFlowLayout, NSMenuDelegate, KeyActionDelegate, MediaKeyActionDelegate, NSTextFieldDelegate, NSSearchFieldDelegate {
     private enum SearchMode: Int {
         case filter = 0
@@ -19,7 +43,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         var placeholder: String {
             switch self {
             case .filter:
-                return "Filter files in current folder..."
+                return "Filter current folder..."
             case .spotlight:
                 return "Search with Spotlight..."
             }
@@ -520,6 +544,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         mediaIconSizeValueLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         searchField.translatesAutoresizingMaskIntoConstraints = false
+        if !(searchField.cell is CenteredSearchFieldCell) {
+            searchField.cell = CenteredSearchFieldCell(textCell: "")
+        }
         searchField.controlSize = .small
         searchField.isBezeled = false
         searchField.drawsBackground = true
@@ -770,13 +797,16 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             self.thumbnailTasks.removeAll()
             self.thumbnailCache.removeAllObjects()
 
-            // Sync search field with model filterText (e.g. cleared on directory change).
-            let modelFilter = self.viewModel.directoryContents.filterText
-            if self.searchField.stringValue != modelFilter {
-                self.searchField.stringValue = modelFilter
-                if modelFilter.isEmpty {
-                    self.searchField.layer?.removeAnimation(forKey: "searchGlow")
-                    self.searchField.layer?.shadowOpacity = 0
+            // Sync search field from filter text only while in filter mode.
+            // In spotlight mode, keep the typed query visible.
+            if self.selectedSearchMode == .filter {
+                let modelFilter = self.viewModel.directoryContents.filterText
+                if self.searchField.stringValue != modelFilter {
+                    self.searchField.stringValue = modelFilter
+                    if modelFilter.isEmpty {
+                        self.searchField.layer?.removeAnimation(forKey: "searchGlow")
+                        self.searchField.layer?.shadowOpacity = 0
+                    }
                 }
             }
 
