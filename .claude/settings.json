@@ -9,5 +9,9 @@
       "Bash(xcodebuild*)",
       "Bash(git *)"
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "true"
   }
 }

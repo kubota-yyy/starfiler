@@ -12,6 +12,13 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         var markedCount: Int
     }
 
+    private struct SidebarBookmarkEditResult {
+        let groupName: String
+        let displayName: String
+        let path: String
+        let shortcutKey: String?
+    }
+
     private let viewModel: MainViewModel
     private let configManager: ConfigManager
     private let sidebarViewModel: SidebarViewModel
@@ -526,6 +533,14 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         }
         sidebarViewController.onHistoryJumpRequested = { [weak self] position in
             self?.viewModel.activePane.jumpToHistoryPosition(position)
+        }
+        sidebarViewController.onBookmarkContextActionRequested = { [weak self] action, sectionKind, entry in
+            switch action {
+            case .editBookmark:
+                self?.presentSidebarBookmarkEditor(for: entry, sectionKind: sectionKind)
+            case .deleteBookmark:
+                self?.deleteSidebarBookmark(entry, sectionKind: sectionKind)
+            }
         }
     }
 
@@ -1421,19 +1436,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
 
         do {
             try configManager.saveBookmarksConfig(bookmarksConfig)
-            let bookmarkURL = URL(fileURLWithPath: entry.path, isDirectory: true).standardizedFileURL
-            Task { [weak self] in
-                guard let self else {
-                    return
-                }
-                do {
-                    try await self.viewModel.securityScopedBookmarkService.saveBookmark(for: bookmarkURL)
-                } catch {
-                    await MainActor.run {
-                        self.presentBookmarkPermissionSaveError(for: bookmarkURL, error: error)
-                    }
-                }
-            }
+            persistSecurityScopedBookmark(for: entry.path)
             sidebarViewController.reloadData()
             propagateBookmarksConfig()
             showActionToast("Saved bookmark \"\(entry.displayName)\"")
@@ -1444,6 +1447,243 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
             alert.informativeText = error.localizedDescription
             alert.addButton(withTitle: "OK")
             alert.runModal()
+        }
+    }
+
+    private func persistSecurityScopedBookmark(for path: String) {
+        let bookmarkURL = URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
+        Task { [weak self] in
+            guard let self else {
+                return
+            }
+            do {
+                try await self.viewModel.securityScopedBookmarkService.saveBookmark(for: bookmarkURL)
+            } catch {
+                await MainActor.run {
+                    self.presentBookmarkPermissionSaveError(for: bookmarkURL, error: error)
+                }
+            }
+        }
+    }
+
+    private func presentSidebarBookmarkEditor(
+        for entry: SidebarViewModel.SidebarEntry,
+        sectionKind: SidebarViewModel.SectionKind
+    ) {
+        let latestConfig = configManager.loadBookmarksConfig()
+        guard let originalGroupName = resolvedBookmarkGroupName(for: sectionKind, in: latestConfig) else {
+            NSSound.beep()
+            return
+        }
+
+        guard let result = presentSidebarBookmarkEditAlert(
+            initialEntry: entry,
+            initialGroupName: originalGroupName,
+            groups: latestConfig.groups
+        ) else {
+            return
+        }
+
+        applySidebarBookmarkEdit(originalEntry: entry, originalGroupName: originalGroupName, result: result)
+    }
+
+    private func deleteSidebarBookmark(
+        _ entry: SidebarViewModel.SidebarEntry,
+        sectionKind: SidebarViewModel.SectionKind
+    ) {
+        var latestConfig = configManager.loadBookmarksConfig()
+        guard let groupName = resolvedBookmarkGroupName(for: sectionKind, in: latestConfig),
+              let groupIndex = latestConfig.groups.firstIndex(where: { $0.name == groupName }) else {
+            NSSound.beep()
+            return
+        }
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Delete Bookmark"
+        alert.informativeText = "Delete \"\(entry.displayName)\"?"
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            return
+        }
+
+        let previousCount = latestConfig.groups[groupIndex].entries.count
+        latestConfig.groups[groupIndex].entries.removeAll { $0.path == entry.path }
+        guard latestConfig.groups[groupIndex].entries.count != previousCount else {
+            NSSound.beep()
+            return
+        }
+
+        persistBookmarkConfigAfterSidebarAction(
+            latestConfig,
+            toastMessage: "Deleted bookmark \"\(entry.displayName)\""
+        )
+    }
+
+    private func resolvedBookmarkGroupName(
+        for sectionKind: SidebarViewModel.SectionKind,
+        in config: BookmarksConfig
+    ) -> String? {
+        switch sectionKind {
+        case .bookmarkGroup(let groupName):
+            return groupName
+        case .favorites:
+            return config.groups.first(where: { $0.isDefault })?.name
+        case .pinned, .recent:
+            return nil
+        }
+    }
+
+    private func presentSidebarBookmarkEditAlert(
+        initialEntry: SidebarViewModel.SidebarEntry,
+        initialGroupName: String,
+        groups: [BookmarkGroup]
+    ) -> SidebarBookmarkEditResult? {
+        guard !groups.isEmpty else {
+            return nil
+        }
+
+        let groupNames = groups.map(\.name)
+        let initialShortcut = groups
+            .first(where: { $0.name == initialGroupName })?
+            .entries
+            .first(where: { $0.path == initialEntry.path })?
+            .shortcutKey
+
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Edit Bookmark"
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 186))
+
+        let groupLabel = NSTextField(labelWithString: "Group")
+        groupLabel.frame = NSRect(x: 0, y: 160, width: 220, height: 20)
+        groupLabel.font = .systemFont(ofSize: 11)
+        groupLabel.textColor = .secondaryLabelColor
+
+        let groupPopup = NSPopUpButton(frame: NSRect(x: 0, y: 136, width: 260, height: 24), pullsDown: false)
+        groupPopup.addItems(withTitles: groupNames)
+
+        let displayNameLabel = NSTextField(labelWithString: "Display Name")
+        displayNameLabel.frame = NSRect(x: 0, y: 108, width: 200, height: 20)
+        displayNameLabel.font = .systemFont(ofSize: 11)
+        displayNameLabel.textColor = .secondaryLabelColor
+
+        let displayNameField = NSTextField(frame: NSRect(x: 0, y: 84, width: 210, height: 24))
+        displayNameField.stringValue = initialEntry.displayName
+
+        let shortcutLabel = NSTextField(labelWithString: "Shortcut sequence (optional)")
+        shortcutLabel.frame = NSRect(x: 220, y: 108, width: 240, height: 20)
+        shortcutLabel.font = .systemFont(ofSize: 11)
+        shortcutLabel.textColor = .secondaryLabelColor
+
+        let shortcutField = NSTextField(frame: NSRect(x: 220, y: 84, width: 170, height: 24))
+        shortcutField.placeholderString = "e.g. d or d u"
+        shortcutField.stringValue = initialShortcut ?? ""
+
+        let pathLabel = NSTextField(labelWithString: "Path")
+        pathLabel.frame = NSRect(x: 0, y: 56, width: 210, height: 20)
+        pathLabel.font = .systemFont(ofSize: 11)
+        pathLabel.textColor = .secondaryLabelColor
+
+        let pathField = NSTextField(frame: NSRect(x: 0, y: 32, width: 460, height: 24))
+        pathField.stringValue = initialEntry.path
+
+        container.addSubview(groupLabel)
+        container.addSubview(groupPopup)
+        container.addSubview(displayNameLabel)
+        container.addSubview(displayNameField)
+        container.addSubview(shortcutLabel)
+        container.addSubview(shortcutField)
+        container.addSubview(pathLabel)
+        container.addSubview(pathField)
+        alert.accessoryView = container
+
+        if let initialIndex = groupNames.firstIndex(of: initialGroupName) {
+            groupPopup.selectItem(at: initialIndex)
+        } else {
+            groupPopup.selectItem(at: 0)
+        }
+
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            return nil
+        }
+
+        let selectedGroupIndex = groupPopup.indexOfSelectedItem
+        guard selectedGroupIndex >= 0, groupNames.indices.contains(selectedGroupIndex) else {
+            return nil
+        }
+
+        let selectedGroupName = groupNames[selectedGroupIndex].trimmingCharacters(in: .whitespacesAndNewlines)
+        let displayName = displayNameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let path = pathField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !selectedGroupName.isEmpty, !displayName.isEmpty, !path.isEmpty else {
+            presentErrorAlert(
+                title: "Missing Required Fields",
+                informativeText: "Group, display name, and path are required."
+            )
+            return nil
+        }
+
+        return SidebarBookmarkEditResult(
+            groupName: selectedGroupName,
+            displayName: displayName,
+            path: path,
+            shortcutKey: BookmarkShortcut.canonical(from: shortcutField.stringValue)
+        )
+    }
+
+    private func applySidebarBookmarkEdit(
+        originalEntry: SidebarViewModel.SidebarEntry,
+        originalGroupName: String,
+        result: SidebarBookmarkEditResult
+    ) {
+        var latestConfig = configManager.loadBookmarksConfig()
+        guard let originalGroupIndex = latestConfig.groups.firstIndex(where: { $0.name == originalGroupName }),
+              let targetGroupIndex = latestConfig.groups.firstIndex(where: { $0.name == result.groupName }) else {
+            NSSound.beep()
+            return
+        }
+
+        latestConfig.groups[originalGroupIndex].entries.removeAll { $0.path == originalEntry.path }
+        let updatedEntry = BookmarkEntry(
+            displayName: result.displayName,
+            path: result.path,
+            shortcutKey: result.shortcutKey
+        )
+
+        if let existingIndex = latestConfig.groups[targetGroupIndex].entries.firstIndex(where: { $0.path == result.path }) {
+            latestConfig.groups[targetGroupIndex].entries[existingIndex] = updatedEntry
+        } else {
+            latestConfig.groups[targetGroupIndex].entries.append(updatedEntry)
+        }
+
+        persistBookmarkConfigAfterSidebarAction(
+            latestConfig,
+            toastMessage: "Updated bookmark \"\(updatedEntry.displayName)\""
+        )
+        persistSecurityScopedBookmark(for: updatedEntry.path)
+    }
+
+    private func persistBookmarkConfigAfterSidebarAction(
+        _ config: BookmarksConfig,
+        toastMessage: String
+    ) {
+        do {
+            try configManager.saveBookmarksConfig(config)
+            bookmarksConfig = config
+            propagateBookmarksConfig()
+            sidebarViewController.reloadData()
+            showActionToast(toastMessage)
+        } catch {
+            presentErrorAlert(
+                title: "Failed to save bookmark",
+                informativeText: error.localizedDescription
+            )
         }
     }
 
