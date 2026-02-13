@@ -1,6 +1,26 @@
 import Foundation
 
 struct BookmarksConfig: Codable, Sendable {
+    struct ShortcutBinding: Equatable, Sendable {
+        let groupName: String
+        let entryDisplayName: String
+        let path: String
+
+        var entryLabel: String {
+            entryDisplayName.isEmpty ? path : entryDisplayName
+        }
+    }
+
+    struct ShortcutConflict: Equatable, Sendable {
+        let sequence: [String]
+        let existing: ShortcutBinding
+        let incoming: ShortcutBinding
+
+        var sequenceDisplayText: String {
+            sequence.map(BookmarkShortcut.displayToken(for:)).joined(separator: " ")
+        }
+    }
+
     var groups: [BookmarkGroup]
 
     init(groups: [BookmarkGroup] = []) {
@@ -45,6 +65,48 @@ struct BookmarksConfig: Codable, Sendable {
         }
 
         return (BookmarksConfig(groups: migratedGroups), didChange)
+    }
+
+    func firstShortcutConflict() -> ShortcutConflict? {
+        var seenBindingsBySequence: [[String]: ShortcutBinding] = [:]
+
+        for group in groups {
+            let groupTokens: [String]
+            if group.isDefault {
+                groupTokens = []
+            } else {
+                groupTokens = BookmarkShortcut.tokens(from: group.shortcutKey)
+                guard !groupTokens.isEmpty else {
+                    continue
+                }
+            }
+
+            for entry in group.entries {
+                let entryTokens = BookmarkShortcut.tokens(from: entry.shortcutKey)
+                guard !entryTokens.isEmpty else {
+                    continue
+                }
+
+                let sequence = groupTokens + entryTokens
+                let binding = ShortcutBinding(
+                    groupName: group.name,
+                    entryDisplayName: entry.displayName,
+                    path: entry.path
+                )
+
+                if let existing = seenBindingsBySequence[sequence] {
+                    return ShortcutConflict(
+                        sequence: sequence,
+                        existing: existing,
+                        incoming: binding
+                    )
+                }
+
+                seenBindingsBySequence[sequence] = binding
+            }
+        }
+
+        return nil
     }
 
     static func withDefaults() -> BookmarksConfig {

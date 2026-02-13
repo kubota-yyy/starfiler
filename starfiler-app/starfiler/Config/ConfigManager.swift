@@ -1,5 +1,19 @@
 import Foundation
 
+enum ConfigManagerError: LocalizedError {
+    case bookmarkShortcutConflict(BookmarksConfig.ShortcutConflict)
+
+    var errorDescription: String? {
+        switch self {
+        case .bookmarkShortcutConflict(let conflict):
+            return
+                "Shortcut \"\(conflict.sequenceDisplayText)\" is already used by " +
+                "\"\(conflict.existing.entryLabel)\" (group: \(conflict.existing.groupName)). " +
+                "Change the shortcut and try again."
+        }
+    }
+}
+
 final class ConfigManager {
     private enum FileName {
         static let appConfig = "AppConfig.json"
@@ -62,6 +76,9 @@ final class ConfigManager {
     }
 
     func saveBookmarksConfig(_ config: BookmarksConfig) throws {
+        if let conflict = config.firstShortcutConflict() {
+            throw ConfigManagerError.bookmarkShortcutConflict(conflict)
+        }
         try config.save(to: bookmarksConfigURL, fileManager: fileManager)
     }
 

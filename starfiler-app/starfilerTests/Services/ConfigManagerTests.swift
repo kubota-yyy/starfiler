@@ -73,6 +73,73 @@ final class ConfigManagerTests: XCTestCase {
         XCTAssertEqual(loaded.groups[0].entries[0].displayName, "Test")
     }
 
+    func testFirstShortcutConflictDetectsDuplicateEffectiveSequence() {
+        let config = BookmarksConfig(groups: [
+            BookmarkGroup(
+                name: "Default",
+                entries: [BookmarkEntry(displayName: "Docs", path: "/tmp/docs", shortcutKey: "d u")],
+                shortcutKey: nil,
+                isDefault: true
+            ),
+            BookmarkGroup(
+                name: "Projects",
+                entries: [BookmarkEntry(displayName: "Unity", path: "/tmp/unity", shortcutKey: "u")],
+                shortcutKey: "d",
+                isDefault: false
+            ),
+        ])
+
+        let conflict = config.firstShortcutConflict()
+
+        XCTAssertNotNil(conflict)
+        XCTAssertEqual(conflict?.sequence, ["d", "u"])
+        XCTAssertEqual(conflict?.existing.groupName, "Default")
+        XCTAssertEqual(conflict?.incoming.groupName, "Projects")
+    }
+
+    func testFirstShortcutConflictReturnsNilWhenEffectiveSequencesAreUnique() {
+        let config = BookmarksConfig(groups: [
+            BookmarkGroup(
+                name: "Default",
+                entries: [BookmarkEntry(displayName: "Docs", path: "/tmp/docs", shortcutKey: "d u")],
+                shortcutKey: nil,
+                isDefault: true
+            ),
+            BookmarkGroup(
+                name: "Projects",
+                entries: [BookmarkEntry(displayName: "Unity", path: "/tmp/unity", shortcutKey: "u")],
+                shortcutKey: "r",
+                isDefault: false
+            ),
+        ])
+
+        XCTAssertNil(config.firstShortcutConflict())
+    }
+
+    func testSaveBookmarksConfigThrowsWhenShortcutConflicts() {
+        let config = BookmarksConfig(groups: [
+            BookmarkGroup(
+                name: "Default",
+                entries: [BookmarkEntry(displayName: "Docs", path: "/tmp/docs", shortcutKey: "d u")],
+                shortcutKey: nil,
+                isDefault: true
+            ),
+            BookmarkGroup(
+                name: "Projects",
+                entries: [BookmarkEntry(displayName: "Unity", path: "/tmp/unity", shortcutKey: "u")],
+                shortcutKey: "d",
+                isDefault: false
+            ),
+        ])
+
+        XCTAssertThrowsError(try sut.saveBookmarksConfig(config)) { error in
+            guard case ConfigManagerError.bookmarkShortcutConflict(let conflict) = error else {
+                return XCTFail("Expected bookmarkShortcutConflict, got \(error)")
+            }
+            XCTAssertEqual(conflict.sequence, ["d", "u"])
+        }
+    }
+
     // MARK: - BatchRenamePresetsConfig
 
     func testSaveAndLoadBatchRenamePresetsConfig() throws {

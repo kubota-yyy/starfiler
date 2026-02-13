@@ -382,6 +382,10 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
                 isDefault: false
             )
         )
+
+        guard validateNoShortcutConflict(in: groups) else {
+            return
+        }
         persist(BookmarksConfig(groups: groups))
     }
 
@@ -414,6 +418,11 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         let oldName = groups[groupIndex].name
         groups[groupIndex].name = result.name
         groups[groupIndex].shortcutKey = result.shortcutKey
+
+        guard validateNoShortcutConflict(in: groups) else {
+            return
+        }
+
         let selectionTarget: BookmarkSelectionTarget?
         if let selectedRow, selectedRow.groupName == oldName {
             selectionTarget = BookmarkSelectionTarget(
@@ -909,8 +918,28 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
             )
         }
 
+        guard validateNoShortcutConflict(in: groups) else {
+            return
+        }
+
         persist(BookmarksConfig(groups: groups))
         persistSecurityScopedBookmark(for: result.path)
+    }
+
+    private func validateNoShortcutConflict(in groups: [BookmarkGroup]) -> Bool {
+        let config = BookmarksConfig(groups: groups)
+        guard let conflict = config.firstShortcutConflict() else {
+            return true
+        }
+
+        presentWarning(
+            title: "Shortcut Conflict",
+            informativeText:
+                "Shortcut \"\(conflict.sequenceDisplayText)\" is already used by " +
+                "\"\(conflict.existing.entryLabel)\" (group: \(conflict.existing.groupName)).\n\n" +
+                "Change the shortcut and try again."
+        )
+        return false
     }
 
     private func hasGroup(named name: String, in groups: [BookmarkGroup], excludingIndex: Int? = nil) -> Bool {
