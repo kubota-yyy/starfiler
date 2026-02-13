@@ -1337,24 +1337,22 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
             groupPopup.selectItem(at: lastIndex)
         }
 
-        let newGroupField = NSTextField(frame: NSRect(x: 0, y: 78, width: 260, height: 24))
+        let newGroupField = NSTextField(frame: NSRect(x: 0, y: 78, width: 210, height: 24))
         newGroupField.placeholderString = "New group name"
 
-        let groupShortcutField = NSTextField(frame: NSRect(x: 270, y: 78, width: 70, height: 24))
-        groupShortcutField.placeholderString = "Key"
-        groupShortcutField.alignment = .center
+        let groupShortcutField = NSTextField(frame: NSRect(x: 220, y: 78, width: 120, height: 24))
+        groupShortcutField.placeholderString = "Group key"
 
         let displayNameField = NSTextField(frame: NSRect(x: 0, y: 52, width: 340, height: 24))
         displayNameField.stringValue = defaultDisplayName
 
-        let shortcutLabel = NSTextField(labelWithString: "Shortcut key (1 char):")
-        shortcutLabel.frame = NSRect(x: 0, y: 26, width: 200, height: 20)
+        let shortcutLabel = NSTextField(labelWithString: "Shortcut sequence (optional):")
+        shortcutLabel.frame = NSRect(x: 0, y: 26, width: 260, height: 20)
         shortcutLabel.font = .systemFont(ofSize: 11)
         shortcutLabel.textColor = .secondaryLabelColor
 
-        let shortcutField = NSTextField(frame: NSRect(x: 0, y: 0, width: 70, height: 24))
-        shortcutField.placeholderString = "Key"
-        shortcutField.alignment = .center
+        let shortcutField = NSTextField(frame: NSRect(x: 0, y: 0, width: 180, height: 24))
+        shortcutField.placeholderString = "e.g. d or d u"
 
         accessoryContainer.addSubview(groupPopup)
         accessoryContainer.addSubview(newGroupField)
@@ -1379,8 +1377,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
             selectedGroupName = bookmarksConfig.groups[selectedGroupIndex].name
         } else {
             selectedGroupName = newGroupField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            let groupKey = groupShortcutField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            groupShortcutKey = groupKey.isEmpty ? nil : String(groupKey.prefix(1))
+            groupShortcutKey = BookmarkShortcut.canonical(from: groupShortcutField.stringValue)
         }
 
         guard !selectedGroupName.isEmpty else {
@@ -1390,8 +1387,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         let displayName = displayNameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedDisplayName = displayName.isEmpty ? defaultDisplayName : displayName
 
-        let entryShortcut = shortcutField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        let entryShortcutKey: String? = entryShortcut.isEmpty ? nil : String(entryShortcut.prefix(1))
+        let entryShortcutKey = BookmarkShortcut.canonical(from: shortcutField.stringValue)
 
         saveBookmark(
             entry: BookmarkEntry(

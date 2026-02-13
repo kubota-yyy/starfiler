@@ -77,7 +77,11 @@ final class SidebarViewModel {
             let favorites: [SidebarEntry]
             if let defaultGroup {
                 favorites = defaultGroup.entries.map { entry in
-                    let hint = entry.shortcutKey.map { "' \($0)" }
+                    let hint = BookmarkShortcut.hint(
+                        groupShortcut: nil,
+                        entryShortcut: entry.shortcutKey,
+                        isDefaultGroup: true
+                    )
                     return SidebarEntry(
                         displayName: entry.displayName,
                         path: entry.path,
@@ -118,12 +122,11 @@ final class SidebarViewModel {
 
         for group in bookmarksConfig.groups where !group.isDefault {
             let entries = group.entries.map { entry in
-                let hint: String?
-                if let groupKey = group.shortcutKey, let entryKey = entry.shortcutKey {
-                    hint = "' \(groupKey) \(entryKey)"
-                } else {
-                    hint = nil
-                }
+                let hint = BookmarkShortcut.hint(
+                    groupShortcut: group.shortcutKey,
+                    entryShortcut: entry.shortcutKey,
+                    isDefaultGroup: false
+                )
                 return SidebarEntry(
                     displayName: entry.displayName,
                     path: entry.path,

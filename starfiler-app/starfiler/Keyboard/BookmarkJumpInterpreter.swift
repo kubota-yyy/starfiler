@@ -25,10 +25,15 @@ struct BookmarkJumpHintCandidate: Equatable, Sendable {
 }
 
 struct BookmarkJumpInterpreter: Sendable {
+    private struct BookmarkJumpTarget: Sendable {
+        let path: String
+        let label: String
+        let sequence: [String]
+    }
+
     enum State: Equatable, Sendable {
         case idle
-        case awaitingTarget
-        case awaitingProjectEntry(groupIndex: Int)
+        case awaitingSelection(prefix: [String])
     }
 
     private let leaderKey: String = "'"
@@ -45,73 +50,40 @@ struct BookmarkJumpInterpreter: Sendable {
             return currentPendingResult() ?? .unhandled
         }
 
+        let targets = bookmarkTargets()
+
         switch state {
         case .idle:
             if event.key == leaderKey {
-                let targetCandidates = bookmarkTargetCandidates()
-                guard !targetCandidates.isEmpty else {
+                guard !targets.isEmpty else {
                     reset()
                     return .unhandled
                 }
 
-                state = .awaitingTarget
-                return .pending(
-                    hint: BookmarkJumpHint(title: "Bookmark key", candidates: targetCandidates)
-                )
+                state = .awaitingSelection(prefix: [])
+                return pendingResult(for: [], targets: targets) ?? .unhandled
             }
             return .unhandled
 
-        case .awaitingTarget:
-            let key = event.key
-
-            for (index, group) in bookmarksConfig.groups.enumerated() where !group.isDefault {
-                guard !keyedEntryCandidates(in: group).isEmpty else {
-                    continue
-                }
-                if normalizeShortcut(group.shortcutKey) == key {
-                    let entryCandidates = keyedEntryCandidates(in: group)
-                    state = .awaitingProjectEntry(groupIndex: index)
-                    return .pending(
-                        hint: BookmarkJumpHint(
-                            title: "Folder key (\(group.name))",
-                            candidates: entryCandidates
-                        )
-                    )
-                }
-            }
-
-            if let defaultEntry = defaultEntry(for: key) {
+        case .awaitingSelection(let prefix):
+            if event.key == "Return", let target = firstExactTarget(for: prefix, in: targets) {
                 reset()
-                return .jumpTo(path: defaultEntry.path)
+                return .jumpTo(path: target.path)
             }
 
-            return .pending(
-                hint: BookmarkJumpHint(
-                    title: "Bookmark key",
-                    candidates: bookmarkTargetCandidates()
-                )
-            )
+            let nextPrefix = prefix + [event.key]
+            guard hasMatchingTarget(for: nextPrefix, in: targets) else {
+                return pendingResult(for: prefix, targets: targets) ?? .unhandled
+            }
 
-        case .awaitingProjectEntry(let groupIndex):
-            guard bookmarksConfig.groups.indices.contains(groupIndex) else {
+            let hasDescendant = hasDescendantTarget(for: nextPrefix, in: targets)
+            if !hasDescendant, let target = firstExactTarget(for: nextPrefix, in: targets) {
                 reset()
-                return .unhandled
+                return .jumpTo(path: target.path)
             }
 
-            let group = bookmarksConfig.groups[groupIndex]
-            let key = event.key
-
-            if let entry = group.entries.first(where: { normalizeShortcut($0.shortcutKey) == key }) {
-                reset()
-                return .jumpTo(path: entry.path)
-            }
-
-            return .pending(
-                hint: BookmarkJumpHint(
-                    title: "Folder key (\(group.name))",
-                    candidates: keyedEntryCandidates(in: group)
-                )
-            )
+            state = .awaitingSelection(prefix: nextPrefix)
+            return pendingResult(for: nextPrefix, targets: targets) ?? .unhandled
         }
     }
 
@@ -125,81 +97,121 @@ struct BookmarkJumpInterpreter: Sendable {
     }
 
     private func currentPendingResult() -> BookmarkJumpResult? {
+        let targets = bookmarkTargets()
         switch state {
         case .idle:
             return nil
-        case .awaitingTarget:
-            return .pending(
-                hint: BookmarkJumpHint(
-                    title: "Bookmark key",
-                    candidates: bookmarkTargetCandidates()
-                )
-            )
-        case .awaitingProjectEntry(let groupIndex):
-            guard bookmarksConfig.groups.indices.contains(groupIndex) else {
-                return nil
-            }
-            let group = bookmarksConfig.groups[groupIndex]
-            return .pending(
-                hint: BookmarkJumpHint(
-                    title: "Folder key (\(group.name))",
-                    candidates: keyedEntryCandidates(in: group)
-                )
-            )
+        case .awaitingSelection(let prefix):
+            return pendingResult(for: prefix, targets: targets)
         }
     }
 
-    private func keyedProjectCandidates() -> [BookmarkJumpHintCandidate] {
-        bookmarksConfig.groups.compactMap { group in
-            guard !group.isDefault, let key = normalizeShortcut(group.shortcutKey) else {
-                return nil
-            }
-            guard !keyedEntryCandidates(in: group).isEmpty else {
-                return nil
-            }
-            return BookmarkJumpHintCandidate(key: key, label: group.name)
-        }
-    }
-
-    private func keyedDefaultEntryCandidates() -> [BookmarkJumpHintCandidate] {
-        bookmarksConfig.groups
-            .filter(\.isDefault)
-            .flatMap { group in
-                keyedEntryCandidates(in: group)
-            }
-    }
-
-    private func bookmarkTargetCandidates() -> [BookmarkJumpHintCandidate] {
-        keyedDefaultEntryCandidates() + keyedProjectCandidates()
-    }
-
-    private func defaultEntry(for key: String) -> BookmarkEntry? {
-        for group in bookmarksConfig.groups where group.isDefault {
-            if let entry = group.entries.first(where: { normalizeShortcut($0.shortcutKey) == key }) {
-                return entry
-            }
-        }
-        return nil
-    }
-
-    private func keyedEntryCandidates(in group: BookmarkGroup) -> [BookmarkJumpHintCandidate] {
-        group.entries.compactMap { entry in
-            guard let key = normalizeShortcut(entry.shortcutKey) else {
-                return nil
-            }
-            let label = entry.displayName.isEmpty ? entry.path : entry.displayName
-            return BookmarkJumpHintCandidate(key: key, label: label)
-        }
-    }
-
-    private func normalizeShortcut(_ shortcut: String?) -> String? {
-        guard let shortcut else {
+    private func pendingResult(for prefix: [String], targets: [BookmarkJumpTarget]) -> BookmarkJumpResult? {
+        let matchingTargets = matchingTargets(for: prefix, in: targets)
+        guard !matchingTargets.isEmpty else {
             return nil
         }
-        let trimmed = shortcut.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            return nil
+
+        var candidates: [BookmarkJumpHintCandidate] = []
+        if let exactTarget = matchingTargets.first(where: { $0.sequence.count == prefix.count }) {
+            candidates.append(
+                BookmarkJumpHintCandidate(key: "Enter", label: exactTarget.label)
+            )
         }
-        return String(trimmed.prefix(1)).lowercased()
+
+        let descendantTargets = matchingTargets.filter { $0.sequence.count > prefix.count }
+        let groupedByNextKey = Dictionary(grouping: descendantTargets) { $0.sequence[prefix.count] }
+        for key in groupedByNextKey.keys.sorted() {
+            guard let branchTargets = groupedByNextKey[key], !branchTargets.isEmpty else {
+                continue
+            }
+            let label = candidateLabel(for: branchTargets, atDepth: prefix.count + 1)
+            candidates.append(
+                BookmarkJumpHintCandidate(key: BookmarkShortcut.displayToken(for: key), label: label)
+            )
+        }
+
+        return .pending(
+            hint: BookmarkJumpHint(
+                title: title(for: prefix),
+                candidates: candidates
+            )
+        )
+    }
+
+    private func title(for prefix: [String]) -> String {
+        guard !prefix.isEmpty else {
+            return "Bookmark key"
+        }
+        let pathText = prefix.map(BookmarkShortcut.displayToken(for:)).joined(separator: " ")
+        return "Bookmark key (' \(pathText))"
+    }
+
+    private func candidateLabel(for branchTargets: [BookmarkJumpTarget], atDepth depth: Int) -> String {
+        if let exactTarget = branchTargets.first(where: { $0.sequence.count == depth }) {
+            return exactTarget.label
+        }
+        if branchTargets.count == 1, let only = branchTargets.first {
+            return only.label
+        }
+        return "\(branchTargets.count) folders"
+    }
+
+    private func bookmarkTargets() -> [BookmarkJumpTarget] {
+        var targets: [BookmarkJumpTarget] = []
+        var seenSequences = Set<[String]>()
+
+        for group in bookmarksConfig.groups {
+            let groupTokens: [String]
+            if group.isDefault {
+                groupTokens = []
+            } else {
+                groupTokens = BookmarkShortcut.tokens(from: group.shortcutKey)
+                if groupTokens.isEmpty {
+                    continue
+                }
+            }
+
+            for entry in group.entries {
+                let entryTokens = BookmarkShortcut.tokens(from: entry.shortcutKey)
+                guard !entryTokens.isEmpty else {
+                    continue
+                }
+
+                let sequence = groupTokens + entryTokens
+                guard seenSequences.insert(sequence).inserted else {
+                    continue
+                }
+
+                targets.append(
+                    BookmarkJumpTarget(
+                        path: entry.path,
+                        label: entry.displayName.isEmpty ? entry.path : entry.displayName,
+                        sequence: sequence
+                    )
+                )
+            }
+        }
+
+        return targets
+    }
+
+    private func matchingTargets(for prefix: [String], in targets: [BookmarkJumpTarget]) -> [BookmarkJumpTarget] {
+        targets.filter { target in
+            target.sequence.count >= prefix.count &&
+                Array(target.sequence.prefix(prefix.count)) == prefix
+        }
+    }
+
+    private func firstExactTarget(for prefix: [String], in targets: [BookmarkJumpTarget]) -> BookmarkJumpTarget? {
+        matchingTargets(for: prefix, in: targets).first(where: { $0.sequence.count == prefix.count })
+    }
+
+    private func hasDescendantTarget(for prefix: [String], in targets: [BookmarkJumpTarget]) -> Bool {
+        matchingTargets(for: prefix, in: targets).contains(where: { $0.sequence.count > prefix.count })
+    }
+
+    private func hasMatchingTarget(for prefix: [String], in targets: [BookmarkJumpTarget]) -> Bool {
+        !matchingTargets(for: prefix, in: targets).isEmpty
     }
 }

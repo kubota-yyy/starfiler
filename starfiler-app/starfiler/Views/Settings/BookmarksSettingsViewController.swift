@@ -48,6 +48,7 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
     private let descriptionLabel = NSTextField(
         wrappingLabelWithString:
             "Configure group shortcut keys and folder shortcut keys separately. " +
+            "Shortcut keys can be a sequence (example: \"r d\" or \"d u\"). " +
             "Set group keys with the group actions, then assign each folder to a group. " +
             "Use Move buttons to reorder groups and folders."
     )
@@ -167,8 +168,8 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
 
         let shortcutColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("shortcut"))
         shortcutColumn.title = "Shortcut"
-        shortcutColumn.width = 120
-        shortcutColumn.minWidth = 90
+        shortcutColumn.width = 200
+        shortcutColumn.minWidth = 140
 
         tableView.addTableColumn(groupColumn)
         tableView.addTableColumn(nameColumn)
@@ -721,14 +722,13 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         let nameField = NSTextField(frame: NSRect(x: 0, y: 60, width: 260, height: 24))
         nameField.placeholderString = "Group name"
 
-        let shortcutLabel = NSTextField(labelWithString: "Group Shortcut (1 char, optional)")
+        let shortcutLabel = NSTextField(labelWithString: "Group Shortcut Sequence (optional)")
         shortcutLabel.frame = NSRect(x: 0, y: 32, width: 240, height: 20)
         shortcutLabel.font = .systemFont(ofSize: 11)
         shortcutLabel.textColor = .secondaryLabelColor
 
-        let shortcutField = NSTextField(frame: NSRect(x: 0, y: 8, width: 70, height: 24))
-        shortcutField.alignment = .center
-        shortcutField.placeholderString = "Key"
+        let shortcutField = NSTextField(frame: NSRect(x: 0, y: 8, width: 210, height: 24))
+        shortcutField.placeholderString = "e.g. r"
 
         if let initialGroup {
             nameField.stringValue = initialGroup.name
@@ -796,14 +796,13 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         let displayNameField = NSTextField(frame: NSRect(x: 0, y: 84, width: 210, height: 24))
         displayNameField.placeholderString = "Bookmark name"
 
-        let entryShortcutLabel = NSTextField(labelWithString: "Folder Shortcut (1 char, optional)")
+        let entryShortcutLabel = NSTextField(labelWithString: "Folder Shortcut Sequence (optional)")
         entryShortcutLabel.frame = NSRect(x: 220, y: 108, width: 240, height: 20)
         entryShortcutLabel.font = .systemFont(ofSize: 11)
         entryShortcutLabel.textColor = .secondaryLabelColor
 
-        let entryShortcutField = NSTextField(frame: NSRect(x: 220, y: 84, width: 70, height: 24))
-        entryShortcutField.alignment = .center
-        entryShortcutField.placeholderString = "Key"
+        let entryShortcutField = NSTextField(frame: NSRect(x: 220, y: 84, width: 170, height: 24))
+        entryShortcutField.placeholderString = "e.g. d u"
 
         let pathLabel = NSTextField(labelWithString: "Path")
         pathLabel.frame = NSRect(x: 0, y: 56, width: 210, height: 20)
@@ -874,11 +873,7 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
     }
 
     private func normalizedShortcutKey(_ raw: String) -> String? {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let first = trimmed.first else {
-            return nil
-        }
-        return String(first).lowercased()
+        BookmarkShortcut.canonical(from: raw)
     }
 
     private func upsertBookmark(with result: EditorResult, replacing existingRow: BookmarkRow?) {
@@ -1054,15 +1049,12 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
     }
 
     private func shortcutDescription(for row: BookmarkRow) -> String {
-        if row.isDefaultGroup {
-            if let entry = row.shortcutKey {
-                return "'\(entry)"
-            }
-            return "-"
-        }
-
-        if let group = row.groupShortcutKey, let entry = row.shortcutKey {
-            return "'\(group) \(entry)"
+        if let hint = BookmarkShortcut.hint(
+            groupShortcut: row.groupShortcutKey,
+            entryShortcut: row.shortcutKey,
+            isDefaultGroup: row.isDefaultGroup
+        ) {
+            return hint
         }
         return "-"
     }

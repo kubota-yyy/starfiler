@@ -55,6 +55,10 @@ final class KeyInterpreterTests: XCTestCase {
         ],
     ]
 
+    private func makeBookmarkJumpInterpreter(config: BookmarksConfig) -> BookmarkJumpInterpreter {
+        BookmarkJumpInterpreter(bookmarksConfig: config)
+    }
+
     // MARK: - Single Key Binding
 
     func testSingleKeyBinding() {
@@ -182,5 +186,76 @@ final class KeyInterpreterTests: XCTestCase {
         // "g" alone should now be treated as a new input, going to pending again
         let result = interpreter.interpret(KeyEvent(key: "g"), now: now.addingTimeInterval(0.1))
         XCTAssertEqual(result, .pending)
+    }
+
+    // MARK: - Bookmark Jump
+
+    func testBookmarkJumpShowsEnterCandidateWhenPrefixHasExactAndDescendant() {
+        let config = BookmarksConfig(groups: [
+            BookmarkGroup(
+                name: "RWD",
+                entries: [
+                    BookmarkEntry(displayName: "docs", path: "/Users/workspace/RWD/rwd/docs", shortcutKey: "d"),
+                    BookmarkEntry(displayName: "unity", path: "/Users/workspace/RWD/rwd/docs/unity", shortcutKey: "d u"),
+                ],
+                shortcutKey: "r",
+                isDefault: false
+            )
+        ])
+        var interpreter = makeBookmarkJumpInterpreter(config: config)
+
+        _ = interpreter.interpret(KeyEvent(key: "'"))
+        _ = interpreter.interpret(KeyEvent(key: "r"))
+        let result = interpreter.interpret(KeyEvent(key: "d"))
+
+        guard case .pending(let hint) = result else {
+            return XCTFail("Expected pending result")
+        }
+        XCTAssertTrue(hint.candidates.contains(where: { $0.key == "Enter" && $0.label == "docs" }))
+        XCTAssertTrue(hint.candidates.contains(where: { $0.key == "u" && $0.label == "unity" }))
+    }
+
+    func testBookmarkJumpEnterConfirmsCurrentPrefix() {
+        let config = BookmarksConfig(groups: [
+            BookmarkGroup(
+                name: "RWD",
+                entries: [
+                    BookmarkEntry(displayName: "docs", path: "/Users/workspace/RWD/rwd/docs", shortcutKey: "d"),
+                    BookmarkEntry(displayName: "unity", path: "/Users/workspace/RWD/rwd/docs/unity", shortcutKey: "d u"),
+                ],
+                shortcutKey: "r",
+                isDefault: false
+            )
+        ])
+        var interpreter = makeBookmarkJumpInterpreter(config: config)
+
+        _ = interpreter.interpret(KeyEvent(key: "'"))
+        _ = interpreter.interpret(KeyEvent(key: "r"))
+        _ = interpreter.interpret(KeyEvent(key: "d"))
+        let result = interpreter.interpret(KeyEvent(key: "Return"))
+
+        XCTAssertEqual(result, .jumpTo(path: "/Users/workspace/RWD/rwd/docs"))
+    }
+
+    func testBookmarkJumpCanContinueToDeeperSequence() {
+        let config = BookmarksConfig(groups: [
+            BookmarkGroup(
+                name: "RWD",
+                entries: [
+                    BookmarkEntry(displayName: "docs", path: "/Users/workspace/RWD/rwd/docs", shortcutKey: "d"),
+                    BookmarkEntry(displayName: "unity", path: "/Users/workspace/RWD/rwd/docs/unity", shortcutKey: "d u"),
+                ],
+                shortcutKey: "r",
+                isDefault: false
+            )
+        ])
+        var interpreter = makeBookmarkJumpInterpreter(config: config)
+
+        _ = interpreter.interpret(KeyEvent(key: "'"))
+        _ = interpreter.interpret(KeyEvent(key: "r"))
+        _ = interpreter.interpret(KeyEvent(key: "d"))
+        let result = interpreter.interpret(KeyEvent(key: "u"))
+
+        XCTAssertEqual(result, .jumpTo(path: "/Users/workspace/RWD/rwd/docs/unity"))
     }
 }
