@@ -33,7 +33,8 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     private var leftPaneStatus: PaneStatus
     private var rightPaneStatus: PaneStatus
     private var actionFeedbackEnabled: Bool
-    private var fileIconSize: CGFloat
+    private var leftPaneFileIconSize: CGFloat
+    private var rightPaneFileIconSize: CGFloat
     private var starEffectsEnabled = true
     private var currentFilerTheme: FilerTheme = .system
     private var animationEffectSettings = AnimationEffectSettings.allEnabled
@@ -51,14 +52,15 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     var onSpotlightSearchScopeChanged: ((SpotlightSearchScope) -> Void)?
     var onPaneVisibilityChanged: ((Bool, Bool) -> Void)?
     var onSidebarWidthChanged: ((CGFloat) -> Void)?
-    var onFileIconSizeChanged: ((CGFloat) -> Void)?
+    var onFileIconSizeChanged: ((PaneSide, CGFloat) -> Void)?
     var onTerminalAction: ((KeyAction) -> Void)?
 
     init(
         viewModel: MainViewModel,
         configManager: ConfigManager,
         actionFeedbackEnabled: Bool,
-        fileIconSize: CGFloat,
+        leftPaneFileIconSize: CGFloat,
+        rightPaneFileIconSize: CGFloat,
         initialSidebarWidth: CGFloat = MainSplitViewController.defaultSidebarWidth,
         initialLeftPaneVisible: Bool = true,
         initialRightPaneVisible: Bool = true
@@ -67,7 +69,8 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         self.viewModel = viewModel
         self.configManager = configManager
         self.actionFeedbackEnabled = actionFeedbackEnabled
-        self.fileIconSize = fileIconSize
+        self.leftPaneFileIconSize = min(max(leftPaneFileIconSize, 12), 40)
+        self.rightPaneFileIconSize = min(max(rightPaneFileIconSize, 12), 40)
         self.initialSidebarWidth = clampedSidebarWidth
         self.lastReportedSidebarWidth = clampedSidebarWidth
         self.lastReportedPreviewWidth = Self.defaultPreviewWidth
@@ -129,7 +132,8 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
 
         propagateBookmarksConfig()
         setSpotlightSearchScope(viewModel.leftPane.spotlightSearchScope)
-        setFileIconSize(fileIconSize)
+        setFileIconSize(self.leftPaneFileIconSize, for: .left)
+        setFileIconSize(self.rightPaneFileIconSize, for: .right)
     }
 
     required init?(coder: NSCoder) {
@@ -401,9 +405,22 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
 
     func setFileIconSize(_ size: CGFloat) {
         let clampedSize = min(max(size, 12), 40)
-        fileIconSize = clampedSize
+        leftPaneFileIconSize = clampedSize
+        rightPaneFileIconSize = clampedSize
         leftPaneViewController.setFileIconSize(clampedSize)
         rightPaneViewController.setFileIconSize(clampedSize)
+    }
+
+    func setFileIconSize(_ size: CGFloat, for side: PaneSide) {
+        let clampedSize = min(max(size, 12), 40)
+        switch side {
+        case .left:
+            leftPaneFileIconSize = clampedSize
+            leftPaneViewController.setFileIconSize(clampedSize)
+        case .right:
+            rightPaneFileIconSize = clampedSize
+            rightPaneViewController.setFileIconSize(clampedSize)
+        }
     }
 
     func currentSidebarWidth() -> CGFloat {
@@ -487,7 +504,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
             self?.handleSpotlightSearchScopeChanged(scope)
         }
         pane.onFileIconSizeChanged = { [weak self] size in
-            self?.handleFileIconSizeChanged(size)
+            self?.handleFileIconSizeChanged(size, side: side)
         }
         pane.onMarkdownPreviewRequested = { [weak self] url in
             self?.presentMarkdownPreview(for: url)
@@ -776,10 +793,10 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         onSpotlightSearchScopeChanged?(scope)
     }
 
-    private func handleFileIconSizeChanged(_ size: CGFloat) {
+    private func handleFileIconSizeChanged(_ size: CGFloat, side: PaneSide) {
         let clampedSize = min(max(size, 12), 40)
-        setFileIconSize(clampedSize)
-        onFileIconSizeChanged?(clampedSize)
+        setFileIconSize(clampedSize, for: side)
+        onFileIconSizeChanged?(side, clampedSize)
     }
 
     private func actionMessage(for result: FileOperationResult) -> String? {

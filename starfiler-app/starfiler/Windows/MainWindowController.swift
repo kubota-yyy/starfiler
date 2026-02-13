@@ -9,6 +9,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var actionFeedbackEnabled: Bool
     private var spotlightSearchScope: SpotlightSearchScope
     private var fileIconSize: CGFloat
+    private var leftPaneFileIconSize: CGFloat
+    private var rightPaneFileIconSize: CGFloat
     private var sidebarFavoritesVisible: Bool
     private var sidebarRecentItemsLimit: Int
     private var sidebarWidth: CGFloat
@@ -21,7 +23,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         viewModel: mainViewModel,
         configManager: configManager,
         actionFeedbackEnabled: actionFeedbackEnabled,
-        fileIconSize: fileIconSize,
+        leftPaneFileIconSize: leftPaneFileIconSize,
+        rightPaneFileIconSize: rightPaneFileIconSize,
         initialSidebarWidth: sidebarWidth,
         initialLeftPaneVisible: leftPaneVisible,
         initialRightPaneVisible: rightPaneVisible
@@ -53,6 +56,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         self.actionFeedbackEnabled = appConfig.actionFeedbackEnabled
         self.spotlightSearchScope = appConfig.spotlightSearchScope
         self.fileIconSize = CGFloat(appConfig.fileIconSize)
+        self.leftPaneFileIconSize = CGFloat(appConfig.leftPaneFileIconSize)
+        self.rightPaneFileIconSize = CGFloat(appConfig.rightPaneFileIconSize)
         self.sidebarFavoritesVisible = appConfig.sidebarFavoritesVisible
         self.sidebarRecentItemsLimit = appConfig.sidebarRecentItemsLimit
         self.sidebarWidth = Self.clampedSidebarWidth(CGFloat(appConfig.sidebarWidth))
@@ -268,7 +273,26 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
 
         fileIconSize = clamped
+        leftPaneFileIconSize = clamped
+        rightPaneFileIconSize = clamped
         mainSplitViewController.setFileIconSize(clamped)
+        persistAppConfig()
+    }
+
+    private func updatePaneFileIconSize(_ size: CGFloat, for side: PaneSide) {
+        let clamped = min(max(size, 12), 40)
+        switch side {
+        case .left:
+            guard abs(leftPaneFileIconSize - clamped) > .ulpOfOne else {
+                return
+            }
+            leftPaneFileIconSize = clamped
+        case .right:
+            guard abs(rightPaneFileIconSize - clamped) > .ulpOfOne else {
+                return
+            }
+            rightPaneFileIconSize = clamped
+        }
         persistAppConfig()
     }
 
@@ -418,8 +442,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         mainSplitViewController.onSidebarWidthChanged = { [weak self] width in
             self?.handleSidebarWidthChanged(width)
         }
-        mainSplitViewController.onFileIconSizeChanged = { [weak self] size in
-            self?.updateFileIconSize(size)
+        mainSplitViewController.onFileIconSizeChanged = { [weak self] side, size in
+            self?.updatePaneFileIconSize(size, for: side)
         }
         mainSplitViewController.onTerminalAction = { [weak self] action in
             self?.handleTerminalAction(action)
@@ -494,6 +518,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             actionFeedbackEnabled: actionFeedbackEnabled,
             spotlightSearchScope: spotlightSearchScope,
             fileIconSize: Double(fileIconSize),
+            leftPaneFileIconSize: Double(leftPaneFileIconSize),
+            rightPaneFileIconSize: Double(rightPaneFileIconSize),
             sidebarFavoritesVisible: sidebarFavoritesVisible,
             sidebarRecentItemsLimit: sidebarRecentItemsLimit,
             sidebarWidth: Double(sidebarWidth),
