@@ -60,7 +60,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private let filesModeButton = NSButton(title: "Files", target: nil, action: nil)
     private let mediaModeButton = NSButton(title: "Media", target: nil, action: nil)
     private let mediaRecursiveButton = NSButton(checkboxWithTitle: "Recursive", target: nil, action: nil)
-    private let mediaIconSizeLabel = NSTextField(labelWithString: "Icon")
     private let mediaIconSizeSlider = NSSlider(value: 16, minValue: 12, maxValue: 40, target: nil, action: nil)
     private let mediaIconSizeValueLabel = NSTextField(labelWithString: "16 px")
     private let searchField = NSSearchField()
@@ -485,13 +484,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         mediaRecursiveButton.isHidden = true
         mediaRecursiveButton.setContentHuggingPriority(.required, for: .horizontal)
 
-        mediaIconSizeLabel.translatesAutoresizingMaskIntoConstraints = false
-        mediaIconSizeLabel.font = .systemFont(ofSize: 11, weight: .regular)
-        mediaIconSizeLabel.textColor = .secondaryLabelColor
-        mediaIconSizeLabel.isHidden = true
-        mediaIconSizeLabel.setContentHuggingPriority(.required, for: .horizontal)
-        mediaIconSizeLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-
         mediaIconSizeSlider.translatesAutoresizingMaskIntoConstraints = false
         mediaIconSizeSlider.target = self
         mediaIconSizeSlider.action = #selector(handleMediaIconSizeChanged(_:))
@@ -612,10 +604,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         searchControlsStackView.addArrangedSubview(filesModeButton)
         searchControlsStackView.addArrangedSubview(mediaModeButton)
         searchControlsStackView.addArrangedSubview(mediaRecursiveButton)
-        searchControlsStackView.addArrangedSubview(mediaIconSizeLabel)
         searchControlsStackView.addArrangedSubview(mediaIconSizeSlider)
         searchControlsStackView.addArrangedSubview(mediaIconSizeValueLabel)
         searchControlsStackView.addArrangedSubview(searchField)
+        searchControlsStackView.setCustomSpacing(8, after: mediaModeButton)
+        searchControlsStackView.setCustomSpacing(8, after: mediaRecursiveButton)
+        searchControlsStackView.setCustomSpacing(4, after: mediaIconSizeSlider)
+        searchControlsStackView.setCustomSpacing(12, after: mediaIconSizeValueLabel)
 
         pathControl.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
@@ -626,12 +621,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             headerView.heightAnchor.constraint(equalToConstant: 30),
 
             navigationStackView.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 10),
-            navigationStackView.trailingAnchor.constraint(lessThanOrEqualTo: searchControlsStackView.leadingAnchor, constant: -10),
+            navigationStackView.trailingAnchor.constraint(lessThanOrEqualTo: searchControlsStackView.leadingAnchor, constant: -16),
             navigationStackView.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
 
             searchControlsStackView.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -10),
             searchControlsStackView.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
-            searchControlsStackView.leadingAnchor.constraint(greaterThanOrEqualTo: headerView.leadingAnchor, constant: 260),
+            searchControlsStackView.leadingAnchor.constraint(greaterThanOrEqualTo: headerView.leadingAnchor, constant: 300),
             filesModeButton.heightAnchor.constraint(equalToConstant: 22),
             filesModeButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 46),
             mediaModeButton.heightAnchor.constraint(equalToConstant: 22),
@@ -685,7 +680,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         mediaModeButton.contentTintColor = isMediaMode ? .labelColor : .secondaryLabelColor
         mediaRecursiveButton.state = viewModel.mediaRecursiveEnabled ? .on : .off
         mediaRecursiveButton.isHidden = !isMediaMode
-        mediaIconSizeLabel.isHidden = !isMediaMode
         mediaIconSizeSlider.isHidden = !isMediaMode
         mediaIconSizeValueLabel.isHidden = !isMediaMode
     }
