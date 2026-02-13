@@ -473,6 +473,40 @@ final class FilePaneViewModelTests: XCTestCase {
         XCTAssertTrue(sut.paneState.markedIndices.isEmpty)
     }
 
+    func testSetFilterTextMovesCursorToFirstBrowsableDirectory() async {
+        let items = [
+            makeFileItem(name: "alpha-note.txt"),
+            makeFileItem(name: "alpha-folder", isDirectory: true),
+            makeFileItem(name: "alpha-zeta.txt"),
+        ]
+        let sut = makeSUT(items: items)
+        await waitForLoad()
+
+        sut.setSortDescriptor(.selection(ascending: true))
+        sut.setFilterText("alpha")
+
+        XCTAssertEqual(sut.paneState.cursorIndex, 1)
+        XCTAssertEqual(sut.selectedItem?.name, "alpha-folder")
+    }
+
+    func testSetFilterTextWithoutDirectoryKeepsCursorAtTopItem() async {
+        let items = [
+            makeFileItem(name: "alpha-one.txt"),
+            makeFileItem(name: "alpha-two.txt"),
+        ]
+        let sut = makeSUT(items: items)
+        await waitForLoad()
+
+        sut.setSortDescriptor(.selection(ascending: true))
+        sut.moveCursorDown()
+        XCTAssertEqual(sut.paneState.cursorIndex, 1)
+
+        sut.setFilterText("alpha")
+
+        XCTAssertEqual(sut.paneState.cursorIndex, 0)
+        XCTAssertEqual(sut.selectedItem?.name, "alpha-one.txt")
+    }
+
     // MARK: - Sort
 
     func testSetSortDescriptorResorts() async {

@@ -1566,12 +1566,29 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
                 searchField.stringValue = ""
                 currentSearchMode = .filter
                 updateSearchModeUI()
+
+                vimModeState.enterNormalMode()
+                tableView.setVimMode(vimModeState.mode)
+                mediaCollectionView.setVimMode(vimModeState.mode)
+                focusTable()
+                return true
             }
 
-            vimModeState.enterNormalMode()
-            tableView.setVimMode(vimModeState.mode)
-            mediaCollectionView.setVimMode(vimModeState.mode)
-            focusTable()
+            applySearchFromHeader()
+            let trimmedFilterQuery = searchField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedFilterQuery.isEmpty else {
+                vimModeState.enterNormalMode()
+                tableView.setVimMode(vimModeState.mode)
+                mediaCollectionView.setVimMode(vimModeState.mode)
+                focusTable()
+                return true
+            }
+
+            viewModel.focusFirstBrowsableDirectoryInFilteredResults()
+            if let selectedItem = viewModel.selectedItem, selectedItem.isDirectory, !selectedItem.isPackage {
+                addSlideTransition(direction: .fromRight)
+                viewModel.enterSelected()
+            }
             return true
         }
 

@@ -53,6 +53,9 @@ final class FilePaneViewModel {
     private var hasActiveFilter: Bool {
         !directoryContents.filterText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
+    private var firstBrowsableDirectoryIndex: Int? {
+        directoryContents.displayedItems.firstIndex(where: { $0.isDirectory && !$0.isPackage })
+    }
 
     init(
         fileSystemService: FileSystemProviding = FileSystemService(),
@@ -535,6 +538,18 @@ final class FilePaneViewModel {
         setFilterText("")
     }
 
+    func focusFirstBrowsableDirectoryInFilteredResults() {
+        guard hasActiveFilter else {
+            return
+        }
+
+        if let firstBrowsableDirectoryIndex {
+            paneState.cursorIndex = firstBrowsableDirectoryIndex
+        } else if !directoryContents.displayedItems.isEmpty {
+            paneState.cursorIndex = 0
+        }
+    }
+
     func setShowHiddenFiles(_ enabled: Bool) {
         guard directoryContents.showHiddenFiles != enabled else {
             return
@@ -822,7 +837,11 @@ final class FilePaneViewModel {
         }
 
         if hasActiveFilter {
-            paneState.cursorIndex = 0
+            if let firstBrowsableDirectoryIndex {
+                paneState.cursorIndex = firstBrowsableDirectoryIndex
+            } else {
+                paneState.cursorIndex = 0
+            }
             return
         }
 
