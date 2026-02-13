@@ -171,17 +171,26 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     func updateBookmarksConfig(_ config: BookmarksConfig) {
-        tableView.setBookmarkJumpConfig(config)
-        tableView.onBookmarkJump = { [weak self] path in
+        let handleJump: (String) -> Void = { [weak self] path in
             self?.hideBookmarkJumpHint()
             self?.onBookmarkJump?(path)
         }
-        tableView.onBookmarkJumpPending = { [weak self] hint in
+        let handlePending: (BookmarkJumpHint) -> Void = { [weak self] hint in
             self?.showBookmarkJumpHint(hint)
         }
-        tableView.onBookmarkJumpEnded = { [weak self] in
+        let handleEnded: () -> Void = { [weak self] in
             self?.hideBookmarkJumpHint()
         }
+
+        tableView.setBookmarkJumpConfig(config)
+        tableView.onBookmarkJump = handleJump
+        tableView.onBookmarkJumpPending = handlePending
+        tableView.onBookmarkJumpEnded = handleEnded
+
+        mediaCollectionView.setBookmarkJumpConfig(config)
+        mediaCollectionView.onBookmarkJump = handleJump
+        mediaCollectionView.onBookmarkJumpPending = handlePending
+        mediaCollectionView.onBookmarkJumpEnded = handleEnded
     }
 
     func reloadKeybindings() {
