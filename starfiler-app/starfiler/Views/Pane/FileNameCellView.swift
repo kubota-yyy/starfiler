@@ -42,17 +42,13 @@ final class FileNameCellView: NSTableCellView {
         let indentPadding = 4 + CGFloat(depth) * 16
         leadingConstraint?.constant = indentPadding
 
+        disclosureWidthConstraint?.constant = 14
+
         if isExpandable {
-            disclosureWidthConstraint?.constant = 14
             let symbolName = isExpanded ? "chevron.down" : "chevron.right"
             disclosureView.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: isExpanded ? "Expanded" : "Collapsed")
             disclosureView.isHidden = false
-        } else if depth > 0 {
-            disclosureWidthConstraint?.constant = 14
-            disclosureView.image = nil
-            disclosureView.isHidden = true
         } else {
-            disclosureWidthConstraint?.constant = 0
             disclosureView.image = nil
             disclosureView.isHidden = true
         }
