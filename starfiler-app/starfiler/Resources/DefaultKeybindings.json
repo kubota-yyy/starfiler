@@ -67,7 +67,8 @@
       "ArrowRight": "treeExpand",
       "ArrowLeft": "treeCollapse",
       "P": "togglePin",
-      "q": "quit"
+      "q": "quit",
+      "Escape": "clearFilter"
     },
     "visual": {
       "j": "cursorDown",

@@ -719,6 +719,16 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             self.thumbnailTasks.removeAll()
             self.thumbnailCache.removeAllObjects()
 
+            // Sync search field with model filterText (e.g. cleared on directory change).
+            let modelFilter = self.viewModel.directoryContents.filterText
+            if self.searchField.stringValue != modelFilter {
+                self.searchField.stringValue = modelFilter
+                if modelFilter.isEmpty {
+                    self.searchField.layer?.removeAnimation(forKey: "searchGlow")
+                    self.searchField.layer?.shadowOpacity = 0
+                }
+            }
+
             self.tableView.reloadData()
             self.mediaCollectionView.reloadData()
             self.updateColumnHeaderTitles()
