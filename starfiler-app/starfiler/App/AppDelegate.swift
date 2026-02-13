@@ -204,6 +204,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let togglePreviewItem = viewMenu.addItem(withTitle: "Toggle Preview", action: #selector(menuTogglePreview(_:)), keyEquivalent: "p")
         togglePreviewItem.keyEquivalentModifierMask = [.control]
+        let showFilesModeItem = viewMenu.addItem(withTitle: "Show Files", action: #selector(menuShowFilesMode(_:)), keyEquivalent: "1")
+        showFilesModeItem.keyEquivalentModifierMask = [.command]
+        let showMediaModeItem = viewMenu.addItem(withTitle: "Show Media", action: #selector(menuShowMediaMode(_:)), keyEquivalent: "2")
+        showMediaModeItem.keyEquivalentModifierMask = [.command]
         let toggleLeftPaneItem = viewMenu.addItem(withTitle: "Toggle Left Pane", action: #selector(menuToggleLeftPane(_:)), keyEquivalent: "1")
         toggleLeftPaneItem.keyEquivalentModifierMask = [.control]
         let toggleRightPaneItem = viewMenu.addItem(withTitle: "Toggle Right Pane", action: #selector(menuToggleRightPane(_:)), keyEquivalent: "2")
@@ -396,6 +400,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func menuTogglePreview(_ sender: Any?) {
         mainWindowController?.togglePreviewPane()
+    }
+
+    @objc private func menuShowFilesMode(_ sender: Any?) {
+        mainWindowController?.performAction { $0.activePane.setDisplayMode(.browser) }
+    }
+
+    @objc private func menuShowMediaMode(_ sender: Any?) {
+        mainWindowController?.performAction { $0.activePane.setDisplayMode(.media) }
     }
 
     @objc private func menuToggleLeftPane(_ sender: Any?) {
