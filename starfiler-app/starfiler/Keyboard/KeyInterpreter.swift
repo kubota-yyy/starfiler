@@ -48,6 +48,9 @@ struct KeyInterpreter: Sendable {
     mutating func interpret(_ event: KeyEvent, now: Date = Date()) -> KeyInterpreterResult {
         if event.modifiers.contains(.command) {
             clearPendingSequence()
+            if let action = keybindingManager.lookup(sequence: [event], mode: mode) {
+                return .action(action)
+            }
             return .unhandled
         }
 
@@ -71,6 +74,10 @@ struct KeyInterpreter: Sendable {
 
         clearPendingSequence()
         return .unhandled
+    }
+
+    func hasExactBinding(for event: KeyEvent) -> Bool {
+        keybindingManager.lookup(sequence: [event], mode: mode) != nil
     }
 
     private mutating func evaluatePendingSequence(now: Date) -> KeyInterpreterResult {

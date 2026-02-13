@@ -9,6 +9,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var actionFeedbackEnabled: Bool
     private var spotlightSearchScope: SpotlightSearchScope
     private var fileIconSize: CGFloat
+    private var leftPaneFileIconSize: CGFloat
+    private var rightPaneFileIconSize: CGFloat
     private var sidebarFavoritesVisible: Bool
     private var sidebarRecentItemsLimit: Int
     private var sidebarWidth: CGFloat
@@ -21,7 +23,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         viewModel: mainViewModel,
         configManager: configManager,
         actionFeedbackEnabled: actionFeedbackEnabled,
-        fileIconSize: fileIconSize,
+        leftPaneFileIconSize: leftPaneFileIconSize,
+        rightPaneFileIconSize: rightPaneFileIconSize,
         initialSidebarWidth: sidebarWidth,
         initialLeftPaneVisible: leftPaneVisible,
         initialRightPaneVisible: rightPaneVisible
@@ -47,15 +50,18 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         Self.initializeDefaultBookmarksIfNeeded(configManager: configManager)
 
         let appConfig = configManager.loadAppConfig()
+        let bookmarksConfig = configManager.loadBookmarksConfig()
         self.filerTheme = appConfig.filerTheme
         self.transparentBackground = appConfig.transparentBackground
         self.transparentBackgroundOpacity = min(max(CGFloat(appConfig.transparentBackgroundOpacity), 0.15), 1.0)
         self.actionFeedbackEnabled = appConfig.actionFeedbackEnabled
         self.spotlightSearchScope = appConfig.spotlightSearchScope
         self.fileIconSize = CGFloat(appConfig.fileIconSize)
+        self.leftPaneFileIconSize = CGFloat(appConfig.leftPaneFileIconSize)
+        self.rightPaneFileIconSize = CGFloat(appConfig.rightPaneFileIconSize)
         self.sidebarFavoritesVisible = appConfig.sidebarFavoritesVisible
         self.sidebarRecentItemsLimit = appConfig.sidebarRecentItemsLimit
-        self.sidebarWidth = Self.clampedSidebarWidth(CGFloat(appConfig.sidebarWidth))
+        self.sidebarWidth = Self.initialSidebarWidth(appConfig: appConfig, bookmarksConfig: bookmarksConfig)
         self.leftPaneVisible = appConfig.leftPaneVisible
         self.rightPaneVisible = appConfig.rightPaneVisible
         self.starEffectsEnabled = appConfig.starEffectsEnabled
@@ -268,7 +274,26 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
 
         fileIconSize = clamped
+        leftPaneFileIconSize = clamped
+        rightPaneFileIconSize = clamped
         mainSplitViewController.setFileIconSize(clamped)
+        persistAppConfig()
+    }
+
+    private func updatePaneFileIconSize(_ size: CGFloat, for side: PaneSide) {
+        let clamped = min(max(size, 12), 40)
+        switch side {
+        case .left:
+            guard abs(leftPaneFileIconSize - clamped) > .ulpOfOne else {
+                return
+            }
+            leftPaneFileIconSize = clamped
+        case .right:
+            guard abs(rightPaneFileIconSize - clamped) > .ulpOfOne else {
+                return
+            }
+            rightPaneFileIconSize = clamped
+        }
         persistAppConfig()
     }
 
@@ -418,8 +443,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         mainSplitViewController.onSidebarWidthChanged = { [weak self] width in
             self?.handleSidebarWidthChanged(width)
         }
-        mainSplitViewController.onFileIconSizeChanged = { [weak self] size in
-            self?.updateFileIconSize(size)
+        mainSplitViewController.onFileIconSizeChanged = { [weak self] side, size in
+            self?.updatePaneFileIconSize(size, for: side)
         }
         mainSplitViewController.onTerminalAction = { [weak self] action in
             self?.handleTerminalAction(action)
@@ -494,6 +519,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             actionFeedbackEnabled: actionFeedbackEnabled,
             spotlightSearchScope: spotlightSearchScope,
             fileIconSize: Double(fileIconSize),
+            leftPaneFileIconSize: Double(leftPaneFileIconSize),
+            rightPaneFileIconSize: Double(rightPaneFileIconSize),
             sidebarFavoritesVisible: sidebarFavoritesVisible,
             sidebarRecentItemsLimit: sidebarRecentItemsLimit,
             sidebarWidth: Double(sidebarWidth),
@@ -558,5 +585,85 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     private static func clampedSidebarWidth(_ value: CGFloat) -> CGFloat {
         min(max(value, CGFloat(AppConfig.sidebarWidthRange.lowerBound)), CGFloat(AppConfig.sidebarWidthRange.upperBound))
+    }
+
+    private static func initialSidebarWidth(appConfig: AppConfig, bookmarksConfig: BookmarksConfig) -> CGFloat {
+        let configuredWidth = Self.clampedSidebarWidth(CGFloat(appConfig.sidebarWidth))
+        let defaultWidth = CGFloat(AppConfig.defaultSidebarWidth)
+        guard abs(configuredWidth - defaultWidth) < 1 else {
+            return configuredWidth
+        }
+
+        let autoWidth = recommendedSidebarWidth(
+            bookmarksConfig: bookmarksConfig,
+            sidebarFavoritesVisible: appConfig.sidebarFavoritesVisible
+        )
+        return max(configuredWidth, autoWidth)
+    }
+
+    private static func recommendedSidebarWidth(bookmarksConfig: BookmarksConfig, sidebarFavoritesVisible: Bool) -> CGFloat {
+        guard sidebarFavoritesVisible else {
+            return Self.clampedSidebarWidth(CGFloat(AppConfig.defaultSidebarWidth))
+        }
+
+        let defaultGroup = bookmarksConfig.groups.first(where: \.isDefault)
+        let title = defaultGroup?.name ?? "Favorites"
+        let entries = defaultGroup?.entries.isEmpty == false ? defaultGroup?.entries ?? [] : fallbackFavoriteEntries()
+        guard !entries.isEmpty else {
+            return Self.clampedSidebarWidth(CGFloat(AppConfig.defaultSidebarWidth))
+        }
+
+        let titleFont = NSFont.systemFont(ofSize: 11, weight: .bold)
+        let entryFont = NSFont.systemFont(ofSize: 13)
+        let shortcutFont = NSFont.monospacedSystemFont(ofSize: 10, weight: .regular)
+        let headerPadding: CGFloat = 22
+        let entryBasePadding: CGFloat = 42
+        let shortcutSpacing: CGFloat = 4
+        let safetyPadding: CGFloat = 18
+
+        var requiredWidth = textWidth(title, font: titleFont) + headerPadding
+        for entry in entries {
+            let displayName = favoriteDisplayName(for: entry)
+            let shortcutHint = BookmarkShortcut.hint(
+                groupShortcut: nil,
+                entryShortcut: entry.shortcutKey,
+                isDefaultGroup: true
+            )
+            let shortcutWidth: CGFloat
+            if let shortcutHint, !shortcutHint.isEmpty {
+                shortcutWidth = shortcutSpacing + textWidth(shortcutHint, font: shortcutFont)
+            } else {
+                shortcutWidth = 0
+            }
+
+            let rowWidth = entryBasePadding + textWidth(displayName, font: entryFont) + shortcutWidth
+            requiredWidth = max(requiredWidth, rowWidth)
+        }
+
+        return Self.clampedSidebarWidth(ceil(requiredWidth + safetyPadding))
+    }
+
+    private static func fallbackFavoriteEntries() -> [BookmarkEntry] {
+        BookmarksConfig.withDefaults().groups.first(where: \.isDefault)?.entries ?? []
+    }
+
+    private static func favoriteDisplayName(for entry: BookmarkEntry) -> String {
+        let trimmed = entry.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            return trimmed
+        }
+
+        let resolvedPath = UserPaths.resolveBookmarkPath(entry.path)
+        let lastPathComponent = URL(fileURLWithPath: resolvedPath).lastPathComponent
+        return lastPathComponent.isEmpty ? resolvedPath : lastPathComponent
+    }
+
+    private static func textWidth(_ text: String, font: NSFont) -> CGFloat {
+        guard !text.isEmpty else {
+            return 0
+        }
+
+        let attributes: [NSAttributedString.Key: Any] = [.font: font]
+        return ceil((text as NSString).size(withAttributes: attributes).width)
     }
 }

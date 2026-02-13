@@ -32,11 +32,22 @@ final class FileTableView: NSTableView {
     }
 
     override func keyDown(with event: NSEvent) {
+        normalizeFilterModeForKeyboardInputIfNeeded()
+
         let isAwaitingBookmarkJump = bookmarkJumpInterpreter?.state != .idle
 
         if event.modifierFlags.contains(.command), !isAwaitingBookmarkJump {
-            keyInterpreter.clearPendingSequence()
             bookmarkJumpInterpreter?.reset()
+            if let keyEvent = event.keyEvent {
+                switch keyInterpreter.interpret(keyEvent) {
+                case .action(let action):
+                    if keyActionDelegate?.fileTableView(self, didTrigger: action) == true {
+                        return
+                    }
+                case .pending, .unhandled:
+                    break
+                }
+            }
             super.keyDown(with: event)
             return
         }
@@ -73,6 +84,12 @@ final class FileTableView: NSTableView {
                 }
                 break
             }
+        }
+
+        if shouldPreferTypeSelect(for: keyEvent) {
+            keyInterpreter.clearPendingSequence()
+            super.keyDown(with: event)
+            return
         }
 
         switch keyInterpreter.interpret(keyEvent) {
@@ -188,7 +205,31 @@ final class FileTableView: NSTableView {
     private func configureTableBehavior() {
         usesAutomaticRowHeights = false
         rowHeight = 24
-        allowsTypeSelect = false
+        allowsTypeSelect = true
         selectionHighlightStyle = .regular
+    }
+
+    private func shouldPreferTypeSelect(for event: KeyEvent) -> Bool {
+        guard event.key.count == 1 else {
+            return false
+        }
+
+        // Keep explicit single-key shortcuts (e.g. "b") responsive even when type select is enabled.
+        if keyInterpreter.hasExactBinding(for: event) {
+            return false
+        }
+
+        let unsupportedModifiers = event.modifiers.subtracting([.shift])
+        return unsupportedModifiers.isEmpty
+    }
+
+    private func normalizeFilterModeForKeyboardInputIfNeeded() {
+        guard keyInterpreter.mode == .filter else {
+            return
+        }
+
+        // Table input should always run in normal mode.
+        // Filter mode is only valid while the search field is actively editing.
+        keyInterpreter.setMode(.normal)
     }
 }

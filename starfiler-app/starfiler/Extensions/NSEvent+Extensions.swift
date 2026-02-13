@@ -6,17 +6,38 @@ extension NSEvent {
             return nil
         }
 
-        let modifiers = KeyModifiers(modifierFlags: modifierFlags)
+        var modifiers = KeyModifiers(modifierFlags: modifierFlags)
 
         if let namedKey = Self.namedKey(for: keyCode) {
             return KeyEvent(key: namedKey, modifiers: modifiers)
         }
 
-        guard let characters = charactersIgnoringModifiers, let scalar = characters.unicodeScalars.first else {
+        guard let scalar = resolvedPrintableScalar() else {
             return nil
         }
 
+        if modifiers.contains(.shift), !Self.isAlphabetic(scalar) {
+            modifiers.remove(.shift)
+        }
+
         return KeyEvent(key: String(scalar), modifiers: modifiers)
+    }
+
+    private func resolvedPrintableScalar() -> UnicodeScalar? {
+        if let characters, let scalar = characters.unicodeScalars.first {
+            return scalar
+        }
+
+        if let charactersIgnoringModifiers, let scalar = charactersIgnoringModifiers.unicodeScalars.first {
+            return scalar
+        }
+
+        return nil
+    }
+
+    private static func isAlphabetic(_ scalar: UnicodeScalar) -> Bool {
+        let value = String(scalar)
+        return value.lowercased() != value.uppercased()
     }
 
     private static func namedKey(for keyCode: UInt16) -> String? {

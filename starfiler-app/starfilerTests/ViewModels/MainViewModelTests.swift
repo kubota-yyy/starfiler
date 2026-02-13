@@ -171,6 +171,59 @@ final class MainViewModelTests: XCTestCase {
         XCTAssertTrue(sut.clipboard.isEmpty)
     }
 
+    func testCopyMarkedToClipboardDoesNotExecuteOperation() async {
+        let items = [makeFileItem(name: "file.txt")]
+        fileSystem.contentsOfDirectoryResult = .success(items)
+        let sut = makeSUT()
+        await waitForLoad()
+
+        sut.activePane.toggleMark()
+        let copiedURLs = sut.copyMarkedToClipboard()
+        await waitForLoad()
+
+        XCTAssertEqual(copiedURLs, [items[0].url.standardizedFileURL])
+        XCTAssertEqual(sut.clipboardOperation, .copy)
+        XCTAssertEqual(mockExecutor.executeCallCount, 0)
+    }
+
+    func testPasteToActivePaneUsesActivePaneDirectoryAsDestination() async {
+        let leftDir = URL(fileURLWithPath: "/tmp/left", isDirectory: true)
+        let rightDir = URL(fileURLWithPath: "/tmp/right", isDirectory: true)
+        let source = URL(fileURLWithPath: "/tmp/source/file.txt")
+        let sut = makeSUT(initialLeftDirectory: leftDir, initialRightDirectory: rightDir)
+        await waitForLoad()
+
+        sut.replaceClipboard(urls: [source], operation: .copy)
+        sut.setActivePane(.right)
+        sut.pasteToActivePane()
+        await waitForLoad()
+
+        XCTAssertEqual(mockExecutor.executeCallCount, 1)
+        XCTAssertEqual(
+            mockExecutor.executeCapturedOperations.last,
+            .copy(items: [source.standardizedFileURL], destinationDirectory: rightDir.standardizedFileURL)
+        )
+    }
+
+    func testPasteToActivePaneAsMoveConvertsCopyClipboardIntoMoveOperation() async {
+        let destinationDir = URL(fileURLWithPath: "/tmp/destination", isDirectory: true)
+        let source = URL(fileURLWithPath: "/tmp/source/file.txt")
+        let sut = makeSUT(initialLeftDirectory: destinationDir, initialRightDirectory: destinationDir)
+        await waitForLoad()
+
+        sut.replaceClipboard(urls: [source], operation: .copy)
+        sut.pasteToActivePaneAsMove()
+        await waitForLoad()
+
+        let expectedMove = FileLocationChange(
+            source: source.standardizedFileURL,
+            destination: destinationDir.appendingPathComponent("file.txt", isDirectory: false).standardizedFileURL
+        )
+
+        XCTAssertEqual(mockExecutor.executeCallCount, 1)
+        XCTAssertEqual(mockExecutor.executeCapturedOperations.last, .move(items: [expectedMove]))
+    }
+
     func testPasteWithEmptyClipboardDoesNothing() async {
         let sut = makeSUT()
         await waitForLoad()

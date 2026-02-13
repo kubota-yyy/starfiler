@@ -495,41 +495,34 @@ final class PreviewPaneViewController: NSViewController {
             return
         }
 
-        let viewportSize = scrollView.contentView.bounds.size
-        let targetWidth = max(viewportSize.width, preferredFitViewportWidth)
-        guard targetWidth > 0 else {
+        guard let viewportSize = effectiveFitViewportSize() else {
             return
         }
 
-        let scrollerInset = estimatedVerticalScrollerInset(image: image, viewportSize: viewportSize, targetWidth: targetWidth)
-        let availableWidth = max(targetWidth - scrollerInset, 1)
-        let fitScale = availableWidth / image.size.width
-        setZoomScale(fitScale, centeredAt: NSPoint(x: imageView.bounds.minX, y: imageView.bounds.midY))
-        alignFitToLeadingEdge()
+        let widthScale = viewportSize.width / image.size.width
+        let heightScale = viewportSize.height / image.size.height
+        let fitScale = min(widthScale, heightScale, 1.0)
+        setZoomScale(fitScale, centeredAt: NSPoint(x: imageView.bounds.midX, y: imageView.bounds.midY))
+        alignFitToContentOrigin()
     }
 
-    private func estimatedVerticalScrollerInset(image: NSImage, viewportSize: NSSize, targetWidth: CGFloat) -> CGFloat {
-        guard
-            viewportSize.height > 0,
-            scrollView.hasVerticalScroller,
-            scrollView.scrollerStyle == .legacy
-        else {
-            return 0
+    private func effectiveFitViewportSize() -> NSSize? {
+        let contentBounds = scrollView.contentView.bounds.size
+        guard contentBounds.height > 0 else {
+            return nil
         }
 
-        let scaleWithoutInset = targetWidth / image.size.width
-        let scaledHeight = image.size.height * scaleWithoutInset
-        guard scaledHeight > viewportSize.height else {
-            return 0
+        let effectiveWidth = contentBounds.width > 1 ? contentBounds.width : preferredFitViewportWidth
+        guard effectiveWidth > 0 else {
+            return nil
         }
 
-        return NSScroller.scrollerWidth(for: .regular, scrollerStyle: scrollView.scrollerStyle)
+        return NSSize(width: effectiveWidth, height: contentBounds.height)
     }
 
-    private func alignFitToLeadingEdge() {
+    private func alignFitToContentOrigin() {
         let clipView = scrollView.contentView
-        var origin = clipView.bounds.origin
-        origin.x = clipView.documentRect.minX
+        let origin = clipView.documentRect.origin
         clipView.scroll(to: origin)
         scrollView.reflectScrolledClipView(clipView)
     }

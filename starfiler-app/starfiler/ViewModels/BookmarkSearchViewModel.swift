@@ -20,14 +20,11 @@ final class BookmarkSearchViewModel {
 
         for group in config.groups {
             for entry in group.entries {
-                let hint: String?
-                if group.isDefault {
-                    hint = entry.shortcutKey.map { "' \($0)" }
-                } else if let groupKey = group.shortcutKey, let entryKey = entry.shortcutKey {
-                    hint = "' \(groupKey) \(entryKey)"
-                } else {
-                    hint = nil
-                }
+                let hint = BookmarkShortcut.hint(
+                    groupShortcut: group.shortcutKey,
+                    entryShortcut: entry.shortcutKey,
+                    isDefaultGroup: group.isDefault
+                )
 
                 items.append(SearchResult(
                     groupName: group.name,

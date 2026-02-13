@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindowController: SettingsWindowController?
     private var launchTask: Task<Void, Never>?
     private var pendingOpenDirectories: [URL] = []
+    private var fileClipboardChangeCount: Int?
     private let securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -181,6 +182,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let copyItemPathItem = editMenu.addItem(withTitle: "Copy File/Folder Path", action: #selector(menuCopySelectedItemPath(_:)), keyEquivalent: "c")
         copyItemPathItem.keyEquivalentModifierMask = [.command, .option]
         editMenu.addItem(withTitle: "Paste", action: Selector(("paste:")), keyEquivalent: "v")
+        let moveItemHereItem = editMenu.addItem(withTitle: "Move Item Here", action: #selector(menuPasteAsMove(_:)), keyEquivalent: "v")
+        moveItemHereItem.keyEquivalentModifierMask = [.command, .option]
         editMenu.addItem(NSMenuItem.separator())
         editMenu.addItem(withTitle: "Move to Trash", action: #selector(menuDelete(_:)), keyEquivalent: "\u{08}")
         editMenu.addItem(withTitle: "Rename...", action: #selector(menuRename(_:)), keyEquivalent: "")
@@ -201,6 +204,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let togglePreviewItem = viewMenu.addItem(withTitle: "Toggle Preview", action: #selector(menuTogglePreview(_:)), keyEquivalent: "p")
         togglePreviewItem.keyEquivalentModifierMask = [.control]
+        let showFilesModeItem = viewMenu.addItem(withTitle: "Show Files", action: #selector(menuShowFilesMode(_:)), keyEquivalent: "1")
+        showFilesModeItem.keyEquivalentModifierMask = [.command]
+        let showMediaModeItem = viewMenu.addItem(withTitle: "Show Media", action: #selector(menuShowMediaMode(_:)), keyEquivalent: "2")
+        showMediaModeItem.keyEquivalentModifierMask = [.command]
         let toggleLeftPaneItem = viewMenu.addItem(withTitle: "Toggle Left Pane", action: #selector(menuToggleLeftPane(_:)), keyEquivalent: "1")
         toggleLeftPaneItem.keyEquivalentModifierMask = [.control]
         let toggleRightPaneItem = viewMenu.addItem(withTitle: "Toggle Right Pane", action: #selector(menuToggleRightPane(_:)), keyEquivalent: "2")
@@ -297,7 +304,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func copy(_ sender: Any?) {
-        mainWindowController?.performAction { $0.copyMarked() }
+        mainWindowController?.performAction { vm in
+            let copiedURLs = vm.copyMarkedToClipboard()
+            guard !copiedURLs.isEmpty else {
+                NSSound.beep()
+                return
+            }
+            writeFileURLsToPasteboard(copiedURLs)
+        }
+    }
+
+    @objc func cut(_ sender: Any?) {
+        mainWindowController?.performAction { vm in
+            let cutURLs = vm.cutMarkedToClipboard()
+            guard !cutURLs.isEmpty else {
+                NSSound.beep()
+                return
+            }
+            writeFileURLsToPasteboard(cutURLs)
+        }
     }
 
     @objc private func menuCopySelectedItemPath(_ sender: Any?) {
@@ -314,11 +339,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func paste(_ sender: Any?) {
-        mainWindowController?.performAction { $0.paste() }
+        syncFileClipboardFromPasteboardIfNeeded()
+        mainWindowController?.performAction { $0.pasteToActivePane() }
+    }
+
+    @objc private func menuPasteAsMove(_ sender: Any?) {
+        syncFileClipboardFromPasteboardIfNeeded()
+        mainWindowController?.performAction { $0.pasteToActivePaneAsMove() }
     }
 
     @objc private func menuDelete(_ sender: Any?) {
         mainWindowController?.requestDeleteFromActivePane()
+    }
+
+    private func writeFileURLsToPasteboard(_ urls: [URL]) {
+        let pasteboard = NSPasteboard.general
+        let normalizedURLs = urls.map(\.standardizedFileURL)
+        pasteboard.clearContents()
+        pasteboard.writeObjects(normalizedURLs as [NSURL])
+        fileClipboardChangeCount = pasteboard.changeCount
+    }
+
+    private func syncFileClipboardFromPasteboardIfNeeded() {
+        let pasteboard = NSPasteboard.general
+        guard fileClipboardChangeCount != pasteboard.changeCount else {
+            return
+        }
+
+        let classes: [AnyClass] = [NSURL.self]
+        let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+        guard let pastedURLs = pasteboard.readObjects(forClasses: classes, options: options) as? [URL], !pastedURLs.isEmpty else {
+            fileClipboardChangeCount = pasteboard.changeCount
+            return
+        }
+
+        let normalizedURLs = pastedURLs.map(\.standardizedFileURL)
+        fileClipboardChangeCount = pasteboard.changeCount
+        mainWindowController?.performAction { $0.replaceClipboard(urls: normalizedURLs, operation: .copy) }
     }
 
     @objc private func menuRename(_ sender: Any?) {
@@ -343,6 +400,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func menuTogglePreview(_ sender: Any?) {
         mainWindowController?.togglePreviewPane()
+    }
+
+    @objc private func menuShowFilesMode(_ sender: Any?) {
+        mainWindowController?.performAction { $0.activePane.setDisplayMode(.browser) }
+    }
+
+    @objc private func menuShowMediaMode(_ sender: Any?) {
+        mainWindowController?.performAction { $0.activePane.setDisplayMode(.media) }
     }
 
     @objc private func menuToggleLeftPane(_ sender: Any?) {

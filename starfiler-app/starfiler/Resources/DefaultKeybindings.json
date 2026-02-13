@@ -16,8 +16,12 @@
       "Ctrl-d": "pageDown",
       "Return": "enterDirectory",
       "Backspace": "goToParent",
+      "Cmd-Left": "goToParent",
+      "Cmd-Right": "enterDirectory",
       "H": "goBack",
       "L": "goForward",
+      "Shift-Left": "goBack",
+      "Shift-Right": "goForward",
       "Space": "toggleMark",
       "a": "markAll",
       "A": "clearMarks",
@@ -65,7 +69,8 @@
       "ArrowRight": "treeExpand",
       "ArrowLeft": "treeCollapse",
       "P": "togglePin",
-      "q": "quit"
+      "q": "quit",
+      "Escape": "clearFilter"
     },
     "visual": {
       "j": "cursorDown",

@@ -52,6 +52,26 @@ final class BookmarkSearchViewModelTests: XCTestCase {
         XCTAssertEqual(sut.results[0].shortcutHint, "' h")
     }
 
+    func testLoadSetsShortcutHintForNestedSequenceInNonDefaultGroup() {
+        let sut = makeSUT()
+        let config = BookmarksConfig(groups: [
+            BookmarkGroup(
+                name: "RWD",
+                entries: [
+                    BookmarkEntry(displayName: "docs", path: "/Users/workspace/RWD/rwd/docs", shortcutKey: "d"),
+                    BookmarkEntry(displayName: "unity", path: "/Users/workspace/RWD/rwd/docs/unity", shortcutKey: "d u"),
+                ],
+                shortcutKey: "r",
+                isDefault: false
+            )
+        ])
+
+        sut.load(from: config, history: [])
+
+        XCTAssertEqual(sut.results[0].shortcutHint, "' r d")
+        XCTAssertEqual(sut.results[1].shortcutHint, "' r d u")
+    }
+
     func testLoadAddsHistoryEntriesNotInBookmarks() {
         let sut = makeSUT()
         let config = makeConfig(entries: [

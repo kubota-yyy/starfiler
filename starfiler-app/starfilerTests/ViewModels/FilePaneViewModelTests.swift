@@ -3,6 +3,9 @@ import XCTest
 
 @MainActor
 final class FilePaneViewModelTests: XCTestCase {
+    private enum TestError: Error {
+        case refreshFailure
+    }
 
     // MARK: - Properties
 
@@ -62,6 +65,7 @@ final class FilePaneViewModelTests: XCTestCase {
     ) -> FilePaneViewModel {
         let resolvedItems = items ?? sampleItems
         fileSystem.contentsOfDirectoryResult = .success(resolvedItems)
+        fileSystem.recursiveContentsOfDirectoryResult = .success(resolvedItems)
         return FilePaneViewModel(
             fileSystemService: fileSystem,
             securityScopedBookmarkService: bookmarkService,
@@ -472,6 +476,40 @@ final class FilePaneViewModelTests: XCTestCase {
         XCTAssertTrue(sut.paneState.markedIndices.isEmpty)
     }
 
+    func testSetFilterTextMovesCursorToFirstBrowsableDirectory() async {
+        let items = [
+            makeFileItem(name: "alpha-note.txt"),
+            makeFileItem(name: "alpha-folder", isDirectory: true),
+            makeFileItem(name: "alpha-zeta.txt"),
+        ]
+        let sut = makeSUT(items: items)
+        await waitForLoad()
+
+        sut.setSortDescriptor(.selection(ascending: true))
+        sut.setFilterText("alpha")
+
+        XCTAssertEqual(sut.paneState.cursorIndex, 1)
+        XCTAssertEqual(sut.selectedItem?.name, "alpha-folder")
+    }
+
+    func testSetFilterTextWithoutDirectoryKeepsCursorAtTopItem() async {
+        let items = [
+            makeFileItem(name: "alpha-one.txt"),
+            makeFileItem(name: "alpha-two.txt"),
+        ]
+        let sut = makeSUT(items: items)
+        await waitForLoad()
+
+        sut.setSortDescriptor(.selection(ascending: true))
+        sut.moveCursorDown()
+        XCTAssertEqual(sut.paneState.cursorIndex, 1)
+
+        sut.setFilterText("alpha")
+
+        XCTAssertEqual(sut.paneState.cursorIndex, 0)
+        XCTAssertEqual(sut.selectedItem?.name, "alpha-one.txt")
+    }
+
     // MARK: - Sort
 
     func testSetSortDescriptorResorts() async {
@@ -548,6 +586,38 @@ final class FilePaneViewModelTests: XCTestCase {
         await waitForLoad()
 
         XCTAssertEqual(capturedMode, .media)
+    }
+
+    func testSetFilesRecursiveEnabledInBrowserReloadsRecursively() async {
+        let sut = makeSUT(items: [makeFileItem(name: "top.txt")])
+        await waitForLoad()
+
+        fileSystem.recursiveContentsOfDirectoryResult = .success([
+            makeFileItem(name: "child.txt"),
+            makeFileItem(name: "nested", isDirectory: true)
+        ])
+
+        sut.setFilesRecursiveEnabled(true)
+        await waitForLoad()
+
+        XCTAssertTrue(sut.filesRecursiveEnabled)
+        XCTAssertEqual(fileSystem.recursiveContentsOfDirectoryCallCount, 1)
+        XCTAssertEqual(sut.directoryContents.displayedItems.count, 2)
+    }
+
+    func testToggleHiddenFilesReloadsWhenFilesRecursiveEnabled() async {
+        let sut = makeSUT()
+        await waitForLoad()
+
+        sut.setFilesRecursiveEnabled(true)
+        await waitForLoad()
+        let beforeToggleCallCount = fileSystem.recursiveContentsOfDirectoryCallCount
+
+        sut.toggleHiddenFiles()
+        await waitForLoad()
+
+        XCTAssertEqual(fileSystem.recursiveContentsOfDirectoryCallCount, beforeToggleCallCount + 1)
+        XCTAssertEqual(fileSystem.recursiveContentsOfDirectoryCapturedArgs.last?.includeHiddenFiles, true)
     }
 
     // MARK: - Directory Changed Callback
@@ -631,6 +701,57 @@ final class FilePaneViewModelTests: XCTestCase {
 
         sut.resumeDirectoryMonitoring()
         XCTAssertEqual(monitor.resumeCallCount, 1)
+    }
+
+    func testRefreshFailureTriggersDirectoryLoadFailedCallback() async {
+        let sut = makeSUT()
+        await waitForLoad()
+
+        var capturedDirectory: URL?
+        var capturedError: Error?
+        sut.onDirectoryLoadFailed = { directory, error in
+            capturedDirectory = directory
+            capturedError = error
+        }
+
+        fileSystem.contentsOfDirectoryResult = .failure(TestError.refreshFailure)
+        monitor.simulateChange()
+        await waitForLoad()
+
+        XCTAssertEqual(capturedDirectory, testDir.standardizedFileURL)
+        XCTAssertTrue(capturedError is TestError)
+    }
+
+    func testDirectoryMonitorRefreshDoesNotCancelInFlightNavigation() async {
+        let destination = URL(fileURLWithPath: "/tmp/test/untitled folder 2")
+        let initialItems = sampleItems
+        fileSystem.contentsOfDirectoryHandler = { url in
+            if url.standardizedFileURL == destination.standardizedFileURL {
+                try await Task.sleep(for: .milliseconds(250))
+                return [FileItem(
+                    url: destination.appendingPathComponent("inside.txt"),
+                    name: "inside.txt",
+                    isDirectory: false,
+                    size: 1,
+                    dateModified: Date(),
+                    isHidden: false,
+                    isSymlink: false,
+                    isPackage: false
+                )]
+            }
+            return initialItems
+        }
+
+        let sut = makeSUT()
+        await waitForLoad()
+
+        sut.navigate(to: destination)
+        monitor.simulateChange()
+        await waitForCondition(timeout: 2.0, description: "Navigation to destination completes") {
+            sut.paneState.currentDirectory == destination.standardizedFileURL
+        }
+
+        XCTAssertEqual(sut.paneState.currentDirectory, destination.standardizedFileURL)
     }
 
     // MARK: - Hidden Files

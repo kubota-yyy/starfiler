@@ -85,7 +85,8 @@ enum SpotlightSearchScope: String, Codable, CaseIterable, Sendable {
 
 struct AppConfig: Codable, Sendable {
     static let sidebarRecentItemsLimitRange: ClosedRange<Int> = 0 ... 20
-    static let sidebarWidthRange: ClosedRange<Double> = 180 ... 420
+    static let defaultSidebarWidth: Double = 260
+    static let sidebarWidthRange: ClosedRange<Double> = 180 ... 720
 
     enum SortColumn: String, Codable, CaseIterable, Sendable {
         case name
@@ -114,6 +115,8 @@ struct AppConfig: Codable, Sendable {
     var actionFeedbackEnabled: Bool
     var spotlightSearchScope: SpotlightSearchScope
     var fileIconSize: Double
+    var leftPaneFileIconSize: Double
+    var rightPaneFileIconSize: Double
     var sidebarFavoritesVisible: Bool
     var sidebarRecentItemsLimit: Int
     var sidebarWidth: Double
@@ -143,9 +146,11 @@ struct AppConfig: Codable, Sendable {
         actionFeedbackEnabled: Bool = true,
         spotlightSearchScope: SpotlightSearchScope = .currentDirectory,
         fileIconSize: Double = 16,
+        leftPaneFileIconSize: Double? = nil,
+        rightPaneFileIconSize: Double? = nil,
         sidebarFavoritesVisible: Bool = true,
         sidebarRecentItemsLimit: Int = 10,
-        sidebarWidth: Double = 260,
+        sidebarWidth: Double = defaultSidebarWidth,
         leftPaneDisplayMode: PaneDisplayMode = .browser,
         rightPaneDisplayMode: PaneDisplayMode = .browser,
         leftPaneMediaRecursiveEnabled: Bool = false,
@@ -170,7 +175,9 @@ struct AppConfig: Codable, Sendable {
         self.transparentBackgroundOpacity = transparentBackgroundOpacity
         self.actionFeedbackEnabled = actionFeedbackEnabled
         self.spotlightSearchScope = spotlightSearchScope
-        self.fileIconSize = fileIconSize
+        self.fileIconSize = Self.clampedIconSize(fileIconSize)
+        self.leftPaneFileIconSize = Self.clampedIconSize(leftPaneFileIconSize ?? self.fileIconSize)
+        self.rightPaneFileIconSize = Self.clampedIconSize(rightPaneFileIconSize ?? self.fileIconSize)
         self.sidebarFavoritesVisible = sidebarFavoritesVisible
         self.sidebarRecentItemsLimit = Self.clampedSidebarRecentItemsLimit(sidebarRecentItemsLimit)
         self.sidebarWidth = Self.clampedSidebarWidth(sidebarWidth)
@@ -201,6 +208,8 @@ struct AppConfig: Codable, Sendable {
         case actionFeedbackEnabled
         case spotlightSearchScope
         case fileIconSize
+        case leftPaneFileIconSize
+        case rightPaneFileIconSize
         case sidebarFavoritesVisible
         case sidebarRecentItemsLimit
         case sidebarWidth
@@ -231,11 +240,17 @@ struct AppConfig: Codable, Sendable {
         transparentBackgroundOpacity = try container.decodeIfPresent(Double.self, forKey: .transparentBackgroundOpacity) ?? 0.7
         actionFeedbackEnabled = try container.decodeIfPresent(Bool.self, forKey: .actionFeedbackEnabled) ?? true
         spotlightSearchScope = try container.decodeIfPresent(SpotlightSearchScope.self, forKey: .spotlightSearchScope) ?? .currentDirectory
-        fileIconSize = try container.decodeIfPresent(Double.self, forKey: .fileIconSize) ?? 16
+        fileIconSize = Self.clampedIconSize(try container.decodeIfPresent(Double.self, forKey: .fileIconSize) ?? 16)
+        leftPaneFileIconSize = Self.clampedIconSize(
+            try container.decodeIfPresent(Double.self, forKey: .leftPaneFileIconSize) ?? fileIconSize
+        )
+        rightPaneFileIconSize = Self.clampedIconSize(
+            try container.decodeIfPresent(Double.self, forKey: .rightPaneFileIconSize) ?? fileIconSize
+        )
         sidebarFavoritesVisible = try container.decodeIfPresent(Bool.self, forKey: .sidebarFavoritesVisible) ?? true
         let recentItemsLimit = try container.decodeIfPresent(Int.self, forKey: .sidebarRecentItemsLimit) ?? 10
         sidebarRecentItemsLimit = Self.clampedSidebarRecentItemsLimit(recentItemsLimit)
-        let sidebarWidthValue = try container.decodeIfPresent(Double.self, forKey: .sidebarWidth) ?? 260
+        let sidebarWidthValue = try container.decodeIfPresent(Double.self, forKey: .sidebarWidth) ?? Self.defaultSidebarWidth
         sidebarWidth = Self.clampedSidebarWidth(sidebarWidthValue)
         leftPaneDisplayMode = try container.decodeIfPresent(PaneDisplayMode.self, forKey: .leftPaneDisplayMode) ?? .browser
         rightPaneDisplayMode = try container.decodeIfPresent(PaneDisplayMode.self, forKey: .rightPaneDisplayMode) ?? .browser
@@ -252,6 +267,10 @@ struct AppConfig: Codable, Sendable {
 
     private static func clampedSidebarRecentItemsLimit(_ value: Int) -> Int {
         min(max(value, sidebarRecentItemsLimitRange.lowerBound), sidebarRecentItemsLimitRange.upperBound)
+    }
+
+    private static func clampedIconSize(_ value: Double) -> Double {
+        min(max(value, 12), 40)
     }
 
     private static func clampedSidebarWidth(_ value: Double) -> Double {

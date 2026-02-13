@@ -180,4 +180,29 @@ final class SidebarViewModelTests: XCTestCase {
         XCTAssertEqual(updatedGroup?.entries.count, 1)
         XCTAssertEqual(updatedGroup?.entries.first?.displayName, "Entry2")
     }
+
+    func testReloadSectionsBuildsNestedShortcutHintsForBookmarkGroups() throws {
+        let group = BookmarkGroup(
+            name: "RWD",
+            entries: [
+                BookmarkEntry(displayName: "docs", path: "/Users/workspace/RWD/rwd/docs", shortcutKey: "d"),
+                BookmarkEntry(displayName: "unity", path: "/Users/workspace/RWD/rwd/docs/unity", shortcutKey: "d u"),
+            ],
+            shortcutKey: "r",
+            isDefault: false
+        )
+        try configManager.saveBookmarksConfig(BookmarksConfig(groups: [group]))
+
+        let sut = SidebarViewModel(configManager: configManager)
+        let section = sut.sections.first {
+            if case .bookmarkGroup(let name) = $0.kind {
+                return name == "RWD"
+            }
+            return false
+        }
+
+        XCTAssertEqual(section?.items.count, 2)
+        XCTAssertEqual(section?.items[0].shortcutHint, "' r d")
+        XCTAssertEqual(section?.items[1].shortcutHint, "' r d u")
+    }
 }

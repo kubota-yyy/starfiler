@@ -2,6 +2,30 @@ import AppKit
 import AVFoundation
 import ImageIO
 
+private final class CenteredSearchFieldCell: NSSearchFieldCell {
+    // Keep search text and placeholder vertically centered in compact header height.
+    private func verticallyCenteredRect(_ rect: NSRect) -> NSRect {
+        let activeFont = font ?? NSFont.systemFont(ofSize: NSFont.systemFontSize(for: controlSize))
+        let textHeight = ceil(activeFont.ascender - activeFont.descender)
+        guard rect.height > textHeight else {
+            return rect
+        }
+
+        var centeredRect = rect
+        centeredRect.origin.y = rect.origin.y + floor((rect.height - textHeight) / 2)
+        centeredRect.size.height = textHeight
+        return centeredRect
+    }
+
+    override func searchTextRect(forBounds rect: NSRect) -> NSRect {
+        verticallyCenteredRect(super.searchTextRect(forBounds: rect))
+    }
+
+    override func drawingRect(forBounds rect: NSRect) -> NSRect {
+        verticallyCenteredRect(super.drawingRect(forBounds: rect))
+    }
+}
+
 final class FilePaneViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSCollectionViewDataSource, NSCollectionViewDelegate, NSCollectionViewDelegateFlowLayout, NSMenuDelegate, KeyActionDelegate, MediaKeyActionDelegate, NSTextFieldDelegate, NSSearchFieldDelegate {
     private enum SearchMode: Int {
         case filter = 0
@@ -16,12 +40,21 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             }
         }
 
-        var placeholder: String {
+        var iconSymbolName: String {
             switch self {
             case .filter:
-                return "Filter files in current folder..."
+                return "line.3.horizontal.decrease.circle"
             case .spotlight:
-                return "Search with Spotlight..."
+                return "sparkle.magnifyingglass"
+            }
+        }
+
+        var iconAccessibilityLabel: String {
+            switch self {
+            case .filter:
+                return "Filter mode"
+            case .spotlight:
+                return "Spotlight mode"
             }
         }
     }
@@ -54,14 +87,17 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private let headerView = NSView()
     private let navigationStackView = NSStackView()
     private let backPeekButton = NSButton(title: "", target: nil, action: nil)
-    private let pathControl = NSPathControl()
+    private let breadcrumbContainerView = NSView()
+    private let breadcrumbStackView = NSStackView()
     private let forwardPeekButton = NSButton(title: "", target: nil, action: nil)
     private let searchControlsStackView = NSStackView()
-    private let displayModeControl = NSSegmentedControl(labels: ["Files", "Media"], trackingMode: .selectOne, target: nil, action: nil)
-    private let mediaRecursiveButton = NSButton(checkboxWithTitle: "Recursive", target: nil, action: nil)
-    private let mediaIconSizeLabel = NSTextField(labelWithString: "Icon")
+    private let filesModeButton = NSButton(title: "Files", target: nil, action: nil)
+    private let mediaModeButton = NSButton(title: "Media", target: nil, action: nil)
+    private let filesRecursiveButton = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+    private let mediaRecursiveButton = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let mediaIconSizeSlider = NSSlider(value: 16, minValue: 12, maxValue: 40, target: nil, action: nil)
     private let mediaIconSizeValueLabel = NSTextField(labelWithString: "16 px")
+    private let searchModeIconView = NSImageView()
     private let searchField = NSSearchField()
     private let scrollView = NSScrollView()
     private let bookmarkJumpOverlayView = BookmarkJumpOverlayView()
@@ -90,6 +126,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private var starEffectsEnabled = true
     private var animationEffectSettings = AnimationEffectSettings.allEnabled
     private weak var lastCursorRippleLayer: CALayer?
+    private var isSearchFieldFocused = false
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
     var onSelectionChanged: ((FileItem?) -> Void)?
@@ -100,7 +137,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     var onDropOperationCompleted: ((NSDragOperation, Int) -> Void)?
     var onSpotlightSearchScopeChanged: ((SpotlightSearchScope) -> Void)?
     var onFileIconSizeChanged: ((CGFloat) -> Void)?
-    var onMarkdownPreviewRequested: ((URL) -> Void)?
+    var onMarkdownPreviewRequested: (([URL]) -> Void)?
     var onDirectoryLoadFailed: ((URL, Error) -> Void)?
 
     init(viewModel: FilePaneViewModel) {
@@ -140,11 +177,14 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     func focusTable() {
+        restoreNormalModeIfNeededAfterSearch()
+        isSearchFieldFocused = false
         if currentDisplayMode == .media {
             view.window?.makeFirstResponder(mediaCollectionView)
         } else {
             view.window?.makeFirstResponder(tableView)
         }
+        updateSearchFieldAppearance()
     }
 
     func setActive(_ active: Bool) {
@@ -171,17 +211,26 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     func updateBookmarksConfig(_ config: BookmarksConfig) {
-        tableView.setBookmarkJumpConfig(config)
-        tableView.onBookmarkJump = { [weak self] path in
+        let handleJump: (String) -> Void = { [weak self] path in
             self?.hideBookmarkJumpHint()
             self?.onBookmarkJump?(path)
         }
-        tableView.onBookmarkJumpPending = { [weak self] hint in
+        let handlePending: (BookmarkJumpHint) -> Void = { [weak self] hint in
             self?.showBookmarkJumpHint(hint)
         }
-        tableView.onBookmarkJumpEnded = { [weak self] in
+        let handleEnded: () -> Void = { [weak self] in
             self?.hideBookmarkJumpHint()
         }
+
+        tableView.setBookmarkJumpConfig(config)
+        tableView.onBookmarkJump = handleJump
+        tableView.onBookmarkJumpPending = handlePending
+        tableView.onBookmarkJumpEnded = handleEnded
+
+        mediaCollectionView.setBookmarkJumpConfig(config)
+        mediaCollectionView.onBookmarkJump = handleJump
+        mediaCollectionView.onBookmarkJumpPending = handlePending
+        mediaCollectionView.onBookmarkJumpEnded = handleEnded
     }
 
     func reloadKeybindings() {
@@ -315,6 +364,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         return rowView
     }
 
+    func tableView(_ tableView: NSTableView, typeSelectStringFor tableColumn: NSTableColumn?, row: Int) -> String? {
+        guard viewModel.directoryContents.displayedItems.indices.contains(row) else {
+            return nil
+        }
+        return viewModel.directoryContents.displayedItems[row].name
+    }
+
     func tableViewSelectionDidChange(_ notification: Notification) {
         let selectedRow = tableView.selectedRow
         guard selectedRow >= 0 else {
@@ -418,7 +474,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         navigationStackView.translatesAutoresizingMaskIntoConstraints = false
         navigationStackView.orientation = .horizontal
         navigationStackView.alignment = .centerY
-        navigationStackView.spacing = 4
+        navigationStackView.spacing = 3
         navigationStackView.distribution = .fill
 
         backPeekButton.translatesAutoresizingMaskIntoConstraints = false
@@ -441,38 +497,61 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         forwardPeekButton.setContentHuggingPriority(.required, for: .horizontal)
         forwardPeekButton.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
 
-        pathControl.translatesAutoresizingMaskIntoConstraints = false
-        pathControl.pathStyle = .standard
-        pathControl.controlSize = .small
-        pathControl.target = self
-        pathControl.action = #selector(handlePathControlClick(_:))
+        breadcrumbContainerView.translatesAutoresizingMaskIntoConstraints = false
+        breadcrumbContainerView.wantsLayer = false
+        breadcrumbContainerView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        breadcrumbContainerView.setContentHuggingPriority(.defaultLow, for: .horizontal)
+
+        breadcrumbStackView.translatesAutoresizingMaskIntoConstraints = false
+        breadcrumbStackView.orientation = .horizontal
+        breadcrumbStackView.alignment = .centerY
+        breadcrumbStackView.spacing = 5
+        breadcrumbStackView.distribution = .fillProportionally
 
         searchControlsStackView.translatesAutoresizingMaskIntoConstraints = false
         searchControlsStackView.orientation = .horizontal
         searchControlsStackView.alignment = .centerY
-        searchControlsStackView.spacing = 6
+        searchControlsStackView.spacing = 0
         searchControlsStackView.setContentHuggingPriority(.required, for: .horizontal)
         searchControlsStackView.setContentCompressionResistancePriority(.required, for: .horizontal)
 
-        displayModeControl.translatesAutoresizingMaskIntoConstraints = false
-        displayModeControl.segmentStyle = .rounded
-        displayModeControl.selectedSegment = 0
-        displayModeControl.target = self
-        displayModeControl.action = #selector(handleDisplayModeChanged(_:))
-        displayModeControl.setContentHuggingPriority(.required, for: .horizontal)
+        filesModeButton.translatesAutoresizingMaskIntoConstraints = false
+        filesModeButton.isBordered = false
+        filesModeButton.wantsLayer = true
+        filesModeButton.font = .systemFont(ofSize: 11, weight: .medium)
+        filesModeButton.alignment = .center
+        filesModeButton.target = self
+        filesModeButton.action = #selector(handleDisplayModeChanged(_:))
+        filesModeButton.tag = 0
+        filesModeButton.setContentHuggingPriority(.required, for: .horizontal)
+        filesModeButton.layer?.borderWidth = 0.5
+        filesModeButton.layer?.borderColor = NSColor.separatorColor.cgColor
+
+        mediaModeButton.translatesAutoresizingMaskIntoConstraints = false
+        mediaModeButton.isBordered = false
+        mediaModeButton.wantsLayer = true
+        mediaModeButton.font = .systemFont(ofSize: 11, weight: .medium)
+        mediaModeButton.alignment = .center
+        mediaModeButton.target = self
+        mediaModeButton.action = #selector(handleDisplayModeChanged(_:))
+        mediaModeButton.tag = 1
+        mediaModeButton.setContentHuggingPriority(.required, for: .horizontal)
+        mediaModeButton.layer?.borderWidth = 0.5
+        mediaModeButton.layer?.borderColor = NSColor.separatorColor.cgColor
+
+        filesRecursiveButton.translatesAutoresizingMaskIntoConstraints = false
+        filesRecursiveButton.target = self
+        filesRecursiveButton.action = #selector(handleFilesRecursiveToggle(_:))
+        filesRecursiveButton.isHidden = true
+        filesRecursiveButton.toolTip = "Recursive"
+        filesRecursiveButton.setContentHuggingPriority(.required, for: .horizontal)
 
         mediaRecursiveButton.translatesAutoresizingMaskIntoConstraints = false
         mediaRecursiveButton.target = self
         mediaRecursiveButton.action = #selector(handleMediaRecursiveToggle(_:))
         mediaRecursiveButton.isHidden = true
+        mediaRecursiveButton.toolTip = "Recursive"
         mediaRecursiveButton.setContentHuggingPriority(.required, for: .horizontal)
-
-        mediaIconSizeLabel.translatesAutoresizingMaskIntoConstraints = false
-        mediaIconSizeLabel.font = .systemFont(ofSize: 11, weight: .regular)
-        mediaIconSizeLabel.textColor = .secondaryLabelColor
-        mediaIconSizeLabel.isHidden = true
-        mediaIconSizeLabel.setContentHuggingPriority(.required, for: .horizontal)
-        mediaIconSizeLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         mediaIconSizeSlider.translatesAutoresizingMaskIntoConstraints = false
         mediaIconSizeSlider.target = self
@@ -491,9 +570,28 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         mediaIconSizeValueLabel.setContentHuggingPriority(.required, for: .horizontal)
         mediaIconSizeValueLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
 
+        searchModeIconView.translatesAutoresizingMaskIntoConstraints = false
+        searchModeIconView.imageScaling = .scaleProportionallyDown
+        searchModeIconView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
+        searchModeIconView.contentTintColor = .secondaryLabelColor
+        searchModeIconView.setContentHuggingPriority(.required, for: .horizontal)
+        searchModeIconView.setContentCompressionResistancePriority(.required, for: .horizontal)
+
         searchField.translatesAutoresizingMaskIntoConstraints = false
+        if !(searchField.cell is CenteredSearchFieldCell) {
+            searchField.cell = CenteredSearchFieldCell(textCell: "")
+        }
+        // Re-enable text editing after replacing the default search cell.
+        searchField.isEditable = true
+        searchField.isSelectable = true
         searchField.controlSize = .small
-        searchField.placeholderString = SearchMode.filter.placeholder
+        searchField.isBezeled = false
+        searchField.drawsBackground = true
+        searchField.focusRingType = .none
+        searchField.wantsLayer = true
+        searchField.layer?.borderWidth = 0.5
+        searchField.layer?.borderColor = NSColor.separatorColor.cgColor
+        searchField.placeholderString = nil
         searchField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         searchField.delegate = self
         searchField.sendsSearchStringImmediately = true
@@ -501,6 +599,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         searchField.setContentHuggingPriority(.defaultLow, for: .horizontal)
         searchField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         configureSearchFieldMenuTemplate()
+        configureSearchFieldButtonAction()
 
         bookmarkJumpOverlayView.isHidden = true
     }
@@ -546,6 +645,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         scrollView.drawsBackground = true
 
         tableView.didBecomeFirstResponderHandler = { [weak self] in
+            self?.restoreNormalModeIfNeededAfterSearch()
+            self?.isSearchFieldFocused = false
+            self?.updateSearchFieldAppearance()
             self?.onDidRequestActivate?()
         }
     }
@@ -566,6 +668,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         mediaCollectionView.keyActionDelegate = self
         mediaCollectionView.setVimMode(vimModeState.mode)
         mediaCollectionView.didBecomeFirstResponderHandler = { [weak self] in
+            self?.restoreNormalModeIfNeededAfterSearch()
+            self?.isSearchFieldFocused = false
+            self?.updateSearchFieldAppearance()
             self?.onDidRequestActivate?()
         }
 
@@ -580,33 +685,49 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         view.addSubview(bookmarkJumpOverlayView)
 
         navigationStackView.addArrangedSubview(backPeekButton)
-        navigationStackView.addArrangedSubview(pathControl)
+        navigationStackView.addArrangedSubview(breadcrumbContainerView)
         navigationStackView.addArrangedSubview(forwardPeekButton)
+        breadcrumbContainerView.addSubview(breadcrumbStackView)
 
         headerView.addSubview(navigationStackView)
         headerView.addSubview(searchControlsStackView)
-        searchControlsStackView.addArrangedSubview(displayModeControl)
+        searchControlsStackView.addArrangedSubview(filesModeButton)
+        searchControlsStackView.addArrangedSubview(mediaModeButton)
+        searchControlsStackView.addArrangedSubview(filesRecursiveButton)
         searchControlsStackView.addArrangedSubview(mediaRecursiveButton)
-        searchControlsStackView.addArrangedSubview(mediaIconSizeLabel)
         searchControlsStackView.addArrangedSubview(mediaIconSizeSlider)
         searchControlsStackView.addArrangedSubview(mediaIconSizeValueLabel)
+        searchControlsStackView.addArrangedSubview(searchModeIconView)
         searchControlsStackView.addArrangedSubview(searchField)
-
-        pathControl.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        searchControlsStackView.setCustomSpacing(8, after: mediaModeButton)
+        searchControlsStackView.setCustomSpacing(8, after: filesRecursiveButton)
+        searchControlsStackView.setCustomSpacing(8, after: mediaRecursiveButton)
+        searchControlsStackView.setCustomSpacing(4, after: mediaIconSizeSlider)
+        searchControlsStackView.setCustomSpacing(12, after: mediaIconSizeValueLabel)
+        searchControlsStackView.setCustomSpacing(6, after: searchModeIconView)
 
         NSLayoutConstraint.activate([
             headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             headerView.topAnchor.constraint(equalTo: view.topAnchor),
-            headerView.heightAnchor.constraint(equalToConstant: 30),
+            headerView.heightAnchor.constraint(equalToConstant: 28),
 
-            navigationStackView.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 10),
-            navigationStackView.trailingAnchor.constraint(lessThanOrEqualTo: searchControlsStackView.leadingAnchor, constant: -10),
+            navigationStackView.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 8),
+            navigationStackView.trailingAnchor.constraint(lessThanOrEqualTo: searchControlsStackView.leadingAnchor, constant: -12),
             navigationStackView.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
 
-            searchControlsStackView.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -10),
+            searchControlsStackView.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -8),
             searchControlsStackView.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
-            searchControlsStackView.leadingAnchor.constraint(greaterThanOrEqualTo: headerView.leadingAnchor, constant: 260),
+            searchControlsStackView.leadingAnchor.constraint(greaterThanOrEqualTo: headerView.leadingAnchor, constant: 280),
+            breadcrumbContainerView.topAnchor.constraint(equalTo: headerView.topAnchor),
+            breadcrumbContainerView.bottomAnchor.constraint(equalTo: headerView.bottomAnchor),
+            filesModeButton.heightAnchor.constraint(equalToConstant: 22),
+            filesModeButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 46),
+            mediaModeButton.heightAnchor.constraint(equalToConstant: 22),
+            mediaModeButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 50),
+            searchModeIconView.widthAnchor.constraint(equalToConstant: 16),
+            searchModeIconView.heightAnchor.constraint(equalToConstant: 16),
+            searchField.heightAnchor.constraint(equalToConstant: 22),
             mediaIconSizeSlider.widthAnchor.constraint(equalToConstant: 110),
             mediaIconSizeValueLabel.widthAnchor.constraint(equalToConstant: 44),
             searchField.widthAnchor.constraint(greaterThanOrEqualToConstant: 132),
@@ -621,6 +742,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             bookmarkJumpOverlayView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
             bookmarkJumpOverlayView.widthAnchor.constraint(greaterThanOrEqualToConstant: 240),
             bookmarkJumpOverlayView.widthAnchor.constraint(lessThanOrEqualToConstant: 520)
+        ])
+
+        NSLayoutConstraint.activate([
+            breadcrumbStackView.leadingAnchor.constraint(equalTo: breadcrumbContainerView.leadingAnchor),
+            breadcrumbStackView.trailingAnchor.constraint(lessThanOrEqualTo: breadcrumbContainerView.trailingAnchor),
+            breadcrumbStackView.centerYAnchor.constraint(equalTo: breadcrumbContainerView.centerYAnchor)
         ])
     }
 
@@ -647,10 +774,16 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     private func updateDisplayModeControls() {
         let isMediaMode = currentDisplayMode == .media
-        displayModeControl.selectedSegment = currentDisplayMode == .media ? 1 : 0
+        let selectedBg = NSColor.controlAccentColor.withAlphaComponent(0.18).cgColor
+        let unselectedBg = CGColor.clear
+        filesModeButton.layer?.backgroundColor = isMediaMode ? unselectedBg : selectedBg
+        mediaModeButton.layer?.backgroundColor = isMediaMode ? selectedBg : unselectedBg
+        filesModeButton.contentTintColor = isMediaMode ? .secondaryLabelColor : .labelColor
+        mediaModeButton.contentTintColor = isMediaMode ? .labelColor : .secondaryLabelColor
+        filesRecursiveButton.state = viewModel.filesRecursiveEnabled ? .on : .off
+        filesRecursiveButton.isHidden = isMediaMode
         mediaRecursiveButton.state = viewModel.mediaRecursiveEnabled ? .on : .off
         mediaRecursiveButton.isHidden = !isMediaMode
-        mediaIconSizeLabel.isHidden = !isMediaMode
         mediaIconSizeSlider.isHidden = !isMediaMode
         mediaIconSizeValueLabel.isHidden = !isMediaMode
     }
@@ -719,6 +852,19 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             self.thumbnailTasks.removeAll()
             self.thumbnailCache.removeAllObjects()
 
+            // Sync search field from filter text only while in filter mode.
+            // In spotlight mode, keep the typed query visible.
+            if self.selectedSearchMode == .filter {
+                let modelFilter = self.viewModel.directoryContents.filterText
+                if self.searchField.stringValue != modelFilter {
+                    self.searchField.stringValue = modelFilter
+                    if modelFilter.isEmpty {
+                        self.searchField.layer?.removeAnimation(forKey: "searchGlow")
+                        self.searchField.layer?.shadowOpacity = 0
+                    }
+                }
+            }
+
             self.tableView.reloadData()
             self.mediaCollectionView.reloadData()
             self.updateColumnHeaderTitles()
@@ -754,6 +900,10 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             self?.publishSelection()
         }
 
+        viewModel.onFilesRecursiveChanged = { [weak self] _ in
+            self?.updateDisplayModeControls()
+        }
+
         viewModel.onMediaRecursiveChanged = { [weak self] _ in
             self?.updateDisplayModeControls()
         }
@@ -766,6 +916,16 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         publishSelection()
         updateColumnHeaderTitles()
         applyDisplayMode(viewModel.displayMode)
+    }
+
+    private func restoreNormalModeIfNeededAfterSearch() {
+        guard vimModeState.mode == .filter else {
+            return
+        }
+
+        vimModeState.enterNormalMode()
+        tableView.setVimMode(vimModeState.mode)
+        mediaCollectionView.setVimMode(vimModeState.mode)
     }
 
     private func syncSelectionFromViewModel() {
@@ -791,9 +951,59 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     private func publishStatus() {
         let directoryURL = viewModel.paneState.currentDirectory.standardizedFileURL
-        pathControl.url = directoryURL
+        updateBreadcrumbs(for: directoryURL)
         onStatusChanged?(directoryURL.path, viewModel.directoryContents.displayedItems.count, viewModel.markedCount)
         updateNavigationPeekLabels()
+    }
+
+    private func updateBreadcrumbs(for directoryURL: URL) {
+        for subview in breadcrumbStackView.arrangedSubviews {
+            breadcrumbStackView.removeArrangedSubview(subview)
+            subview.removeFromSuperview()
+        }
+
+        let pathComponents = directoryURL.pathComponents
+        guard !pathComponents.isEmpty else {
+            return
+        }
+
+        var currentURL = URL(fileURLWithPath: "/", isDirectory: true)
+        for (index, component) in pathComponents.enumerated() {
+            let title: String
+            let targetURL: URL
+            if index == 0 {
+                title = "/"
+                targetURL = currentURL
+            } else {
+                currentURL.appendPathComponent(component, isDirectory: true)
+                title = component
+                targetURL = currentURL
+            }
+
+            let button = NSButton(title: title, target: self, action: #selector(handleBreadcrumbClick(_:)))
+            button.isBordered = false
+            button.bezelStyle = .inline
+            button.setButtonType(.momentaryChange)
+            button.font = .systemFont(ofSize: 11, weight: index == pathComponents.count - 1 ? .semibold : .regular)
+            button.lineBreakMode = .byTruncatingMiddle
+            button.alignment = .left
+            button.imagePosition = .noImage
+            button.focusRingType = .none
+            button.toolTip = targetURL.path
+            button.setContentHuggingPriority(.required, for: .horizontal)
+            button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            breadcrumbStackView.addArrangedSubview(button)
+
+            if index < pathComponents.count - 1 {
+                let separator = NSTextField(labelWithString: ">")
+                separator.font = .systemFont(ofSize: 10, weight: .semibold)
+                separator.alignment = .center
+                separator.setContentHuggingPriority(.required, for: .horizontal)
+                separator.setContentCompressionResistancePriority(.required, for: .horizontal)
+                breadcrumbStackView.addArrangedSubview(separator)
+            }
+        }
+        updateBreadcrumbAppearance()
     }
 
     private func updateNavigationPeekLabels() {
@@ -840,9 +1050,15 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         view.layer?.backgroundColor = palette.paneBackgroundColor.applyingBackgroundOpacity(backgroundOpacity).cgColor
         headerView.layer?.backgroundColor = headerColor.cgColor
-        pathControl.alphaValue = isPaneActive ? 1.0 : 0.82
+        breadcrumbContainerView.alphaValue = isPaneActive ? 1.0 : 0.82
+        let borderColor = NSColor.separatorColor.cgColor
+        filesModeButton.layer?.borderColor = borderColor
+        mediaModeButton.layer?.borderColor = borderColor
         searchField.textColor = palette.primaryTextColor
         searchField.backgroundColor = palette.filterBarBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
+        updateSearchFieldAppearance()
+        updateBreadcrumbAppearance()
+        updateDisplayModeControls()
         tableView.backgroundColor = palette.tableBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
         mediaCollectionView.backgroundColors = [palette.tableBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)]
         scrollView.backgroundColor = palette.tableBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
@@ -851,8 +1067,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     @objc
-    private func handlePathControlClick(_ sender: NSPathControl) {
-        guard let targetURL = sender.clickedPathItem?.url?.standardizedFileURL else {
+    private func handleBreadcrumbClick(_ sender: NSButton) {
+        guard let path = sender.toolTip, !path.isEmpty else {
+            return
+        }
+
+        let targetURL = URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
+        guard !targetURL.path.isEmpty else {
             return
         }
 
@@ -864,10 +1085,28 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         viewModel.navigate(to: targetURL)
     }
 
+    private func updateBreadcrumbAppearance() {
+        let palette = filerTheme.palette
+        for view in breadcrumbStackView.arrangedSubviews {
+            if let button = view as? NSButton {
+                button.contentTintColor = isPaneActive ? palette.activePathTextColor : palette.inactivePathTextColor
+            } else if let separator = view as? NSTextField {
+                separator.textColor = isPaneActive
+                    ? palette.activePathTextColor.withAlphaComponent(0.7)
+                    : palette.inactivePathTextColor.withAlphaComponent(0.7)
+            }
+        }
+    }
+
     @objc
-    private func handleDisplayModeChanged(_ sender: NSSegmentedControl) {
-        let mode: PaneDisplayMode = sender.selectedSegment == 1 ? .media : .browser
+    private func handleDisplayModeChanged(_ sender: NSButton) {
+        let mode: PaneDisplayMode = sender.tag == 1 ? .media : .browser
         viewModel.setDisplayMode(mode)
+    }
+
+    @objc
+    private func handleFilesRecursiveToggle(_ sender: NSButton) {
+        viewModel.setFilesRecursiveEnabled(sender.state == .on)
     }
 
     @objc
@@ -1113,14 +1352,15 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             updateSearchModeUI()
         }
 
+        onDidRequestActivate?()
         vimModeState.enterFilterMode()
         tableView.setVimMode(vimModeState.mode)
         mediaCollectionView.setVimMode(vimModeState.mode)
 
+        isSearchFieldFocused = true
         view.window?.makeFirstResponder(searchField)
-        if let editor = searchField.currentEditor() {
-            editor.selectAll(nil)
-        }
+        searchField.selectText(nil)
+        updateSearchFieldAppearance()
 
         if starEffectsEnabled, animationEffectSettings.filterBarGlow {
             let palette = filerTheme.palette
@@ -1151,6 +1391,10 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         searchField.layer?.removeAnimation(forKey: "searchGlow")
         searchField.layer?.shadowOpacity = 0
 
+        switchToNormalModeAndFocusTable()
+    }
+
+    private func switchToNormalModeAndFocusTable() {
         vimModeState.enterNormalMode()
         tableView.setVimMode(vimModeState.mode)
         mediaCollectionView.setVimMode(vimModeState.mode)
@@ -1159,8 +1403,29 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     private func updateSearchModeUI() {
         let mode = selectedSearchMode
-        searchField.placeholderString = mode.placeholder
+        searchModeIconView.image = NSImage(
+            systemSymbolName: mode.iconSymbolName,
+            accessibilityDescription: mode.iconAccessibilityLabel
+        )
+        searchModeIconView.toolTip = mode.iconAccessibilityLabel
         updateSearchMenuSelectionStates()
+        updateSearchFieldAppearance()
+    }
+
+    private func updateSearchFieldAppearance() {
+        guard isViewLoaded else {
+            return
+        }
+
+        let palette = filerTheme.palette
+        let borderColor = isSearchFieldFocused ? palette.activeBorderColor : NSColor.separatorColor
+        searchField.layer?.borderColor = borderColor.cgColor
+        searchField.layer?.borderWidth = isSearchFieldFocused ? 1.0 : 0.5
+
+        let modeTint: NSColor = selectedSearchMode == .spotlight
+            ? palette.starAccentColor
+            : (isPaneActive ? palette.activePathTextColor : palette.inactivePathTextColor)
+        searchModeIconView.contentTintColor = modeTint
     }
 
     private func updateSearchMenuSelectionStates() {
@@ -1248,7 +1513,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             viewModel.navigate(to: URL(fileURLWithPath: "/Applications", isDirectory: true))
             handled = true
         case .enterDirectory:
-            openSelectedFile()
+            handleEnterKeyAction()
             handled = true
         case .switchPane:
             handled = handleTabPressed()
@@ -1402,10 +1667,29 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         if item.isDirectory && !item.isPackage {
             viewModel.enterSelected()
         } else if item.url.isMarkdownFile {
-            onMarkdownPreviewRequested?(item.url)
+            let markdownURLs = viewModel.markedOrSelectedURLs()
+                .filter(\.isMarkdownFile)
+            if markdownURLs.isEmpty {
+                onMarkdownPreviewRequested?([item.url])
+            } else {
+                onMarkdownPreviewRequested?(markdownURLs)
+            }
         } else {
             NSWorkspace.shared.open(item.url)
         }
+    }
+
+    private func handleEnterKeyAction() {
+        guard let selectedItem = viewModel.selectedItem else {
+            return
+        }
+
+        if selectedItem.url.isImageFile,
+           onFileOperationRequested?(.togglePreview) == true {
+            return
+        }
+
+        openSelectedFile()
     }
 
     private func revealSelectedInFinder() {
@@ -1445,9 +1729,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             return
         }
 
+        onDidRequestActivate?()
+        isSearchFieldFocused = true
         vimModeState.enterFilterMode()
         tableView.setVimMode(vimModeState.mode)
         mediaCollectionView.setVimMode(vimModeState.mode)
+        updateSearchFieldAppearance()
     }
 
     func controlTextDidChange(_ obj: Notification) {
@@ -1456,6 +1743,26 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         applySearchFromHeader()
+    }
+
+    func searchFieldDidEndSearching(_ sender: NSSearchField) {
+        guard sender === searchField else {
+            return
+        }
+
+        // NSSearchField's clear (x) button does not always emit controlTextDidChange.
+        // Ensure filter/spotlight state is synced when the field is cleared from the chrome.
+        applySearchFromHeader()
+    }
+
+    func controlTextDidEndEditing(_ obj: Notification) {
+        guard (obj.object as? NSControl) === searchField else {
+            return
+        }
+
+        restoreNormalModeIfNeededAfterSearch()
+        isSearchFieldFocused = false
+        updateSearchFieldAppearance()
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
@@ -1475,12 +1782,24 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
                 searchField.stringValue = ""
                 currentSearchMode = .filter
                 updateSearchModeUI()
+
+                switchToNormalModeAndFocusTable()
+                return true
             }
 
-            vimModeState.enterNormalMode()
-            tableView.setVimMode(vimModeState.mode)
-            mediaCollectionView.setVimMode(vimModeState.mode)
-            focusTable()
+            applySearchFromHeader()
+            let trimmedFilterQuery = searchField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedFilterQuery.isEmpty else {
+                switchToNormalModeAndFocusTable()
+                return true
+            }
+
+            viewModel.focusFirstBrowsableDirectoryInFilteredResults()
+            if let selectedItem = viewModel.selectedItem, selectedItem.isDirectory, !selectedItem.isPackage {
+                addSlideTransition(direction: .fromRight)
+                viewModel.enterSelected()
+                switchToNormalModeAndFocusTable()
+            }
             return true
         }
 
@@ -1520,6 +1839,28 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         searchField.searchMenuTemplate = menu
         updateSearchMenuSelectionStates()
+    }
+
+    private func configureSearchFieldButtonAction() {
+        guard let cell = searchField.cell as? NSSearchFieldCell else {
+            return
+        }
+        cell.searchButtonCell?.target = self
+        cell.searchButtonCell?.action = #selector(handleSearchFieldButtonClick(_:))
+    }
+
+    @objc
+    private func handleSearchFieldButtonClick(_ sender: Any?) {
+        guard let menu = searchField.searchMenuTemplate else {
+            return
+        }
+
+        if let event = NSApp.currentEvent {
+            NSMenu.popUpContextMenu(menu, with: event, for: searchField)
+            return
+        }
+
+        menu.popUp(positioning: nil, at: .zero, in: searchField)
     }
 
     @objc

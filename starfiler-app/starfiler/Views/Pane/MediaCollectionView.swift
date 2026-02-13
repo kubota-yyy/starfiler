@@ -5,14 +5,32 @@ final class MediaCollectionView: NSCollectionView {
     var didBecomeFirstResponderHandler: (() -> Void)?
     var dragSourceHandler: FileDragSource?
     var dragURLsProvider: (() -> [URL])?
+    var onBookmarkJump: ((String) -> Void)?
+    var onBookmarkJumpPending: ((BookmarkJumpHint) -> Void)?
+    var onBookmarkJumpEnded: (() -> Void)?
     private var keyInterpreter = KeyInterpreter()
+    private var bookmarkJumpInterpreter: BookmarkJumpInterpreter?
     private var mouseDownLocation: NSPoint?
     private var isDragging = false
     private static let minimumDragDistance: CGFloat = 5
 
     override func keyDown(with event: NSEvent) {
-        if event.modifierFlags.contains(.command) {
-            keyInterpreter.clearPendingSequence()
+        normalizeFilterModeForKeyboardInputIfNeeded()
+
+        let isAwaitingBookmarkJump = bookmarkJumpInterpreter?.state != .idle
+
+        if event.modifierFlags.contains(.command), !isAwaitingBookmarkJump {
+            bookmarkJumpInterpreter?.reset()
+            if let keyEvent = event.keyEvent {
+                switch keyInterpreter.interpret(keyEvent) {
+                case .action(let action):
+                    if keyActionDelegate?.mediaCollectionView(self, didTrigger: action) == true {
+                        return
+                    }
+                case .pending, .unhandled:
+                    break
+                }
+            }
             super.keyDown(with: event)
             return
         }
@@ -20,6 +38,35 @@ final class MediaCollectionView: NSCollectionView {
         guard let keyEvent = event.keyEvent else {
             super.keyDown(with: event)
             return
+        }
+
+        if isAwaitingBookmarkJump, !keyEvent.modifiers.isEmpty, keyEvent.key != "Escape" {
+            return
+        }
+
+        if bookmarkJumpInterpreter != nil {
+            if keyEvent.key == "Escape", bookmarkJumpInterpreter?.state != .idle {
+                bookmarkJumpInterpreter?.reset()
+                onBookmarkJumpEnded?()
+                return
+            }
+
+            let wasAwaitingBookmarkJump = bookmarkJumpInterpreter?.state != .idle
+
+            switch bookmarkJumpInterpreter!.interpret(keyEvent, now: Date()) {
+            case .jumpTo(let path):
+                onBookmarkJumpEnded?()
+                onBookmarkJump?(path)
+                return
+            case .pending(let hint):
+                onBookmarkJumpPending?(hint)
+                return
+            case .unhandled:
+                if wasAwaitingBookmarkJump {
+                    onBookmarkJumpEnded?()
+                }
+                break
+            }
         }
 
         switch keyInterpreter.interpret(keyEvent) {
@@ -97,6 +144,21 @@ final class MediaCollectionView: NSCollectionView {
             mode: keyInterpreter.mode,
             timeout: keyInterpreter.timeout
         )
+    }
+
+    func setBookmarkJumpConfig(_ config: BookmarksConfig) {
+        bookmarkJumpInterpreter = BookmarkJumpInterpreter(bookmarksConfig: config)
+        onBookmarkJumpEnded?()
+    }
+
+    private func normalizeFilterModeForKeyboardInputIfNeeded() {
+        guard keyInterpreter.mode == .filter else {
+            return
+        }
+
+        // Collection input should always run in normal mode.
+        // Filter mode is only valid while the search field is actively editing.
+        keyInterpreter.setMode(.normal)
     }
 }
 

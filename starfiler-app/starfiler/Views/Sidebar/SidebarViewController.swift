@@ -1,11 +1,27 @@
 import AppKit
 
-final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate {
+final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSMenuDelegate {
+    enum BookmarkContextAction {
+        case editBookmark
+        case deleteBookmark
+    }
+
+    private final class BookmarkTreeNode: NSObject {
+        let entry: SidebarViewModel.SidebarEntry
+        let children: [BookmarkTreeNode]
+
+        init(entry: SidebarViewModel.SidebarEntry, children: [BookmarkTreeNode]) {
+            self.entry = entry
+            self.children = children
+        }
+    }
+
     private let viewModel: SidebarViewModel
     private let windowControlsContainer = NSView()
     private let windowControlsStackView = NSStackView()
     private let scrollView = NSScrollView()
     private let outlineView = NSOutlineView()
+    private let regularContextMenu = NSMenu()
     private let recentSeparatorView = NSView()
     private let recentHeaderLabel = NSTextField(labelWithString: "History")
     private let recentScrollView = NSScrollView()
@@ -16,7 +32,9 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     private var recentScrollViewHeightConstraint: NSLayoutConstraint!
 
     private var regularSections: [SidebarViewModel.SidebarSection] = []
+    private var bookmarkRootsBySectionTitle: [String: [BookmarkTreeNode]] = [:]
     private var recentSection: SidebarViewModel.SidebarSection?
+    private var contextMenuTarget: (section: SidebarViewModel.SidebarSection, entry: SidebarViewModel.SidebarEntry)?
 
     private let sectionHeaderHeight: CGFloat = 22
     private let entryRowHeight: CGFloat = 24
@@ -26,8 +44,10 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     private var lastKnownSidebarHeight: CGFloat = 0
 
     var onNavigateRequested: ((URL) -> Void)?
+    var onNavigateAndRevealRequested: ((URL, URL) -> Void)?
     var onNavigationFailed: ((String) -> Void)?
     var onHistoryJumpRequested: ((Int) -> Void)?
+    var onBookmarkContextActionRequested: ((BookmarkContextAction, SidebarViewModel.SectionKind, SidebarViewModel.SidebarEntry) -> Void)?
 
     init(viewModel: SidebarViewModel) {
         self.viewModel = viewModel
@@ -126,6 +146,8 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         outlineView.usesAlternatingRowBackgroundColors = false
         outlineView.target = self
         outlineView.action = #selector(handleSingleClick(_:))
+        regularContextMenu.delegate = self
+        outlineView.menu = regularContextMenu
 
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("sidebar"))
         column.title = ""
@@ -256,6 +278,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
     private func syncSections() {
         regularSections = viewModel.sections.filter { !isRecentSection($0) }
+        rebuildBookmarkTrees()
         recentSection = viewModel.sections.first(where: { isRecentSection($0) })
 
         outlineView.reloadData()
@@ -273,8 +296,122 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
     private func expandAllSections() {
         for section in regularSections {
-            outlineView.expandItem(section.title)
+            outlineView.expandItem(section.title, expandChildren: true)
         }
+    }
+
+    private func rebuildBookmarkTrees() {
+        bookmarkRootsBySectionTitle.removeAll()
+
+        for section in regularSections {
+            guard supportsHierarchicalDisplay(for: section.kind) else {
+                continue
+            }
+            bookmarkRootsBySectionTitle[section.title] = buildBookmarkTree(for: section.items)
+        }
+    }
+
+    private func supportsHierarchicalDisplay(for sectionKind: SidebarViewModel.SectionKind) -> Bool {
+        switch sectionKind {
+        case .favorites, .bookmarkGroup:
+            return true
+        case .pinned, .recent:
+            return false
+        }
+    }
+
+    private func buildBookmarkTree(for entries: [SidebarViewModel.SidebarEntry]) -> [BookmarkTreeNode] {
+        guard !entries.isEmpty else {
+            return []
+        }
+
+        let normalizedPaths = entries.map { normalizePath($0.path) }
+        let shortcutSequences = entries.map(shortcutSequenceTokens(for:))
+        var parentIndexByChildIndex: [Int: Int] = [:]
+
+        for childIndex in entries.indices {
+            let childPath = normalizedPaths[childIndex]
+            let childShortcut = shortcutSequences[childIndex]
+            var bestParentIndex: Int?
+            var bestParentPathLength: Int = -1
+            var bestParentShortcutDepth: Int = -1
+
+            for candidateIndex in entries.indices where candidateIndex != childIndex {
+                let candidatePath = normalizedPaths[candidateIndex]
+                let candidateShortcut = shortcutSequences[candidateIndex]
+                guard isDescendantPath(childPath, of: candidatePath) else {
+                    continue
+                }
+                guard isShortcutDescendant(childShortcut, of: candidateShortcut) else {
+                    continue
+                }
+
+                if
+                    candidateShortcut.count > bestParentShortcutDepth ||
+                    (candidateShortcut.count == bestParentShortcutDepth && candidatePath.count > bestParentPathLength)
+                {
+                    bestParentIndex = candidateIndex
+                    bestParentPathLength = candidatePath.count
+                    bestParentShortcutDepth = candidateShortcut.count
+                }
+            }
+
+            if let bestParentIndex {
+                parentIndexByChildIndex[childIndex] = bestParentIndex
+            }
+        }
+
+        var childIndicesByParentIndex: [Int: [Int]] = [:]
+        for entryIndex in entries.indices {
+            if let parentIndex = parentIndexByChildIndex[entryIndex] {
+                childIndicesByParentIndex[parentIndex, default: []].append(entryIndex)
+            }
+        }
+
+        func makeNode(entryIndex: Int) -> BookmarkTreeNode {
+            let childIndices = childIndicesByParentIndex[entryIndex] ?? []
+            let childNodes = childIndices.map { makeNode(entryIndex: $0) }
+            return BookmarkTreeNode(entry: entries[entryIndex], children: childNodes)
+        }
+
+        return entries.indices
+            .filter { parentIndexByChildIndex[$0] == nil }
+            .map { makeNode(entryIndex: $0) }
+    }
+
+    private func shortcutSequenceTokens(for entry: SidebarViewModel.SidebarEntry) -> [String] {
+        guard let shortcutHint = entry.shortcutHint else {
+            return []
+        }
+
+        let trimmedHint = shortcutHint.trimmingCharacters(in: .whitespacesAndNewlines)
+        let body: String
+        if trimmedHint.first == "'" {
+            body = String(trimmedHint.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            body = trimmedHint
+        }
+
+        return BookmarkShortcut.tokens(from: body)
+    }
+
+    private func isShortcutDescendant(_ child: [String], of parent: [String]) -> Bool {
+        guard !parent.isEmpty, child.count > parent.count else {
+            return false
+        }
+        return Array(child.prefix(parent.count)) == parent
+    }
+
+    private func normalizePath(_ rawPath: String) -> String {
+        URL(fileURLWithPath: UserPaths.resolveBookmarkPath(rawPath), isDirectory: true).standardizedFileURL.path
+    }
+
+    private func isDescendantPath(_ childPath: String, of parentPath: String) -> Bool {
+        guard childPath != parentPath else {
+            return false
+        }
+        let normalizedParent = parentPath == "/" ? "/" : parentPath + "/"
+        return childPath.hasPrefix(normalizedParent)
     }
 
     private func updateRecentSectionLayout() {
@@ -368,7 +505,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         }
 
         let item = sourceOutlineView.item(atRow: clickedRow)
-        guard let entry = item as? SidebarViewModel.SidebarEntry else {
+        guard let entry = sidebarEntry(from: item) else {
             return
         }
 
@@ -379,6 +516,20 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
             return
         }
 
+        if sourceOutlineView !== recentOutlineView,
+           let section = regularSection(for: item, in: sourceOutlineView),
+           section.kind == .pinned {
+            let resolvedPath = UserPaths.resolveBookmarkPath(entry.path)
+            let itemURL = URL(fileURLWithPath: resolvedPath).standardizedFileURL
+            let parentURL = itemURL.deletingLastPathComponent().standardizedFileURL
+            guard FileManager.default.fileExists(atPath: itemURL.path) else {
+                onNavigationFailed?("Path not found:\n\(resolvedPath)")
+                return
+            }
+            onNavigateAndRevealRequested?(parentURL, itemURL)
+            return
+        }
+
         guard let url = viewModel.urlForEntry(entry) else {
             let resolvedPath = UserPaths.resolveBookmarkPath(entry.path)
             onNavigationFailed?("Path not found:\n\(resolvedPath)")
@@ -386,6 +537,38 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         }
 
         onNavigateRequested?(url)
+    }
+
+    private func sidebarEntry(from item: Any?) -> SidebarViewModel.SidebarEntry? {
+        if let entry = item as? SidebarViewModel.SidebarEntry {
+            return entry
+        }
+
+        if let node = item as? BookmarkTreeNode {
+            return node.entry
+        }
+
+        return nil
+    }
+
+    private func regularSection(for item: Any?, in outlineView: NSOutlineView) -> SidebarViewModel.SidebarSection? {
+        guard let item, let sectionTitle = sectionTitle(for: item, in: outlineView) else {
+            return nil
+        }
+        return regularSections.first(where: { $0.title == sectionTitle })
+    }
+
+    private func sectionTitle(for item: Any, in outlineView: NSOutlineView) -> String? {
+        var currentItem: Any? = item
+
+        while let unwrappedItem = currentItem {
+            if let sectionTitle = unwrappedItem as? String {
+                return sectionTitle
+            }
+            currentItem = outlineView.parent(forItem: unwrappedItem)
+        }
+
+        return nil
     }
 
     // MARK: - NSOutlineViewDataSource
@@ -404,7 +587,14 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
         if let sectionTitle = item as? String,
            let section = regularSections.first(where: { $0.title == sectionTitle }) {
+            if supportsHierarchicalDisplay(for: section.kind) {
+                return bookmarkRootsBySectionTitle[sectionTitle]?.count ?? 0
+            }
             return section.items.count
+        }
+
+        if let node = item as? BookmarkTreeNode {
+            return node.children.count
         }
 
         return 0
@@ -421,7 +611,14 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
         if let sectionTitle = item as? String,
            let section = regularSections.first(where: { $0.title == sectionTitle }) {
+            if supportsHierarchicalDisplay(for: section.kind) {
+                return bookmarkRootsBySectionTitle[sectionTitle]?[index] ?? ""
+            }
             return section.items[index]
+        }
+
+        if let node = item as? BookmarkTreeNode {
+            return node.children[index]
         }
 
         return ""
@@ -431,7 +628,13 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         if outlineView === recentOutlineView {
             return false
         }
-        return item is String
+        if item is String {
+            return true
+        }
+        if let node = item as? BookmarkTreeNode {
+            return !node.children.isEmpty
+        }
+        return false
     }
 
     // MARK: - NSOutlineViewDelegate
@@ -445,6 +648,10 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
             return makeEntryView(entry: entry, in: outlineView)
         }
 
+        if let node = item as? BookmarkTreeNode {
+            return makeEntryView(entry: node.entry, in: outlineView)
+        }
+
         return nil
     }
 
@@ -456,7 +663,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     }
 
     func outlineView(_ outlineView: NSOutlineView, shouldSelectItem item: Any) -> Bool {
-        item is SidebarViewModel.SidebarEntry
+        item is SidebarViewModel.SidebarEntry || item is BookmarkTreeNode
     }
 
     func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
@@ -620,5 +827,66 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         shortcutLabel.textColor = palette.sidebarShortcutHintColor
 
         return cell
+    }
+
+    // MARK: - Context Menu
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        guard menu === regularContextMenu else {
+            return
+        }
+
+        menu.removeAllItems()
+        contextMenuTarget = nil
+
+        let clickedRow = outlineView.clickedRow
+        guard clickedRow >= 0 else {
+            return
+        }
+
+        let item = outlineView.item(atRow: clickedRow)
+        guard let entry = sidebarEntry(from: item),
+              let section = regularSection(for: item, in: outlineView),
+              supportsBookmarkContextMenu(for: section.kind) else {
+            return
+        }
+
+        outlineView.selectRowIndexes(IndexSet(integer: clickedRow), byExtendingSelection: false)
+        contextMenuTarget = (section, entry)
+
+        let editItem = NSMenuItem(title: "Edit Bookmark…", action: #selector(handleEditBookmarkFromContextMenu(_:)), keyEquivalent: "")
+        editItem.target = self
+        menu.addItem(editItem)
+
+        let deleteItem = NSMenuItem(title: "Delete Bookmark", action: #selector(handleDeleteBookmarkFromContextMenu(_:)), keyEquivalent: "")
+        deleteItem.target = self
+        menu.addItem(deleteItem)
+    }
+
+    private func supportsBookmarkContextMenu(for sectionKind: SidebarViewModel.SectionKind) -> Bool {
+        switch sectionKind {
+        case .favorites, .bookmarkGroup:
+            return true
+        case .pinned, .recent:
+            return false
+        }
+    }
+
+    @objc
+    private func handleEditBookmarkFromContextMenu(_ sender: Any?) {
+        guard let contextMenuTarget else {
+            return
+        }
+
+        onBookmarkContextActionRequested?(.editBookmark, contextMenuTarget.section.kind, contextMenuTarget.entry)
+    }
+
+    @objc
+    private func handleDeleteBookmarkFromContextMenu(_ sender: Any?) {
+        guard let contextMenuTarget else {
+            return
+        }
+
+        onBookmarkContextActionRequested?(.deleteBookmark, contextMenuTarget.section.kind, contextMenuTarget.entry)
     }
 }
