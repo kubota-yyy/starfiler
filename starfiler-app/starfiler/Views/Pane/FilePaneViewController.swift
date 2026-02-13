@@ -1513,7 +1513,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             viewModel.navigate(to: URL(fileURLWithPath: "/Applications", isDirectory: true))
             handled = true
         case .enterDirectory:
-            openSelectedFile()
+            handleEnterKeyAction()
             handled = true
         case .switchPane:
             handled = handleTabPressed()
@@ -1677,6 +1677,19 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         } else {
             NSWorkspace.shared.open(item.url)
         }
+    }
+
+    private func handleEnterKeyAction() {
+        guard let selectedItem = viewModel.selectedItem else {
+            return
+        }
+
+        if selectedItem.url.isImageFile,
+           onFileOperationRequested?(.togglePreview) == true {
+            return
+        }
+
+        openSelectedFile()
     }
 
     private func revealSelectedInFinder() {
