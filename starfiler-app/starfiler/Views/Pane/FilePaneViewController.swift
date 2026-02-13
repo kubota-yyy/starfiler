@@ -450,12 +450,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         searchControlsStackView.translatesAutoresizingMaskIntoConstraints = false
         searchControlsStackView.orientation = .horizontal
         searchControlsStackView.alignment = .centerY
-        searchControlsStackView.spacing = 6
+        searchControlsStackView.spacing = 0
         searchControlsStackView.setContentHuggingPriority(.required, for: .horizontal)
         searchControlsStackView.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         displayModeControl.translatesAutoresizingMaskIntoConstraints = false
-        displayModeControl.segmentStyle = .rounded
+        displayModeControl.segmentStyle = .smallSquare
+        displayModeControl.controlSize = .small
         displayModeControl.selectedSegment = 0
         displayModeControl.target = self
         displayModeControl.action = #selector(handleDisplayModeChanged(_:))
@@ -493,6 +494,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         searchField.translatesAutoresizingMaskIntoConstraints = false
         searchField.controlSize = .small
+        searchField.bezelStyle = .squareBezel
+        searchField.focusRingType = .none
         searchField.placeholderString = SearchMode.filter.placeholder
         searchField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         searchField.delegate = self
