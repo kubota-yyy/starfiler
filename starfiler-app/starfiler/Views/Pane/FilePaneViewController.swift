@@ -40,12 +40,21 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             }
         }
 
-        var placeholder: String {
+        var iconSymbolName: String {
             switch self {
             case .filter:
-                return "Filter current folder..."
+                return "line.3.horizontal.decrease.circle"
             case .spotlight:
-                return "Search with Spotlight..."
+                return "sparkle.magnifyingglass"
+            }
+        }
+
+        var iconAccessibilityLabel: String {
+            switch self {
+            case .filter:
+                return "Filter mode"
+            case .spotlight:
+                return "Spotlight mode"
             }
         }
     }
@@ -88,6 +97,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private let mediaRecursiveButton = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let mediaIconSizeSlider = NSSlider(value: 16, minValue: 12, maxValue: 40, target: nil, action: nil)
     private let mediaIconSizeValueLabel = NSTextField(labelWithString: "16 px")
+    private let searchModeIconView = NSImageView()
     private let searchField = NSSearchField()
     private let scrollView = NSScrollView()
     private let bookmarkJumpOverlayView = BookmarkJumpOverlayView()
@@ -116,6 +126,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private var starEffectsEnabled = true
     private var animationEffectSettings = AnimationEffectSettings.allEnabled
     private weak var lastCursorRippleLayer: CALayer?
+    private var isSearchFieldFocused = false
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
     var onSelectionChanged: ((FileItem?) -> Void)?
@@ -166,11 +177,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     func focusTable() {
+        isSearchFieldFocused = false
         if currentDisplayMode == .media {
             view.window?.makeFirstResponder(mediaCollectionView)
         } else {
             view.window?.makeFirstResponder(tableView)
         }
+        updateSearchFieldAppearance()
     }
 
     func setActive(_ active: Bool) {
@@ -549,6 +562,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         mediaIconSizeValueLabel.setContentHuggingPriority(.required, for: .horizontal)
         mediaIconSizeValueLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
 
+        searchModeIconView.translatesAutoresizingMaskIntoConstraints = false
+        searchModeIconView.imageScaling = .scaleProportionallyDown
+        searchModeIconView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
+        searchModeIconView.contentTintColor = .secondaryLabelColor
+        searchModeIconView.setContentHuggingPriority(.required, for: .horizontal)
+        searchModeIconView.setContentCompressionResistancePriority(.required, for: .horizontal)
+
         searchField.translatesAutoresizingMaskIntoConstraints = false
         if !(searchField.cell is CenteredSearchFieldCell) {
             searchField.cell = CenteredSearchFieldCell(textCell: "")
@@ -560,7 +580,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         searchField.wantsLayer = true
         searchField.layer?.borderWidth = 0.5
         searchField.layer?.borderColor = NSColor.separatorColor.cgColor
-        searchField.placeholderString = SearchMode.filter.placeholder
+        searchField.placeholderString = nil
         searchField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         searchField.delegate = self
         searchField.sendsSearchStringImmediately = true
@@ -659,12 +679,14 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         searchControlsStackView.addArrangedSubview(mediaRecursiveButton)
         searchControlsStackView.addArrangedSubview(mediaIconSizeSlider)
         searchControlsStackView.addArrangedSubview(mediaIconSizeValueLabel)
+        searchControlsStackView.addArrangedSubview(searchModeIconView)
         searchControlsStackView.addArrangedSubview(searchField)
         searchControlsStackView.setCustomSpacing(8, after: mediaModeButton)
         searchControlsStackView.setCustomSpacing(8, after: filesRecursiveButton)
         searchControlsStackView.setCustomSpacing(8, after: mediaRecursiveButton)
         searchControlsStackView.setCustomSpacing(4, after: mediaIconSizeSlider)
         searchControlsStackView.setCustomSpacing(12, after: mediaIconSizeValueLabel)
+        searchControlsStackView.setCustomSpacing(6, after: searchModeIconView)
 
         NSLayoutConstraint.activate([
             headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -685,6 +707,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             filesModeButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 46),
             mediaModeButton.heightAnchor.constraint(equalToConstant: 22),
             mediaModeButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 50),
+            searchModeIconView.widthAnchor.constraint(equalToConstant: 16),
+            searchModeIconView.heightAnchor.constraint(equalToConstant: 16),
             searchField.heightAnchor.constraint(equalToConstant: 22),
             mediaIconSizeSlider.widthAnchor.constraint(equalToConstant: 110),
             mediaIconSizeValueLabel.widthAnchor.constraint(equalToConstant: 44),
@@ -1002,9 +1026,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         let borderColor = NSColor.separatorColor.cgColor
         filesModeButton.layer?.borderColor = borderColor
         mediaModeButton.layer?.borderColor = borderColor
-        searchField.layer?.borderColor = borderColor
         searchField.textColor = palette.primaryTextColor
         searchField.backgroundColor = palette.filterBarBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
+        updateSearchFieldAppearance()
         updateBreadcrumbAppearance()
         updateDisplayModeControls()
         tableView.backgroundColor = palette.tableBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
@@ -1300,14 +1324,15 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             updateSearchModeUI()
         }
 
+        onDidRequestActivate?()
         vimModeState.enterFilterMode()
         tableView.setVimMode(vimModeState.mode)
         mediaCollectionView.setVimMode(vimModeState.mode)
 
+        isSearchFieldFocused = true
         view.window?.makeFirstResponder(searchField)
-        if let editor = searchField.currentEditor() {
-            editor.selectAll(nil)
-        }
+        searchField.selectText(nil)
+        updateSearchFieldAppearance()
 
         if starEffectsEnabled, animationEffectSettings.filterBarGlow {
             let palette = filerTheme.palette
@@ -1346,8 +1371,29 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     private func updateSearchModeUI() {
         let mode = selectedSearchMode
-        searchField.placeholderString = mode.placeholder
+        searchModeIconView.image = NSImage(
+            systemSymbolName: mode.iconSymbolName,
+            accessibilityDescription: mode.iconAccessibilityLabel
+        )
+        searchModeIconView.toolTip = mode.iconAccessibilityLabel
         updateSearchMenuSelectionStates()
+        updateSearchFieldAppearance()
+    }
+
+    private func updateSearchFieldAppearance() {
+        guard isViewLoaded else {
+            return
+        }
+
+        let palette = filerTheme.palette
+        let borderColor = isSearchFieldFocused ? palette.activeBorderColor : NSColor.separatorColor
+        searchField.layer?.borderColor = borderColor.cgColor
+        searchField.layer?.borderWidth = isSearchFieldFocused ? 1.0 : 0.5
+
+        let modeTint: NSColor = selectedSearchMode == .spotlight
+            ? palette.starAccentColor
+            : (isPaneActive ? palette.activePathTextColor : palette.inactivePathTextColor)
+        searchModeIconView.contentTintColor = modeTint
     }
 
     private func updateSearchMenuSelectionStates() {
@@ -1638,9 +1684,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             return
         }
 
+        onDidRequestActivate?()
+        isSearchFieldFocused = true
         vimModeState.enterFilterMode()
         tableView.setVimMode(vimModeState.mode)
         mediaCollectionView.setVimMode(vimModeState.mode)
+        updateSearchFieldAppearance()
     }
 
     func controlTextDidChange(_ obj: Notification) {
@@ -1659,6 +1708,15 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         // NSSearchField's clear (x) button does not always emit controlTextDidChange.
         // Ensure filter/spotlight state is synced when the field is cleared from the chrome.
         applySearchFromHeader()
+    }
+
+    func controlTextDidEndEditing(_ obj: Notification) {
+        guard (obj.object as? NSControl) === searchField else {
+            return
+        }
+
+        isSearchFieldFocused = false
+        updateSearchFieldAppearance()
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
