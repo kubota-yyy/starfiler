@@ -1391,6 +1391,10 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         searchField.layer?.removeAnimation(forKey: "searchGlow")
         searchField.layer?.shadowOpacity = 0
 
+        switchToNormalModeAndFocusTable()
+    }
+
+    private func switchToNormalModeAndFocusTable() {
         vimModeState.enterNormalMode()
         tableView.setVimMode(vimModeState.mode)
         mediaCollectionView.setVimMode(vimModeState.mode)
@@ -1766,20 +1770,14 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
                 currentSearchMode = .filter
                 updateSearchModeUI()
 
-                vimModeState.enterNormalMode()
-                tableView.setVimMode(vimModeState.mode)
-                mediaCollectionView.setVimMode(vimModeState.mode)
-                focusTable()
+                switchToNormalModeAndFocusTable()
                 return true
             }
 
             applySearchFromHeader()
             let trimmedFilterQuery = searchField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmedFilterQuery.isEmpty else {
-                vimModeState.enterNormalMode()
-                tableView.setVimMode(vimModeState.mode)
-                mediaCollectionView.setVimMode(vimModeState.mode)
-                focusTable()
+                switchToNormalModeAndFocusTable()
                 return true
             }
 
@@ -1787,6 +1785,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             if let selectedItem = viewModel.selectedItem, selectedItem.isDirectory, !selectedItem.isPackage {
                 addSlideTransition(direction: .fromRight)
                 viewModel.enterSelected()
+                switchToNormalModeAndFocusTable()
             }
             return true
         }

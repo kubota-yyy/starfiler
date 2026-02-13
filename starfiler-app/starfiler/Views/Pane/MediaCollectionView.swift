@@ -15,6 +15,8 @@ final class MediaCollectionView: NSCollectionView {
     private static let minimumDragDistance: CGFloat = 5
 
     override func keyDown(with event: NSEvent) {
+        normalizeFilterModeForKeyboardInputIfNeeded()
+
         let isAwaitingBookmarkJump = bookmarkJumpInterpreter?.state != .idle
 
         if event.modifierFlags.contains(.command), !isAwaitingBookmarkJump {
@@ -147,6 +149,16 @@ final class MediaCollectionView: NSCollectionView {
     func setBookmarkJumpConfig(_ config: BookmarksConfig) {
         bookmarkJumpInterpreter = BookmarkJumpInterpreter(bookmarksConfig: config)
         onBookmarkJumpEnded?()
+    }
+
+    private func normalizeFilterModeForKeyboardInputIfNeeded() {
+        guard keyInterpreter.mode == .filter else {
+            return
+        }
+
+        // Collection input should always run in normal mode.
+        // Filter mode is only valid while the search field is actively editing.
+        keyInterpreter.setMode(.normal)
     }
 }
 

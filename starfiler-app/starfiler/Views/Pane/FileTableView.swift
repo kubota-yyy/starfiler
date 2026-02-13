@@ -32,6 +32,8 @@ final class FileTableView: NSTableView {
     }
 
     override func keyDown(with event: NSEvent) {
+        normalizeFilterModeForKeyboardInputIfNeeded()
+
         let isAwaitingBookmarkJump = bookmarkJumpInterpreter?.state != .idle
 
         if event.modifierFlags.contains(.command), !isAwaitingBookmarkJump {
@@ -219,5 +221,15 @@ final class FileTableView: NSTableView {
 
         let unsupportedModifiers = event.modifiers.subtracting([.shift])
         return unsupportedModifiers.isEmpty
+    }
+
+    private func normalizeFilterModeForKeyboardInputIfNeeded() {
+        guard keyInterpreter.mode == .filter else {
+            return
+        }
+
+        // Table input should always run in normal mode.
+        // Filter mode is only valid while the search field is actively editing.
+        keyInterpreter.setMode(.normal)
     }
 }
