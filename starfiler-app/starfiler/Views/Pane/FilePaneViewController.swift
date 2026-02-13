@@ -78,7 +78,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private let headerView = NSView()
     private let navigationStackView = NSStackView()
     private let backPeekButton = NSButton(title: "", target: nil, action: nil)
-    private let pathControl = NSPathControl()
+    private let breadcrumbContainerView = NSView()
+    private let breadcrumbStackView = NSStackView()
     private let forwardPeekButton = NSButton(title: "", target: nil, action: nil)
     private let searchControlsStackView = NSStackView()
     private let filesModeButton = NSButton(title: "Files", target: nil, action: nil)
@@ -475,16 +476,16 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         forwardPeekButton.setContentHuggingPriority(.required, for: .horizontal)
         forwardPeekButton.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
 
-        pathControl.translatesAutoresizingMaskIntoConstraints = false
-        pathControl.pathStyle = .standard
-        pathControl.controlSize = .small
-        pathControl.wantsLayer = true
-        pathControl.focusRingType = .none
-        pathControl.font = .systemFont(ofSize: 11, weight: .medium)
-        pathControl.layer?.cornerRadius = 5
-        pathControl.layer?.borderWidth = 0.5
-        pathControl.target = self
-        pathControl.action = #selector(handlePathControlClick(_:))
+        breadcrumbContainerView.translatesAutoresizingMaskIntoConstraints = false
+        breadcrumbContainerView.wantsLayer = false
+        breadcrumbContainerView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        breadcrumbContainerView.setContentHuggingPriority(.defaultLow, for: .horizontal)
+
+        breadcrumbStackView.translatesAutoresizingMaskIntoConstraints = false
+        breadcrumbStackView.orientation = .horizontal
+        breadcrumbStackView.alignment = .centerY
+        breadcrumbStackView.spacing = 5
+        breadcrumbStackView.distribution = .fillProportionally
 
         searchControlsStackView.translatesAutoresizingMaskIntoConstraints = false
         searchControlsStackView.orientation = .horizontal
@@ -646,8 +647,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         view.addSubview(bookmarkJumpOverlayView)
 
         navigationStackView.addArrangedSubview(backPeekButton)
-        navigationStackView.addArrangedSubview(pathControl)
+        navigationStackView.addArrangedSubview(breadcrumbContainerView)
         navigationStackView.addArrangedSubview(forwardPeekButton)
+        breadcrumbContainerView.addSubview(breadcrumbStackView)
 
         headerView.addSubview(navigationStackView)
         headerView.addSubview(searchControlsStackView)
@@ -664,8 +666,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         searchControlsStackView.setCustomSpacing(4, after: mediaIconSizeSlider)
         searchControlsStackView.setCustomSpacing(12, after: mediaIconSizeValueLabel)
 
-        pathControl.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-
         NSLayoutConstraint.activate([
             headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -679,7 +679,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             searchControlsStackView.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -8),
             searchControlsStackView.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
             searchControlsStackView.leadingAnchor.constraint(greaterThanOrEqualTo: headerView.leadingAnchor, constant: 280),
-            pathControl.heightAnchor.constraint(equalToConstant: 22),
+            breadcrumbContainerView.topAnchor.constraint(equalTo: headerView.topAnchor),
+            breadcrumbContainerView.bottomAnchor.constraint(equalTo: headerView.bottomAnchor),
             filesModeButton.heightAnchor.constraint(equalToConstant: 22),
             filesModeButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 46),
             mediaModeButton.heightAnchor.constraint(equalToConstant: 22),
@@ -699,6 +700,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             bookmarkJumpOverlayView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
             bookmarkJumpOverlayView.widthAnchor.constraint(greaterThanOrEqualToConstant: 240),
             bookmarkJumpOverlayView.widthAnchor.constraint(lessThanOrEqualToConstant: 520)
+        ])
+
+        NSLayoutConstraint.activate([
+            breadcrumbStackView.leadingAnchor.constraint(equalTo: breadcrumbContainerView.leadingAnchor),
+            breadcrumbStackView.trailingAnchor.constraint(lessThanOrEqualTo: breadcrumbContainerView.trailingAnchor),
+            breadcrumbStackView.centerYAnchor.constraint(equalTo: breadcrumbContainerView.centerYAnchor)
         ])
     }
 
@@ -892,19 +899,59 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     private func publishStatus() {
         let directoryURL = viewModel.paneState.currentDirectory.standardizedFileURL
-        updatePathControl(for: directoryURL)
+        updateBreadcrumbs(for: directoryURL)
         onStatusChanged?(directoryURL.path, viewModel.directoryContents.displayedItems.count, viewModel.markedCount)
         updateNavigationPeekLabels()
     }
 
-    private func updatePathControl(for directoryURL: URL) {
-        pathControl.url = directoryURL
-        // Use text-only path segments for a denser, cleaner header.
-        let compactItems = pathControl.pathItems.map { item -> NSPathControlItem in
-            item.image = nil
-            return item
+    private func updateBreadcrumbs(for directoryURL: URL) {
+        for subview in breadcrumbStackView.arrangedSubviews {
+            breadcrumbStackView.removeArrangedSubview(subview)
+            subview.removeFromSuperview()
         }
-        pathControl.pathItems = compactItems
+
+        let pathComponents = directoryURL.pathComponents
+        guard !pathComponents.isEmpty else {
+            return
+        }
+
+        var currentURL = URL(fileURLWithPath: "/", isDirectory: true)
+        for (index, component) in pathComponents.enumerated() {
+            let title: String
+            let targetURL: URL
+            if index == 0 {
+                title = "/"
+                targetURL = currentURL
+            } else {
+                currentURL.appendPathComponent(component, isDirectory: true)
+                title = component
+                targetURL = currentURL
+            }
+
+            let button = NSButton(title: title, target: self, action: #selector(handleBreadcrumbClick(_:)))
+            button.isBordered = false
+            button.bezelStyle = .inline
+            button.setButtonType(.momentaryChange)
+            button.font = .systemFont(ofSize: 11, weight: index == pathComponents.count - 1 ? .semibold : .regular)
+            button.lineBreakMode = .byTruncatingMiddle
+            button.alignment = .left
+            button.imagePosition = .noImage
+            button.focusRingType = .none
+            button.toolTip = targetURL.path
+            button.setContentHuggingPriority(.required, for: .horizontal)
+            button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            breadcrumbStackView.addArrangedSubview(button)
+
+            if index < pathComponents.count - 1 {
+                let separator = NSTextField(labelWithString: ">")
+                separator.font = .systemFont(ofSize: 10, weight: .semibold)
+                separator.alignment = .center
+                separator.setContentHuggingPriority(.required, for: .horizontal)
+                separator.setContentCompressionResistancePriority(.required, for: .horizontal)
+                breadcrumbStackView.addArrangedSubview(separator)
+            }
+        }
+        updateBreadcrumbAppearance()
     }
 
     private func updateNavigationPeekLabels() {
@@ -951,17 +998,14 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         view.layer?.backgroundColor = palette.paneBackgroundColor.applyingBackgroundOpacity(backgroundOpacity).cgColor
         headerView.layer?.backgroundColor = headerColor.cgColor
-        pathControl.alphaValue = isPaneActive ? 1.0 : 0.82
-        pathControl.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.65).cgColor
-        pathControl.layer?.backgroundColor = palette.filterBarBackgroundColor
-            .applyingBackgroundOpacity(backgroundOpacity)
-            .cgColor
+        breadcrumbContainerView.alphaValue = isPaneActive ? 1.0 : 0.82
         let borderColor = NSColor.separatorColor.cgColor
         filesModeButton.layer?.borderColor = borderColor
         mediaModeButton.layer?.borderColor = borderColor
         searchField.layer?.borderColor = borderColor
         searchField.textColor = palette.primaryTextColor
         searchField.backgroundColor = palette.filterBarBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
+        updateBreadcrumbAppearance()
         updateDisplayModeControls()
         tableView.backgroundColor = palette.tableBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
         mediaCollectionView.backgroundColors = [palette.tableBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)]
@@ -971,8 +1015,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     @objc
-    private func handlePathControlClick(_ sender: NSPathControl) {
-        guard let targetURL = sender.clickedPathItem?.url?.standardizedFileURL else {
+    private func handleBreadcrumbClick(_ sender: NSButton) {
+        guard let path = sender.toolTip, !path.isEmpty else {
+            return
+        }
+
+        let targetURL = URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
+        guard !targetURL.path.isEmpty else {
             return
         }
 
@@ -982,6 +1031,19 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         viewModel.navigate(to: targetURL)
+    }
+
+    private func updateBreadcrumbAppearance() {
+        let palette = filerTheme.palette
+        for view in breadcrumbStackView.arrangedSubviews {
+            if let button = view as? NSButton {
+                button.contentTintColor = isPaneActive ? palette.activePathTextColor : palette.inactivePathTextColor
+            } else if let separator = view as? NSTextField {
+                separator.textColor = isPaneActive
+                    ? palette.activePathTextColor.withAlphaComponent(0.7)
+                    : palette.inactivePathTextColor.withAlphaComponent(0.7)
+            }
+        }
     }
 
     @objc
