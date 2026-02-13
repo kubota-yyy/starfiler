@@ -50,6 +50,8 @@ final class FilePaneViewModel {
     private(set) var filesRecursiveEnabled: Bool
     private(set) var mediaRecursiveEnabled: Bool
     private var pendingRevealURL: URL?
+    private var activeNavigationTaskID: UUID?
+    private var lastRefreshFailureSignature: String?
     private var hasActiveFilter: Bool {
         !directoryContents.filterText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -668,6 +670,10 @@ final class FilePaneViewModel {
     }
 
     private func refreshCurrentDirectory(preservingSelectionByURL: Bool) {
+        guard activeNavigationTaskID == nil else {
+            return
+        }
+
         let currentDirectory = paneState.currentDirectory
         let selectionSnapshot = preservingSelectionByURL ? captureSelectionSnapshot() : nil
 
@@ -704,6 +710,7 @@ final class FilePaneViewModel {
 
                 updatedContents.recompute()
                 self.directoryContents = updatedContents
+                self.lastRefreshFailureSignature = nil
 
                 if self.revealPendingSelectionIfNeeded() {
                     self.clampMarkedIndices()
@@ -721,7 +728,16 @@ final class FilePaneViewModel {
                     self.updateVisualSelectionForCurrentCursorIfNeeded()
                 }
             } catch {
-                // Keep the latest successfully loaded view when refresh fails.
+                if error is CancellationError {
+                    return
+                }
+
+                let signature = "\(currentDirectory.path)|\(error.localizedDescription)"
+                guard self.lastRefreshFailureSignature != signature else {
+                    return
+                }
+                self.lastRefreshFailureSignature = signature
+                self.onDirectoryLoadFailed?(currentDirectory, error)
             }
         }
     }
@@ -735,11 +751,19 @@ final class FilePaneViewModel {
             directoryMonitor.stopMonitoring()
         }
 
+        let navigationTaskID = UUID()
+        activeNavigationTaskID = navigationTaskID
         loadTask?.cancel()
 
         loadTask = Task { [weak self] in
             guard let self else {
                 return
+            }
+
+            defer {
+                if self.activeNavigationTaskID == navigationTaskID {
+                    self.activeNavigationTaskID = nil
+                }
             }
 
             var didAcquireDestinationScope = false
@@ -771,6 +795,7 @@ final class FilePaneViewModel {
                 updatedContents.treeExpansionState.clear()
                 updatedContents.recompute()
                 self.directoryContents = updatedContents
+                self.lastRefreshFailureSignature = nil
 
                 if !self.revealPendingSelectionIfNeeded() {
                     self.clampCursorIndex()

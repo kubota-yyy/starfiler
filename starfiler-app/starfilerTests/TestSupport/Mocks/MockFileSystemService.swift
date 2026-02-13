@@ -6,12 +6,16 @@ final class MockFileSystemService: FileSystemProviding, @unchecked Sendable {
     // MARK: - contentsOfDirectory
 
     var contentsOfDirectoryResult: Result<[FileItem], Error> = .success([])
+    var contentsOfDirectoryHandler: ((URL) async throws -> [FileItem])?
     private(set) var contentsOfDirectoryCallCount = 0
     private(set) var contentsOfDirectoryCapturedURLs: [URL] = []
 
     func contentsOfDirectory(at url: URL) async throws -> [FileItem] {
         contentsOfDirectoryCallCount += 1
         contentsOfDirectoryCapturedURLs.append(url)
+        if let contentsOfDirectoryHandler {
+            return try await contentsOfDirectoryHandler(url)
+        }
         return try contentsOfDirectoryResult.get()
     }
 

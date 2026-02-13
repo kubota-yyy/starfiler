@@ -3,6 +3,9 @@ import XCTest
 
 @MainActor
 final class FilePaneViewModelTests: XCTestCase {
+    private enum TestError: Error {
+        case refreshFailure
+    }
 
     // MARK: - Properties
 
@@ -698,6 +701,57 @@ final class FilePaneViewModelTests: XCTestCase {
 
         sut.resumeDirectoryMonitoring()
         XCTAssertEqual(monitor.resumeCallCount, 1)
+    }
+
+    func testRefreshFailureTriggersDirectoryLoadFailedCallback() async {
+        let sut = makeSUT()
+        await waitForLoad()
+
+        var capturedDirectory: URL?
+        var capturedError: Error?
+        sut.onDirectoryLoadFailed = { directory, error in
+            capturedDirectory = directory
+            capturedError = error
+        }
+
+        fileSystem.contentsOfDirectoryResult = .failure(TestError.refreshFailure)
+        monitor.simulateChange()
+        await waitForLoad()
+
+        XCTAssertEqual(capturedDirectory, testDir.standardizedFileURL)
+        XCTAssertTrue(capturedError is TestError)
+    }
+
+    func testDirectoryMonitorRefreshDoesNotCancelInFlightNavigation() async {
+        let destination = URL(fileURLWithPath: "/tmp/test/untitled folder 2")
+        let initialItems = sampleItems
+        fileSystem.contentsOfDirectoryHandler = { url in
+            if url.standardizedFileURL == destination.standardizedFileURL {
+                try await Task.sleep(for: .milliseconds(250))
+                return [FileItem(
+                    url: destination.appendingPathComponent("inside.txt"),
+                    name: "inside.txt",
+                    isDirectory: false,
+                    size: 1,
+                    dateModified: Date(),
+                    isHidden: false,
+                    isSymlink: false,
+                    isPackage: false
+                )]
+            }
+            return initialItems
+        }
+
+        let sut = makeSUT()
+        await waitForLoad()
+
+        sut.navigate(to: destination)
+        monitor.simulateChange()
+        await waitForCondition(timeout: 2.0, description: "Navigation to destination completes") {
+            sut.paneState.currentDirectory == destination.standardizedFileURL
+        }
+
+        XCTAssertEqual(sut.paneState.currentDirectory, destination.standardizedFileURL)
     }
 
     // MARK: - Hidden Files
