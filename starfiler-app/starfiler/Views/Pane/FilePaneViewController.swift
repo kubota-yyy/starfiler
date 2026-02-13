@@ -177,6 +177,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     func focusTable() {
+        restoreNormalModeIfNeededAfterSearch()
         isSearchFieldFocused = false
         if currentDisplayMode == .media {
             view.window?.makeFirstResponder(mediaCollectionView)
@@ -633,6 +634,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         scrollView.drawsBackground = true
 
         tableView.didBecomeFirstResponderHandler = { [weak self] in
+            self?.restoreNormalModeIfNeededAfterSearch()
+            self?.isSearchFieldFocused = false
+            self?.updateSearchFieldAppearance()
             self?.onDidRequestActivate?()
         }
     }
@@ -653,6 +657,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         mediaCollectionView.keyActionDelegate = self
         mediaCollectionView.setVimMode(vimModeState.mode)
         mediaCollectionView.didBecomeFirstResponderHandler = { [weak self] in
+            self?.restoreNormalModeIfNeededAfterSearch()
+            self?.isSearchFieldFocused = false
+            self?.updateSearchFieldAppearance()
             self?.onDidRequestActivate?()
         }
 
@@ -898,6 +905,16 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         publishSelection()
         updateColumnHeaderTitles()
         applyDisplayMode(viewModel.displayMode)
+    }
+
+    private func restoreNormalModeIfNeededAfterSearch() {
+        guard vimModeState.mode == .filter else {
+            return
+        }
+
+        vimModeState.enterNormalMode()
+        tableView.setVimMode(vimModeState.mode)
+        mediaCollectionView.setVimMode(vimModeState.mode)
     }
 
     private func syncSelectionFromViewModel() {
@@ -1715,6 +1732,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             return
         }
 
+        restoreNormalModeIfNeededAfterSearch()
         isSearchFieldFocused = false
         updateSearchFieldAppearance()
     }
