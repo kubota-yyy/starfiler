@@ -71,7 +71,7 @@
       "ArrowLeft": "treeCollapse",
       "Ctrl-ArrowRight": "treeExpand",
       "Ctrl-ArrowLeft": "treeCollapse",
-      "Ctrl-P": "togglePin",
+      "Ctrl-9": "togglePin",
       "Ctrl-q": "quit",
       "Ctrl-Escape": "clearFilter"
     },
