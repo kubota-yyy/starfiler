@@ -19,6 +19,7 @@ final class FileTableView: NSTableView {
     private var keyInterpreter = KeyInterpreter()
     private var bookmarkJumpInterpreter: BookmarkJumpInterpreter?
     private var mouseDownLocation: NSPoint?
+    private var mouseDownEvent: NSEvent?
     private var isDragging = false
 
     override init(frame frameRect: NSRect) {
@@ -108,6 +109,7 @@ final class FileTableView: NSTableView {
 
     override func mouseDown(with event: NSEvent) {
         mouseDownLocation = convert(event.locationInWindow, from: nil)
+        mouseDownEvent = event
         isDragging = false
         super.mouseDown(with: event)
     }
@@ -135,7 +137,7 @@ final class FileTableView: NSTableView {
         if
             let dragSourceHandler,
             let dragURLsProvider,
-            dragSourceHandler.beginDragging(from: self, with: event, urls: dragURLsProvider())
+            dragSourceHandler.beginDragging(from: self, with: mouseDownEvent ?? event, urls: dragURLsProvider())
         {
             isDragging = true
             return
@@ -146,6 +148,7 @@ final class FileTableView: NSTableView {
 
     override func mouseUp(with event: NSEvent) {
         mouseDownLocation = nil
+        mouseDownEvent = nil
         isDragging = false
         super.mouseUp(with: event)
     }

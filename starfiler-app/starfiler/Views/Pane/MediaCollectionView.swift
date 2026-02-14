@@ -11,6 +11,7 @@ final class MediaCollectionView: NSCollectionView {
     private var keyInterpreter = KeyInterpreter()
     private var bookmarkJumpInterpreter: BookmarkJumpInterpreter?
     private var mouseDownLocation: NSPoint?
+    private var mouseDownEvent: NSEvent?
     private var isDragging = false
     private static let minimumDragDistance: CGFloat = 5
 
@@ -99,6 +100,7 @@ final class MediaCollectionView: NSCollectionView {
 
     override func mouseDown(with event: NSEvent) {
         mouseDownLocation = convert(event.locationInWindow, from: nil)
+        mouseDownEvent = event
         isDragging = false
         super.mouseDown(with: event)
     }
@@ -126,7 +128,7 @@ final class MediaCollectionView: NSCollectionView {
         if
             let dragSourceHandler,
             let dragURLsProvider,
-            dragSourceHandler.beginDragging(from: self, with: event, urls: dragURLsProvider())
+            dragSourceHandler.beginDragging(from: self, with: mouseDownEvent ?? event, urls: dragURLsProvider())
         {
             isDragging = true
             return
@@ -137,6 +139,7 @@ final class MediaCollectionView: NSCollectionView {
 
     override func mouseUp(with event: NSEvent) {
         mouseDownLocation = nil
+        mouseDownEvent = nil
         isDragging = false
         super.mouseUp(with: event)
     }
