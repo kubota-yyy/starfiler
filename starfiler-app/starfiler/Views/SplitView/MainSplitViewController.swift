@@ -250,11 +250,11 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     func reloadBookmarksConfig() {
         bookmarksConfig = configManager.loadBookmarksConfig()
         propagateBookmarksConfig()
-        sidebarViewController.reloadData()
+        sidebarViewModel.reloadSections()
     }
 
     func reloadSidebarSections() {
-        sidebarViewController.reloadData()
+        sidebarViewModel.reloadSections()
     }
 
     func reloadKeybindings() {
@@ -1476,7 +1476,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
             try configManager.saveBookmarksConfig(latestConfig)
             bookmarksConfig = latestConfig
             persistSecurityScopedBookmark(for: entry.path)
-            sidebarViewController.reloadData()
+            sidebarViewModel.reloadSections()
             propagateBookmarksConfig()
             showActionToast("Saved bookmark \"\(entry.displayName)\"")
         } catch {
@@ -1716,7 +1716,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
             try configManager.saveBookmarksConfig(config)
             bookmarksConfig = config
             propagateBookmarksConfig()
-            sidebarViewController.reloadData()
+            sidebarViewModel.reloadSections()
             showActionToast(toastMessage)
         } catch {
             presentErrorAlert(
