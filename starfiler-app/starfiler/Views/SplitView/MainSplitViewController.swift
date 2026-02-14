@@ -1363,7 +1363,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
 
     private func presentAddBookmarkAlert() {
         let targetURL: URL
-        if let selectedItem = viewModel.activePane.selectedItem {
+        if let selectedItem = viewModel.activePane.selectedItem, selectedItem.isDirectory {
             targetURL = selectedItem.url.standardizedFileURL
         } else {
             targetURL = viewModel.activePane.paneState.currentDirectory.standardizedFileURL
@@ -1453,7 +1453,8 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     }
 
     private func saveBookmark(entry: BookmarkEntry, groupName: String, groupShortcutKey: String? = nil) {
-        var groups = bookmarksConfig.groups
+        var latestConfig = configManager.loadBookmarksConfig()
+        var groups = latestConfig.groups
 
         if let groupIndex = groups.firstIndex(where: { $0.name == groupName }) {
             if let entryIndex = groups[groupIndex].entries.firstIndex(where: { $0.path == entry.path }) {
@@ -1469,10 +1470,11 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
             ))
         }
 
-        bookmarksConfig.groups = groups
+        latestConfig.groups = groups
 
         do {
-            try configManager.saveBookmarksConfig(bookmarksConfig)
+            try configManager.saveBookmarksConfig(latestConfig)
+            bookmarksConfig = latestConfig
             persistSecurityScopedBookmark(for: entry.path)
             sidebarViewController.reloadData()
             propagateBookmarksConfig()

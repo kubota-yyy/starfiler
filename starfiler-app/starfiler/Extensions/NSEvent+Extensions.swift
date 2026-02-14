@@ -24,12 +24,26 @@ extension NSEvent {
     }
 
     private func resolvedPrintableScalar() -> UnicodeScalar? {
-        if let characters, let scalar = characters.unicodeScalars.first {
-            return scalar
-        }
+        // Ctrl/Alt/Cmd combinations often produce control or alternate glyphs in `characters`.
+        // Prefer the physical key representation so bindings like Ctrl-b resolve to "b".
+        let shouldPreferIgnoringModifiers = !modifierFlags
+            .intersection([.control, .option, .command])
+            .isEmpty
 
-        if let charactersIgnoringModifiers, let scalar = charactersIgnoringModifiers.unicodeScalars.first {
-            return scalar
+        if shouldPreferIgnoringModifiers {
+            if let charactersIgnoringModifiers, let scalar = charactersIgnoringModifiers.unicodeScalars.first {
+                return scalar
+            }
+            if let characters, let scalar = characters.unicodeScalars.first {
+                return scalar
+            }
+        } else {
+            if let characters, let scalar = characters.unicodeScalars.first {
+                return scalar
+            }
+            if let charactersIgnoringModifiers, let scalar = charactersIgnoringModifiers.unicodeScalars.first {
+                return scalar
+            }
         }
 
         return nil
