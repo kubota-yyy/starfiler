@@ -56,6 +56,7 @@ enum KeyAction: String, Codable, CaseIterable, Sendable {
     case matchOtherPaneDirectory
     case goToOtherPaneDirectory
     case toggleMediaMode
+    case toggleFilesRecursive
     case toggleMediaRecursive
     case batchRename
     case syncPanesLeftToRight

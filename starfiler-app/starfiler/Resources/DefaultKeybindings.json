@@ -44,6 +44,7 @@
       "Ctrl-5": "matchOtherPaneDirectory",
       "Ctrl-6": "goToOtherPaneDirectory",
       "Ctrl-m": "toggleMediaMode",
+      "Ctrl-Shift-f": "toggleFilesRecursive",
       "Ctrl-Shift-m": "toggleMediaRecursive",
       "Ctrl-f": "enterSpotlightSearch",
       ".": "toggleHiddenFiles",

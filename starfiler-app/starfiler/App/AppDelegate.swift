@@ -219,6 +219,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         equalizePaneWidthsItem.keyEquivalentModifierMask = [.control]
         let toggleMediaModeItem = viewMenu.addItem(withTitle: "Toggle Media Mode", action: #selector(menuToggleMediaMode(_:)), keyEquivalent: "m")
         toggleMediaModeItem.keyEquivalentModifierMask = [.control]
+        let toggleFilesRecursiveItem = viewMenu.addItem(withTitle: "Toggle Files Recursive", action: #selector(menuToggleFilesRecursive(_:)), keyEquivalent: "f")
+        toggleFilesRecursiveItem.keyEquivalentModifierMask = [.control, .shift]
         let toggleMediaRecursiveItem = viewMenu.addItem(withTitle: "Toggle Media Recursive", action: #selector(menuToggleMediaRecursive(_:)), keyEquivalent: "m")
         toggleMediaRecursiveItem.keyEquivalentModifierMask = [.control, .shift]
         viewMenu.addItem(withTitle: "Toggle Hidden Files", action: #selector(menuToggleHiddenFiles(_:)), keyEquivalent: ".")
@@ -429,6 +431,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func menuToggleMediaMode(_ sender: Any?) {
         mainWindowController?.performAction { $0.activePane.toggleDisplayMode() }
+    }
+
+    @objc private func menuToggleFilesRecursive(_ sender: Any?) {
+        mainWindowController?.performAction { $0.activePane.toggleFilesRecursive() }
     }
 
     @objc private func menuToggleMediaRecursive(_ sender: Any?) {

@@ -367,6 +367,10 @@ final class FilePaneViewModel {
         setMediaRecursiveEnabled(!mediaRecursiveEnabled)
     }
 
+    func toggleFilesRecursive() {
+        setFilesRecursiveEnabled(!filesRecursiveEnabled)
+    }
+
     func updateSpotlightSearchQuery(_ query: String) {
         guard isSpotlightSearchActive else {
             return

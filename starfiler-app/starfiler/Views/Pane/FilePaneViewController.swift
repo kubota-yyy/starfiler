@@ -1580,6 +1580,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         case .toggleMediaMode:
             viewModel.toggleDisplayMode()
             handled = true
+        case .toggleFilesRecursive:
+            viewModel.toggleFilesRecursive()
+            handled = true
         case .toggleMediaRecursive:
             viewModel.toggleMediaRecursive()
             handled = true
@@ -2045,6 +2048,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         menu.addItem(makeContextMenuItem(title: "Toggle Hidden Files", action: .toggleHiddenFiles))
         menu.addItem(makeSortMenuItem())
         menu.addItem(makeContextMenuItem(title: "Toggle Media Mode", action: .toggleMediaMode))
+        menu.addItem(makeContextMenuItem(title: "Toggle Files Recursive", action: .toggleFilesRecursive))
         menu.addItem(makeContextMenuItem(title: "Toggle Media Recursive", action: .toggleMediaRecursive))
 
         menu.addItem(NSMenuItem.separator())
