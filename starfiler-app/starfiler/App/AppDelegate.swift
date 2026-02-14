@@ -164,7 +164,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let newFolderItem = fileMenu.addItem(withTitle: "New Folder", action: #selector(menuCreateDirectory(_:)), keyEquivalent: "n")
         newFolderItem.keyEquivalentModifierMask = [.command, .shift]
         fileMenu.addItem(NSMenuItem.separator())
-        fileMenu.addItem(withTitle: "Open", action: #selector(menuOpenFile(_:)), keyEquivalent: "\r")
+        let openItem = fileMenu.addItem(withTitle: "Open", action: #selector(menuOpenFile(_:)), keyEquivalent: "o")
+        openItem.keyEquivalentModifierMask = [.command]
         let showInFinderItem = fileMenu.addItem(withTitle: "Show in Finder", action: #selector(menuRevealInFinder(_:)), keyEquivalent: "f")
         showInFinderItem.keyEquivalentModifierMask = [.command, .shift]
         fileMenu.addItem(NSMenuItem.separator())
@@ -286,7 +287,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func menuOpenFile(_ sender: Any?) {
-        mainWindowController?.performAction { $0.activePane.enterSelected() }
+        mainWindowController?.openSelectedItemInActivePane()
     }
 
     @objc private func menuRevealInFinder(_ sender: Any?) {

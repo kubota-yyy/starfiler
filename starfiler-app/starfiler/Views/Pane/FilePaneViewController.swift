@@ -187,6 +187,10 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         updateSearchFieldAppearance()
     }
 
+    func openSelectedItem() {
+        openSelectedFile()
+    }
+
     func setActive(_ active: Bool) {
         let wasInactive = !isPaneActive
         isPaneActive = active

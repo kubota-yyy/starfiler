@@ -375,6 +375,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         persistAppConfig()
     }
 
+    func openSelectedItemInActivePane() {
+        mainSplitViewController.openSelectedItemInActivePane()
+    }
+
     func launchTerminalSession(command: TerminalSessionCommand) {
         let workingDirectory = mainViewModel.activePane.paneState.currentDirectory
         terminalPanelViewController.createSession(command: command, workingDirectory: workingDirectory)

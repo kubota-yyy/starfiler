@@ -162,6 +162,10 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         paneViewController(for: viewModel.activePaneSide).focusTable()
     }
 
+    func openSelectedItemInActivePane() {
+        paneViewController(for: viewModel.activePaneSide).openSelectedItem()
+    }
+
     func togglePreviewPane() {
         viewModel.togglePreviewPane()
         applyPreviewPaneVisibility(animated: true)

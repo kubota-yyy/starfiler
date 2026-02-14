@@ -58,6 +58,7 @@
       "B": "addBookmark",
       "r": "refresh",
       "o": "openFile",
+      "Cmd-o": "openFile",
       "O": "openFileInFinder",
       "Ctrl-o": "openFileInFinder",
       "R": "batchRename",
