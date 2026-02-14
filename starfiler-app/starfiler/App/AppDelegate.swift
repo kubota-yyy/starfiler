@@ -604,6 +604,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appearanceVC.onAnimationEffectSettingsChanged = { [weak self] settings in
             self?.mainWindowController?.updateAnimationEffectSettings(settings)
         }
+        appearanceVC.onShootingStarTestRequested = { [weak self] in
+            self?.playShootingStarTest()
+        }
 
         let keybindingsVC = KeybindingsViewController()
         keybindingsVC.onKeybindingsChanged = { [weak self] in
@@ -634,5 +637,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         controller.showWindow(self)
         settingsWindowController = controller
+    }
+
+    private func playShootingStarTest() {
+        guard let mainWindowController else {
+            NSSound.beep()
+            return
+        }
+
+        let visibleWindows = NSApp.windows.filter(\.isVisible)
+        if visibleWindows.isEmpty {
+            mainWindowController.playShootingStarTestEffect()
+            return
+        }
+
+        for window in visibleWindows {
+            mainWindowController.playShootingStarTestEffect(in: window)
+        }
     }
 }

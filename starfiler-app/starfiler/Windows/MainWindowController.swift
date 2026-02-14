@@ -264,6 +264,24 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         animationEffectSettings
     }
 
+    func playShootingStarTestEffect(in targetWindow: NSWindow? = nil) {
+        let destinationWindow = targetWindow ?? window
+        guard let contentView = destinationWindow?.contentView else {
+            return
+        }
+        contentView.wantsLayer = true
+        guard let layer = contentView.layer else {
+            return
+        }
+
+        let palette = filerTheme.palette
+        StarSparkleAnimator.shootingStar(
+            in: layer,
+            accentColor: palette.starAccentColor,
+            glowColor: palette.starGlowColor
+        )
+    }
+
     func updateFilerTheme(_ theme: FilerTheme) {
         guard filerTheme != theme else {
             return

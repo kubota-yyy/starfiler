@@ -11,6 +11,7 @@ final class AppearanceSettingsViewController: NSViewController {
     var onSidebarRecentItemsLimitChanged: ((Int) -> Void)?
     var onStarEffectsChanged: ((Bool) -> Void)?
     var onAnimationEffectSettingsChanged: ((AnimationEffectSettings) -> Void)?
+    var onShootingStarTestRequested: (() -> Void)?
 
     private let titleLabel = NSTextField(labelWithString: "Theme")
     private let themePopUpButton = NSPopUpButton()
@@ -22,6 +23,7 @@ final class AppearanceSettingsViewController: NSViewController {
     private let transparentOpacityValueLabel = NSTextField(labelWithString: "")
     private let actionFeedbackButton = NSButton(checkboxWithTitle: "Show Action Feedback Toasts", target: nil, action: nil)
     private let starEffectsButton = NSButton(checkboxWithTitle: "Enable Star Effects", target: nil, action: nil)
+    private let shootingStarTestButton = NSButton(title: "Play Shooting Star Test", target: nil, action: nil)
     private var effectButtons: [(kind: AnimationEffectSettings.EffectKind, button: NSButton)] = []
     private let fileListSettingsLabel = NSTextField(labelWithString: "File List")
     private let fileIconSizeLabel = NSTextField(labelWithString: "Icon Size")
@@ -144,6 +146,12 @@ final class AppearanceSettingsViewController: NSViewController {
         starEffectsButton.action = #selector(starEffectsChanged(_:))
         starEffectsButton.state = isStarEffectsEnabled ? .on : .off
 
+        shootingStarTestButton.translatesAutoresizingMaskIntoConstraints = false
+        shootingStarTestButton.target = self
+        shootingStarTestButton.action = #selector(shootingStarTestRequested(_:))
+        shootingStarTestButton.bezelStyle = .rounded
+        shootingStarTestButton.controlSize = .small
+
         configureEffectButtons()
 
         fileListSettingsLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -232,6 +240,7 @@ final class AppearanceSettingsViewController: NSViewController {
         for (_, button) in effectButtons {
             view.addSubview(button)
         }
+        view.addSubview(shootingStarTestButton)
 
         view.addSubview(fileListSettingsLabel)
         view.addSubview(fileIconSizeLabel)
@@ -292,8 +301,13 @@ final class AppearanceSettingsViewController: NSViewController {
         }
 
         constraints.append(contentsOf: [
+            shootingStarTestButton.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor, constant: 20),
+            shootingStarTestButton.topAnchor.constraint(equalTo: previousAnchor, constant: 8),
+        ])
+
+        constraints.append(contentsOf: [
             fileListSettingsLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            fileListSettingsLabel.topAnchor.constraint(equalTo: previousAnchor, constant: 16),
+            fileListSettingsLabel.topAnchor.constraint(equalTo: shootingStarTestButton.bottomAnchor, constant: 16),
 
             fileIconSizeLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             fileIconSizeLabel.topAnchor.constraint(equalTo: fileListSettingsLabel.bottomAnchor, constant: 10),
@@ -378,6 +392,11 @@ final class AppearanceSettingsViewController: NSViewController {
         let kind = allCases[sender.tag]
         animationEffectSettings[kind] = sender.state == .on
         onAnimationEffectSettingsChanged?(animationEffectSettings)
+    }
+
+    @objc
+    private func shootingStarTestRequested(_ sender: NSButton) {
+        onShootingStarTestRequested?()
     }
 
     @objc

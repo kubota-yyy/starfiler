@@ -82,6 +82,132 @@ final class StarSparkleAnimator: NSObject, CAAnimationDelegate {
         starLayer.add(group, forKey: "singleStarAnimation")
     }
 
+    static func shootingStar(
+        in layer: CALayer,
+        accentColor: NSColor,
+        glowColor: NSColor,
+        duration: CFTimeInterval = 1.05
+    ) {
+        let bounds = layer.bounds
+        guard bounds.width > 120, bounds.height > 80 else {
+            return
+        }
+
+        let startY = bounds.maxY * CGFloat.random(in: 0.62 ... 0.9)
+        let startPoint = CGPoint(x: bounds.minX - 96, y: startY)
+        let deltaY = bounds.height * CGFloat.random(in: 0.22 ... 0.36)
+        let endY = max(bounds.minY + 36, startY - deltaY)
+        let endPoint = CGPoint(x: bounds.maxX + 72, y: endY)
+
+        let flightLayer = CALayer()
+        flightLayer.frame = bounds
+        flightLayer.masksToBounds = true
+        flightLayer.zPosition = 9_999
+        layer.addSublayer(flightLayer)
+
+        let headingLayer = CALayer()
+        headingLayer.position = startPoint
+        headingLayer.transform = CATransform3DMakeRotation(
+            atan2(endPoint.y - startPoint.y, endPoint.x - startPoint.x),
+            0,
+            0,
+            1
+        )
+        flightLayer.addSublayer(headingLayer)
+
+        let trailLength = min(max(bounds.width * 0.22, 90), 180)
+        let trailPath = CGMutablePath()
+        trailPath.move(to: CGPoint(x: -trailLength, y: 0))
+        trailPath.addLine(to: .zero)
+
+        let trailLayer = CAShapeLayer()
+        trailLayer.path = trailPath
+        trailLayer.strokeColor = glowColor.withAlphaComponent(0.9).cgColor
+        trailLayer.lineWidth = 2.8
+        trailLayer.lineCap = .round
+        trailLayer.opacity = 0
+        trailLayer.shadowColor = glowColor.cgColor
+        trailLayer.shadowOpacity = 0.9
+        trailLayer.shadowRadius = 7
+        trailLayer.shadowOffset = .zero
+        headingLayer.addSublayer(trailLayer)
+
+        let coreLayer = CAShapeLayer()
+        coreLayer.path = starPath(size: 12)
+        coreLayer.fillColor = accentColor.cgColor
+        coreLayer.position = .zero
+        coreLayer.opacity = 0
+        coreLayer.shadowColor = glowColor.cgColor
+        coreLayer.shadowOpacity = 0.95
+        coreLayer.shadowRadius = 9
+        coreLayer.shadowOffset = .zero
+        headingLayer.addSublayer(coreLayer)
+
+        let haloLayer = CAShapeLayer()
+        haloLayer.path = starPath(size: 20)
+        haloLayer.fillColor = glowColor.withAlphaComponent(0.32).cgColor
+        haloLayer.position = .zero
+        haloLayer.opacity = 0
+        headingLayer.addSublayer(haloLayer)
+
+        let movement = CABasicAnimation(keyPath: "position")
+        movement.fromValue = NSValue(point: startPoint)
+        movement.toValue = NSValue(point: endPoint)
+        movement.duration = duration
+        movement.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 0.61, 0.36, 1)
+
+        let opacity = CAKeyframeAnimation(keyPath: "opacity")
+        opacity.values = [0.0, 1.0, 1.0, 0.0]
+        opacity.keyTimes = [0.0, 0.08, 0.82, 1.0]
+        opacity.duration = duration
+        opacity.isRemovedOnCompletion = false
+        opacity.fillMode = .forwards
+
+        let coreScale = CAKeyframeAnimation(keyPath: "transform.scale")
+        coreScale.values = [0.45, 1.0, 0.8]
+        coreScale.keyTimes = [0.0, 0.15, 1.0]
+        coreScale.duration = duration
+        coreScale.isRemovedOnCompletion = false
+        coreScale.fillMode = .forwards
+
+        let haloScale = CAKeyframeAnimation(keyPath: "transform.scale")
+        haloScale.values = [0.3, 1.0, 1.2]
+        haloScale.keyTimes = [0.0, 0.25, 1.0]
+        haloScale.duration = duration
+        haloScale.isRemovedOnCompletion = false
+        haloScale.fillMode = .forwards
+
+        let impactX = bounds.maxX - 18
+        let denominator = endPoint.x - startPoint.x
+        let impactProgress = denominator == 0 ? 1 : (impactX - startPoint.x) / denominator
+        let clampedImpactProgress = min(max(impactProgress, 0), 1)
+        let impactPoint = CGPoint(
+            x: startPoint.x + (endPoint.x - startPoint.x) * clampedImpactProgress,
+            y: startPoint.y + (endPoint.y - startPoint.y) * clampedImpactProgress
+        )
+
+        CATransaction.begin()
+        CATransaction.setCompletionBlock {
+            burst(
+                count: 8,
+                in: layer,
+                at: impactPoint,
+                color: glowColor,
+                size: 6,
+                duration: 0.35
+            )
+            flightLayer.removeFromSuperlayer()
+        }
+
+        headingLayer.add(movement, forKey: "shootingStarMove")
+        trailLayer.add(opacity, forKey: "shootingStarTrailOpacity")
+        coreLayer.add(opacity, forKey: "shootingStarCoreOpacity")
+        coreLayer.add(coreScale, forKey: "shootingStarCoreScale")
+        haloLayer.add(opacity, forKey: "shootingStarHaloOpacity")
+        haloLayer.add(haloScale, forKey: "shootingStarHaloScale")
+        CATransaction.commit()
+    }
+
     private static func starPath(size: CGFloat) -> CGPath {
         let path = CGMutablePath()
         let points = 5
