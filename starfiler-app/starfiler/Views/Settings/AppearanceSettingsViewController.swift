@@ -290,6 +290,10 @@ final class AppearanceSettingsViewController: NSViewController {
 
             starEffectsButton.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             starEffectsButton.topAnchor.constraint(equalTo: actionFeedbackButton.bottomAnchor, constant: 6),
+
+            shootingStarTestButton.leadingAnchor.constraint(greaterThanOrEqualTo: starEffectsButton.trailingAnchor, constant: 12),
+            shootingStarTestButton.centerYAnchor.constraint(equalTo: starEffectsButton.centerYAnchor),
+            shootingStarTestButton.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20),
         ]
 
         // Effect toggle buttons: indented under the master star effects button
@@ -301,13 +305,8 @@ final class AppearanceSettingsViewController: NSViewController {
         }
 
         constraints.append(contentsOf: [
-            shootingStarTestButton.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor, constant: 20),
-            shootingStarTestButton.topAnchor.constraint(equalTo: previousAnchor, constant: 8),
-        ])
-
-        constraints.append(contentsOf: [
             fileListSettingsLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            fileListSettingsLabel.topAnchor.constraint(equalTo: shootingStarTestButton.bottomAnchor, constant: 16),
+            fileListSettingsLabel.topAnchor.constraint(equalTo: previousAnchor, constant: 16),
 
             fileIconSizeLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             fileIconSizeLabel.topAnchor.constraint(equalTo: fileListSettingsLabel.bottomAnchor, constant: 10),
