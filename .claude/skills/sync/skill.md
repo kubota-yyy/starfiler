@@ -189,6 +189,16 @@ git push origin $(git branch --show-current)
 - `--force` は絶対に使わない
 - push が rejected された場合（リモートが先に進んでいる場合）は Phase 1 の pull フローに戻って再実行
 
+### 3-3. 他の Mac に同期通知
+
+push 成功後、他の Mac に auto-pull を通知する:
+
+```bash
+bash scripts/auto-sync/notify-peers.sh
+```
+
+これにより push 元以外の Mac が GitHub から自動 pull する。
+
 ---
 
 ## 注意事項
