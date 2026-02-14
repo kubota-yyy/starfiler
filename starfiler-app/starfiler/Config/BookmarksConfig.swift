@@ -48,23 +48,20 @@ struct BookmarksConfig: Codable, Sendable {
         try data.write(to: url, options: [.atomic])
     }
 
-    func migratingLegacyPaths(fileManager: FileManager = .default) -> (config: BookmarksConfig, didChange: Bool) {
-        var migratedGroups = groups
-        var didChange = false
-
-        for groupIndex in migratedGroups.indices {
-            for entryIndex in migratedGroups[groupIndex].entries.indices {
-                let entry = migratedGroups[groupIndex].entries[entryIndex]
-                let resolvedPath = UserPaths.resolveBookmarkPath(entry.path, fileManager: fileManager)
-                guard resolvedPath != entry.path else {
-                    continue
-                }
-                migratedGroups[groupIndex].entries[entryIndex].path = resolvedPath
-                didChange = true
+    func normalizedForStorage(fileManager: FileManager = .default) -> BookmarksConfig {
+        var normalizedGroups = groups
+        for groupIndex in normalizedGroups.indices {
+            for entryIndex in normalizedGroups[groupIndex].entries.indices {
+                let path = normalizedGroups[groupIndex].entries[entryIndex].path
+                normalizedGroups[groupIndex].entries[entryIndex].path = UserPaths.portableBookmarkPath(path, fileManager: fileManager)
             }
         }
+        return BookmarksConfig(groups: normalizedGroups)
+    }
 
-        return (BookmarksConfig(groups: migratedGroups), didChange)
+    func migratingLegacyPaths(fileManager: FileManager = .default) -> (config: BookmarksConfig, didChange: Bool) {
+        let normalizedConfig = normalizedForStorage(fileManager: fileManager)
+        return (normalizedConfig, normalizedConfig.groups != groups)
     }
 
     func firstShortcutConflict() -> ShortcutConflict? {
@@ -110,17 +107,13 @@ struct BookmarksConfig: Codable, Sendable {
     }
 
     static func withDefaults() -> BookmarksConfig {
-        let homePath = UserPaths.homeDirectoryPath
-        let desktopPath = UserPaths.desktopDirectoryPath
-        let documentsPath = UserPaths.documentsDirectoryPath
-        let downloadsPath = UserPaths.downloadsDirectoryPath
         let defaultGroup = BookmarkGroup(
             name: "Default",
             entries: [
-                BookmarkEntry(displayName: "Home", path: homePath, shortcutKey: "h"),
-                BookmarkEntry(displayName: "Desktop", path: desktopPath, shortcutKey: "d"),
-                BookmarkEntry(displayName: "Documents", path: documentsPath, shortcutKey: "o"),
-                BookmarkEntry(displayName: "Downloads", path: downloadsPath, shortcutKey: "w"),
+                BookmarkEntry(displayName: "Home", path: "~", shortcutKey: "h"),
+                BookmarkEntry(displayName: "Desktop", path: "~/Desktop", shortcutKey: "d"),
+                BookmarkEntry(displayName: "Documents", path: "~/Documents", shortcutKey: "o"),
+                BookmarkEntry(displayName: "Downloads", path: "~/Downloads", shortcutKey: "w"),
                 BookmarkEntry(displayName: "Applications", path: "/Applications", shortcutKey: "a"),
             ],
             shortcutKey: nil,

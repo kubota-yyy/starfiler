@@ -65,19 +65,79 @@ enum UserPaths {
         downloadsDirectoryURL.path
     }
 
+    static func portableBookmarkPath(_ rawPath: String, fileManager: FileManager = .default) -> String {
+        let resolvedPath = resolveBookmarkPath(rawPath, fileManager: fileManager)
+        if resolvedPath == homeDirectoryPath {
+            return "~"
+        }
+        if resolvedPath.hasPrefix(homeDirectoryPath + "/") {
+            return "~" + String(resolvedPath.dropFirst(homeDirectoryPath.count))
+        }
+        return resolvedPath
+    }
+
     static func resolveBookmarkPath(_ rawPath: String, fileManager: FileManager = .default) -> String {
-        let expandedPath = (rawPath as NSString).expandingTildeInPath
-        let standardizedPath = URL(fileURLWithPath: expandedPath).standardizedFileURL.path
+        let expandedPath = expandedPathByResolvingHomeVariables(rawPath)
+        var standardizedPath = URL(fileURLWithPath: expandedPath).standardizedFileURL.path
+
+        if let relocatedPath = relocatedPathToCurrentHome(from: standardizedPath, fileManager: fileManager) {
+            standardizedPath = relocatedPath
+        }
 
         if let migratedDropboxPath = resolveDropboxPath(from: standardizedPath, fileManager: fileManager) {
             return migratedDropboxPath
         }
 
-        if fileManager.fileExists(atPath: standardizedPath) {
+        return standardizedPath
+    }
+
+    private static func expandedPathByResolvingHomeVariables(_ rawPath: String) -> String {
+        let trimmedPath = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPath.isEmpty else {
+            return rawPath
+        }
+
+        let expandedHomePath: String
+        if trimmedPath == "$HOME" || trimmedPath == "${HOME}" {
+            expandedHomePath = homeDirectoryPath
+        } else if trimmedPath.hasPrefix("$HOME/") {
+            expandedHomePath = homeDirectoryPath + String(trimmedPath.dropFirst("$HOME".count))
+        } else if trimmedPath.hasPrefix("${HOME}/") {
+            expandedHomePath = homeDirectoryPath + String(trimmedPath.dropFirst("${HOME}".count))
+        } else {
+            expandedHomePath = trimmedPath
+        }
+
+        return (expandedHomePath as NSString).expandingTildeInPath
+    }
+
+    private static func relocatedPathToCurrentHome(from path: String, fileManager: FileManager) -> String? {
+        let standardizedPath = URL(fileURLWithPath: path).standardizedFileURL.path
+        if standardizedPath == homeDirectoryPath || standardizedPath.hasPrefix(homeDirectoryPath + "/") {
             return standardizedPath
         }
 
-        return standardizedPath
+        let pathComponents = URL(fileURLWithPath: standardizedPath).pathComponents
+        guard pathComponents.count >= 3,
+              pathComponents[1] == "Users",
+              pathComponents[2] != "Shared"
+        else {
+            return nil
+        }
+
+        var relocatedPath = homeDirectoryPath
+        let suffixComponents = pathComponents.dropFirst(3)
+        if !suffixComponents.isEmpty {
+            relocatedPath += "/" + suffixComponents.joined(separator: "/")
+        }
+
+        let sourceExists = fileManager.fileExists(atPath: standardizedPath)
+        let relocatedExists = fileManager.fileExists(atPath: relocatedPath)
+        guard relocatedExists || !sourceExists else {
+            return nil
+        }
+
+        return URL(fileURLWithPath: relocatedPath).standardizedFileURL.path
     }
 
     private static func homeDirectoryFromPasswordDB() -> String? {

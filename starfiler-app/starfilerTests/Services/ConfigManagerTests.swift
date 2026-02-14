@@ -73,6 +73,39 @@ final class ConfigManagerTests: XCTestCase {
         XCTAssertEqual(loaded.groups[0].entries[0].displayName, "Test")
     }
 
+    func testSaveBookmarksConfigNormalizesHomePathToTilde() throws {
+        let homePath = UserPaths.homeDirectoryPath
+        let config = BookmarksConfig(groups: [
+            BookmarkGroup(
+                name: "Default",
+                entries: [BookmarkEntry(displayName: "Workspace", path: homePath + "/workspace", shortcutKey: "w")],
+                shortcutKey: nil,
+                isDefault: true
+            ),
+        ])
+
+        try sut.saveBookmarksConfig(config)
+        let loaded = sut.loadBookmarksConfig()
+
+        XCTAssertEqual(loaded.groups.first?.entries.first?.path, "~/workspace")
+    }
+
+    func testLoadBookmarksConfigMigratesLegacyAbsoluteUserPathToTilde() throws {
+        let legacyConfig = BookmarksConfig(groups: [
+            BookmarkGroup(
+                name: "Default",
+                entries: [BookmarkEntry(displayName: "Legacy", path: "/Users/legacy-user/workspace", shortcutKey: "w")],
+                shortcutKey: nil,
+                isDefault: true
+            ),
+        ])
+        try legacyConfig.save(to: sut.bookmarksConfigURL)
+
+        let loaded = sut.loadBookmarksConfig()
+
+        XCTAssertEqual(loaded.groups.first?.entries.first?.path, "~/workspace")
+    }
+
     func testFirstShortcutConflictDetectsDuplicateEffectiveSequence() {
         let config = BookmarksConfig(groups: [
             BookmarkGroup(

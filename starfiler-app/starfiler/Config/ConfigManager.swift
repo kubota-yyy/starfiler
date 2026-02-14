@@ -76,10 +76,11 @@ final class ConfigManager {
     }
 
     func saveBookmarksConfig(_ config: BookmarksConfig) throws {
-        if let conflict = config.firstShortcutConflict() {
+        let normalizedConfig = config.normalizedForStorage(fileManager: fileManager)
+        if let conflict = normalizedConfig.firstShortcutConflict() {
             throw ConfigManagerError.bookmarkShortcutConflict(conflict)
         }
-        try config.save(to: bookmarksConfigURL, fileManager: fileManager)
+        try normalizedConfig.save(to: bookmarksConfigURL, fileManager: fileManager)
     }
 
     var appConfigURL: URL {
