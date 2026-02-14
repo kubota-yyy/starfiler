@@ -168,12 +168,12 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
 
     func togglePreviewPane() {
         viewModel.togglePreviewPane()
-        applyPreviewPaneVisibility(animated: true)
+        applyPreviewPaneVisibility(animated: false)
     }
 
     func toggleSidebarPane() {
         viewModel.toggleSidebar()
-        applySidebarVisibility(animated: true)
+        applySidebarVisibility(animated: false)
     }
 
     func toggleLeftPane() {
