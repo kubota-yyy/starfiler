@@ -214,11 +214,6 @@ final class FileTableView: NSTableView {
             return false
         }
 
-        // Keep explicit single-key shortcuts (e.g. "b") responsive even when type select is enabled.
-        if keyInterpreter.hasExactBinding(for: event) {
-            return false
-        }
-
         let unsupportedModifiers = event.modifiers.subtracting([.shift])
         return unsupportedModifiers.isEmpty
     }

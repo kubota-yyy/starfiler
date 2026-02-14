@@ -69,6 +69,12 @@ final class MediaCollectionView: NSCollectionView {
             }
         }
 
+        if shouldPreferTypeSelect(for: keyEvent) {
+            keyInterpreter.clearPendingSequence()
+            super.keyDown(with: event)
+            return
+        }
+
         switch keyInterpreter.interpret(keyEvent) {
         case .action(let action):
             if keyActionDelegate?.mediaCollectionView(self, didTrigger: action) == true {
@@ -159,6 +165,15 @@ final class MediaCollectionView: NSCollectionView {
         // Collection input should always run in normal mode.
         // Filter mode is only valid while the search field is actively editing.
         keyInterpreter.setMode(.normal)
+    }
+
+    private func shouldPreferTypeSelect(for event: KeyEvent) -> Bool {
+        guard event.key.count == 1 else {
+            return false
+        }
+
+        let unsupportedModifiers = event.modifiers.subtracting([.shift])
+        return unsupportedModifiers.isEmpty
     }
 }
 
