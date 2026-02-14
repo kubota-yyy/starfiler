@@ -689,10 +689,11 @@ final class FilePaneViewModel {
                     return
                 }
 
+                let currentFilterText = self.directoryContents.filterText
                 var updatedContents = self.directoryContents
                 updatedContents.allItems = items
-                // Directory change resets text filtering.
-                updatedContents.filterText = ""
+                // Keep active filter text when refreshing in-place (e.g. recursive toggle).
+                updatedContents.filterText = currentFilterText
                 updatedContents.contentFilter = self.displayMode == .media ? .mediaOnly : .allFiles
 
                 // Re-load children for expanded directories

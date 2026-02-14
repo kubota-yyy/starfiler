@@ -605,6 +605,25 @@ final class FilePaneViewModelTests: XCTestCase {
         XCTAssertEqual(sut.directoryContents.displayedItems.count, 2)
     }
 
+    func testSetFilesRecursiveEnabledKeepsExistingFilterText() async {
+        let sut = makeSUT(items: [makeFileItem(name: "top.txt")])
+        await waitForLoad()
+
+        sut.setFilterText("child")
+        XCTAssertEqual(sut.directoryContents.filterText, "child")
+
+        fileSystem.recursiveContentsOfDirectoryResult = .success([
+            makeFileItem(name: "child.txt"),
+            makeFileItem(name: "nested.txt")
+        ])
+
+        sut.setFilesRecursiveEnabled(true)
+        await waitForLoad()
+
+        XCTAssertEqual(sut.directoryContents.filterText, "child")
+        XCTAssertEqual(sut.directoryContents.displayedItems.map(\.name), ["child.txt"])
+    }
+
     func testToggleHiddenFilesReloadsWhenFilesRecursiveEnabled() async {
         let sut = makeSUT()
         await waitForLoad()

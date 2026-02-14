@@ -130,6 +130,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
     var onSelectionChanged: ((FileItem?) -> Void)?
+    var onStatusContextTextChanged: ((String?) -> Void)?
     var onTabPressed: (() -> Bool)?
     var onDidRequestActivate: (() -> Void)?
     var onFileOperationRequested: ((KeyAction) -> Bool)?
@@ -906,10 +907,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         viewModel.onFilesRecursiveChanged = { [weak self] _ in
             self?.updateDisplayModeControls()
+            self?.publishSelection()
         }
 
         viewModel.onMediaRecursiveChanged = { [weak self] _ in
             self?.updateDisplayModeControls()
+            self?.publishSelection()
         }
 
         viewModel.onDirectoryLoadFailed = { [weak self] directory, error in
@@ -1040,7 +1043,36 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private func publishSelection() {
-        onSelectionChanged?(viewModel.selectedItem)
+        let selectedItem = viewModel.selectedItem
+        onSelectionChanged?(selectedItem)
+        onStatusContextTextChanged?(statusContextText(for: selectedItem))
+    }
+
+    private func statusContextText(for selectedItem: FileItem?) -> String? {
+        guard shouldShowSelectedItemPathInStatusContext else {
+            return nil
+        }
+        return selectedItem?.url.standardizedFileURL.path
+    }
+
+    private var shouldShowSelectedItemPathInStatusContext: Bool {
+        let hasActiveFilter = !viewModel.directoryContents.filterText
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty
+        guard hasActiveFilter else {
+            return false
+        }
+
+        switch currentDisplayMode {
+        case .browser:
+            return viewModel.filesRecursiveEnabled
+        case .media:
+            return viewModel.mediaRecursiveEnabled
+        }
+    }
+
+    private func selectedItemAbsolutePath() -> String? {
+        viewModel.selectedItem?.url.standardizedFileURL.path
     }
 
     private func updateActiveAppearance() {
@@ -1709,14 +1741,14 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private func copySelectedItemPathToPasteboard() {
-        guard let item = viewModel.selectedItem else {
+        guard let path = selectedItemAbsolutePath() else {
             NSSound.beep()
             return
         }
 
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(item.url.standardizedFileURL.path, forType: .string)
+        pasteboard.setString(path, forType: .string)
     }
 
     private func presentDropError(_ message: String) {

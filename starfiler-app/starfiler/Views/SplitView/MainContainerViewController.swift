@@ -4,9 +4,33 @@ final class MainContainerViewController: NSSplitViewController {
     private let mainSplitViewController: MainSplitViewController
     private let terminalPanelViewController: TerminalPanelViewController
     private let terminalSplitItem: NSSplitViewItem
+    private let statusBarView = StatusBarView()
+    private lazy var statusBarViewController: NSViewController = {
+        let controller = NSViewController()
+        let containerView = NSView()
+        controller.view = containerView
+        containerView.addSubview(statusBarView)
+
+        NSLayoutConstraint.activate([
+            statusBarView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            statusBarView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            statusBarView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            statusBarView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
+        ])
+        return controller
+    }()
+    private lazy var statusBarSplitItem: NSSplitViewItem = {
+        let item = NSSplitViewItem(viewController: statusBarViewController)
+        item.minimumThickness = Self.statusBarHeight
+        item.maximumThickness = Self.statusBarHeight
+        item.canCollapse = false
+        item.titlebarSeparatorStyle = .none
+        return item
+    }()
 
     private static let defaultTerminalHeight: CGFloat = 300
     private static let minimumTerminalHeight: CGFloat = 200
+    private static let statusBarHeight: CGFloat = 28
 
     init(
         mainSplitViewController: MainSplitViewController,
@@ -33,6 +57,7 @@ final class MainContainerViewController: NSSplitViewController {
         terminalSplitItem.titlebarSeparatorStyle = .none
         addSplitViewItem(terminalSplitItem)
 
+        addSplitViewItem(statusBarSplitItem)
         terminalSplitItem.isCollapsed = !terminalPanelVisible
     }
 
@@ -82,5 +107,21 @@ final class MainContainerViewController: NSSplitViewController {
 
     var terminalPanelHeight: CGFloat {
         terminalPanelViewController.view.frame.height
+    }
+
+    func updateStatusBar(primaryText: String, itemCount: Int, markedCount: Int) {
+        statusBarView.update(primaryText: primaryText, itemCount: itemCount, markedCount: markedCount)
+    }
+
+    func applyStatusBarTheme(_ theme: FilerTheme, backgroundOpacity: CGFloat = 1.0) {
+        statusBarView.applyTheme(theme, backgroundOpacity: backgroundOpacity)
+    }
+
+    func setStatusBarStarEffectsEnabled(_ enabled: Bool) {
+        statusBarView.setStarEffectsEnabled(enabled)
+    }
+
+    func setStatusBarAnimationEffectSettings(_ settings: AnimationEffectSettings) {
+        statusBarView.setAnimationEffectSettings(settings)
     }
 }

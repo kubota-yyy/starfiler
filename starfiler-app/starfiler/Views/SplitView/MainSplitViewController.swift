@@ -39,6 +39,8 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
 
     private var leftPaneStatus: PaneStatus
     private var rightPaneStatus: PaneStatus
+    private var leftPaneStatusContextText: String?
+    private var rightPaneStatusContextText: String?
     private var actionFeedbackEnabled: Bool
     private var leftPaneFileIconSize: CGFloat
     private var rightPaneFileIconSize: CGFloat
@@ -56,6 +58,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     private var shouldRefocusAfterGoToPathDismiss = true
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
+    var onStatusContextTextChanged: ((String?) -> Void)?
     var onSpotlightSearchScopeChanged: ((SpotlightSearchScope) -> Void)?
     var onPaneVisibilityChanged: ((Bool, Bool) -> Void)?
     var onSidebarWidthChanged: ((CGFloat) -> Void)?
@@ -494,6 +497,9 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         pane.onSelectionChanged = { [weak self] _ in
             self?.viewModel.updatePreviewSelection(for: side)
         }
+        pane.onStatusContextTextChanged = { [weak self] text in
+            self?.updatePaneStatusContext(side: side, text: text)
+        }
         pane.onStatusChanged = { [weak self] path, itemCount, markedCount in
             self?.updatePaneStatus(side: side, path: path, itemCount: itemCount, markedCount: markedCount)
         }
@@ -861,6 +867,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         }
 
         publishActivePaneStatus()
+        publishActivePaneStatusContext()
         updateSidebarNavigationHistory()
     }
 
@@ -925,6 +932,19 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         }
     }
 
+    private func updatePaneStatusContext(side: PaneSide, text: String?) {
+        switch side {
+        case .left:
+            leftPaneStatusContextText = text
+        case .right:
+            rightPaneStatusContextText = text
+        }
+
+        if side == viewModel.activePaneSide {
+            publishActivePaneStatusContext()
+        }
+    }
+
     private func publishActivePaneStatus() {
         let status: PaneStatus
 
@@ -936,6 +956,19 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         }
 
         onStatusChanged?(status.path, status.itemCount, status.markedCount)
+    }
+
+    private func publishActivePaneStatusContext() {
+        let statusContextText: String?
+
+        switch viewModel.activePaneSide {
+        case .left:
+            statusContextText = leftPaneStatusContextText
+        case .right:
+            statusContextText = rightPaneStatusContextText
+        }
+
+        onStatusContextTextChanged?(statusContextText)
     }
 
     private func applyPaneVisibility(leftVisible: Bool, rightVisible: Bool, animated: Bool) {

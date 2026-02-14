@@ -38,6 +38,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         terminalPanelVisible: terminalPanelVisible
     )
     private let appUndoManager = UndoManager()
+    private var footerBaseStatusText: String
+    private var footerItemCount: Int
+    private var footerMarkedCount: Int
+    private var footerContextText: String?
 
     init(
         fileSystemService: FileSystemProviding = FileSystemService(),
@@ -97,6 +101,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         if appConfig.lastActivePane == "right" {
             self.mainViewModel.setActivePane(.right)
         }
+        let activePane = self.mainViewModel.activePane
+        self.footerBaseStatusText = activePane.paneState.currentDirectory.path
+        self.footerItemCount = activePane.directoryContents.displayedItems.count
+        self.footerMarkedCount = activePane.markedCount
+        self.footerContextText = nil
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1100, height: 720),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
@@ -328,6 +337,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
         starEffectsEnabled = enabled
         mainSplitViewController.setStarEffectsEnabled(enabled)
+        mainContainerViewController.setStatusBarStarEffectsEnabled(enabled)
         persistAppConfig()
     }
 
@@ -338,6 +348,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
         animationEffectSettings = settings
         mainSplitViewController.setAnimationEffectSettings(settings)
+        mainContainerViewController.setStatusBarAnimationEffectSettings(settings)
         persistAppConfig()
     }
 
@@ -439,6 +450,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         mainSplitViewController.onSpotlightSearchScopeChanged = { [weak self] scope in
             self?.updateSpotlightSearchScope(scope)
         }
+        mainSplitViewController.onStatusChanged = { [weak self] statusText, itemCount, markedCount in
+            self?.updateFooterBaseStatus(statusText, itemCount: itemCount, markedCount: markedCount)
+        }
+        mainSplitViewController.onStatusContextTextChanged = { [weak self] text in
+            self?.updateFooterContextText(text)
+        }
         mainSplitViewController.onPaneVisibilityChanged = { [weak self] leftVisible, rightVisible in
             self?.leftPaneVisible = leftVisible
             self?.rightPaneVisible = rightVisible
@@ -468,7 +485,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         applyCurrentAppearance()
         mainSplitViewController.setStarEffectsEnabled(starEffectsEnabled)
         mainSplitViewController.setAnimationEffectSettings(animationEffectSettings)
+        mainContainerViewController.setStatusBarStarEffectsEnabled(starEffectsEnabled)
+        mainContainerViewController.setStatusBarAnimationEffectSettings(animationEffectSettings)
         window.contentViewController = mainContainerViewController
+        renderFooterStatus()
         attachWindowControlButtons(to: window)
     }
 
@@ -490,6 +510,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         let opacity = backgroundOpacity
 
         mainSplitViewController.setFilerTheme(filerTheme, backgroundOpacity: opacity)
+        mainContainerViewController.applyStatusBarTheme(filerTheme, backgroundOpacity: opacity)
 
         if let window {
             window.isOpaque = !transparentBackground
@@ -500,6 +521,33 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             }
             window.hasShadow = true
         }
+    }
+
+    private func updateFooterBaseStatus(_ text: String, itemCount: Int, markedCount: Int) {
+        footerBaseStatusText = text
+        footerItemCount = itemCount
+        footerMarkedCount = markedCount
+        renderFooterStatus()
+    }
+
+    private func updateFooterContextText(_ text: String?) {
+        footerContextText = text
+        renderFooterStatus()
+    }
+
+    private func renderFooterStatus() {
+        let primaryText: String
+        if let footerContextText, !footerContextText.isEmpty {
+            primaryText = footerContextText
+        } else {
+            primaryText = footerBaseStatusText
+        }
+
+        mainContainerViewController.updateStatusBar(
+            primaryText: primaryText,
+            itemCount: footerItemCount,
+            markedCount: footerMarkedCount
+        )
     }
 
     private func persistAppConfig() {
