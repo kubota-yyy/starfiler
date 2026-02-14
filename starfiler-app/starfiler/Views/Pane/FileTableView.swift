@@ -7,6 +7,7 @@ protocol KeyActionDelegate: AnyObject {
 final class FileTableView: NSTableView {
     weak var keyActionDelegate: (any KeyActionDelegate)?
     var didBecomeFirstResponderHandler: (() -> Void)?
+    var shouldHandleMouseDown: ((NSEvent, NSPoint) -> Bool)?
     var dragSourceHandler: FileDragSource?
     var dropTargetHandler: FileDropTarget?
     var dragURLsProvider: (() -> [URL])?
@@ -108,7 +109,15 @@ final class FileTableView: NSTableView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        mouseDownLocation = convert(event.locationInWindow, from: nil)
+        let location = convert(event.locationInWindow, from: nil)
+        if shouldHandleMouseDown?(event, location) == true {
+            mouseDownLocation = nil
+            mouseDownEvent = nil
+            isDragging = false
+            return
+        }
+
+        mouseDownLocation = location
         mouseDownEvent = event
         isDragging = false
         super.mouseDown(with: event)

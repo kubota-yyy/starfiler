@@ -67,6 +67,8 @@
       "Ctrl-t Ctrl-c": "launchClaude",
       "Ctrl-t Ctrl-x": "launchCodex",
       "Ctrl-`": "toggleTerminalPanel",
+      "ArrowRight": "treeExpand",
+      "ArrowLeft": "treeCollapse",
       "Ctrl-ArrowRight": "treeExpand",
       "Ctrl-ArrowLeft": "treeCollapse",
       "Ctrl-P": "togglePin",

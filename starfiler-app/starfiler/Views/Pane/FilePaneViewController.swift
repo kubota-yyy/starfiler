@@ -70,6 +70,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         static let text = NSUserInterfaceItemIdentifier("textCell")
     }
 
+    private enum TreeDisclosureMetrics {
+        static let leading = CGFloat(4)
+        static let indentWidth = CGFloat(16)
+        static let disclosureWidth = CGFloat(14)
+    }
+
     private static let byteFormatter: ByteCountFormatter = {
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file
@@ -619,6 +625,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         tableView.setVimMode(vimModeState.mode)
         tableView.target = self
         tableView.doubleAction = #selector(handleDoubleClick(_:))
+        tableView.shouldHandleMouseDown = { [weak self] event, point in
+            self?.handleTreeDisclosureMouseDown(event: event, at: point) ?? false
+        }
         tableView.backgroundColor = filerTheme.palette.tableBackgroundColor
         tableView.rowHeight = max(24, fileIconSize + 8)
 
@@ -1677,6 +1686,58 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             return
         }
         openSelectedFile()
+    }
+
+    private func handleTreeDisclosureMouseDown(event: NSEvent, at point: NSPoint) -> Bool {
+        guard currentDisplayMode == .browser else {
+            return false
+        }
+
+        guard event.type == .leftMouseDown, event.clickCount == 1 else {
+            return false
+        }
+
+        let row = tableView.row(at: point)
+        guard row >= 0 else {
+            return false
+        }
+
+        let column = tableView.column(at: point)
+        guard column >= 0 else {
+            return false
+        }
+
+        let tableColumn = tableView.tableColumns[column]
+        guard tableColumn.identifier == Column.name else {
+            return false
+        }
+
+        guard viewModel.directoryContents.displayedTreeItems.indices.contains(row) else {
+            return false
+        }
+
+        let treeItem = viewModel.directoryContents.displayedTreeItems[row]
+        guard treeItem.isExpandable else {
+            return false
+        }
+
+        let cellFrame = tableView.frameOfCell(atColumn: column, row: row)
+        let xInCell = point.x - cellFrame.minX
+        let disclosureMinX = TreeDisclosureMetrics.leading + CGFloat(treeItem.depth) * TreeDisclosureMetrics.indentWidth
+        let disclosureMaxX = disclosureMinX + TreeDisclosureMetrics.disclosureWidth
+        guard xInCell >= disclosureMinX, xInCell <= disclosureMaxX else {
+            return false
+        }
+
+        tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+        viewModel.setCursor(index: row)
+
+        if treeItem.isExpanded {
+            viewModel.collapseSelectedFolder()
+        } else {
+            viewModel.expandSelectedFolder()
+        }
+        return true
     }
 
     private func openSelectedFile() {
