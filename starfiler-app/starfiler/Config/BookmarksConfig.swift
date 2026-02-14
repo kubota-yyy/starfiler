@@ -111,13 +111,16 @@ struct BookmarksConfig: Codable, Sendable {
 
     static func withDefaults() -> BookmarksConfig {
         let homePath = UserPaths.homeDirectoryPath
+        let desktopPath = UserPaths.desktopDirectoryPath
+        let documentsPath = UserPaths.documentsDirectoryPath
+        let downloadsPath = UserPaths.downloadsDirectoryPath
         let defaultGroup = BookmarkGroup(
             name: "Default",
             entries: [
                 BookmarkEntry(displayName: "Home", path: homePath, shortcutKey: "h"),
-                BookmarkEntry(displayName: "Desktop", path: homePath + "/Desktop", shortcutKey: "d"),
-                BookmarkEntry(displayName: "Documents", path: homePath + "/Documents", shortcutKey: "o"),
-                BookmarkEntry(displayName: "Downloads", path: homePath + "/Downloads", shortcutKey: "w"),
+                BookmarkEntry(displayName: "Desktop", path: desktopPath, shortcutKey: "d"),
+                BookmarkEntry(displayName: "Documents", path: documentsPath, shortcutKey: "o"),
+                BookmarkEntry(displayName: "Downloads", path: downloadsPath, shortcutKey: "w"),
                 BookmarkEntry(displayName: "Applications", path: "/Applications", shortcutKey: "a"),
             ],
             shortcutKey: nil,

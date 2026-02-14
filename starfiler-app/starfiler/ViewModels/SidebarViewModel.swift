@@ -90,12 +90,11 @@ final class SidebarViewModel {
                     )
                 }
             } else {
-                let homePath = UserPaths.homeDirectoryPath
                 favorites = [
-                    SidebarEntry(displayName: "Home", path: homePath, iconName: "house"),
-                    SidebarEntry(displayName: "Desktop", path: homePath + "/Desktop", iconName: "menubar.dock.rectangle"),
-                    SidebarEntry(displayName: "Documents", path: homePath + "/Documents", iconName: "doc"),
-                    SidebarEntry(displayName: "Downloads", path: homePath + "/Downloads", iconName: "arrow.down.circle"),
+                    SidebarEntry(displayName: "Home", path: UserPaths.homeDirectoryPath, iconName: "house"),
+                    SidebarEntry(displayName: "Desktop", path: UserPaths.desktopDirectoryPath, iconName: "menubar.dock.rectangle"),
+                    SidebarEntry(displayName: "Documents", path: UserPaths.documentsDirectoryPath, iconName: "doc"),
+                    SidebarEntry(displayName: "Downloads", path: UserPaths.downloadsDirectoryPath, iconName: "arrow.down.circle"),
                     SidebarEntry(displayName: "Applications", path: "/Applications", iconName: "app"),
                 ]
             }

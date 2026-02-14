@@ -1518,13 +1518,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             viewModel.navigate(to: UserPaths.homeDirectoryURL)
             handled = true
         case .goDesktop:
-            navigateToUserSubdirectory("Desktop")
+            viewModel.navigate(to: UserPaths.desktopDirectoryURL)
             handled = true
         case .goDocuments:
-            navigateToUserSubdirectory("Documents")
+            viewModel.navigate(to: UserPaths.documentsDirectoryURL)
             handled = true
         case .goDownloads:
-            navigateToUserSubdirectory("Downloads")
+            viewModel.navigate(to: UserPaths.downloadsDirectoryURL)
             handled = true
         case .goApplications:
             viewModel.navigate(to: URL(fileURLWithPath: "/Applications", isDirectory: true))
@@ -1717,11 +1717,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             return
         }
         NSWorkspace.shared.activateFileViewerSelecting([item.url])
-    }
-
-    private func navigateToUserSubdirectory(_ name: String) {
-        let url = URL(fileURLWithPath: UserPaths.homeDirectoryPath + "/\(name)", isDirectory: true)
-        viewModel.navigate(to: url)
     }
 
     private func copySelectedItemPathToPasteboard() {

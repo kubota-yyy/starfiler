@@ -5,13 +5,22 @@ import UniformTypeIdentifiers
 enum UserPaths {
     static var homeDirectoryURL: URL {
         let userName = NSUserName()
-        let candidates: [String?] = [
-            NSHomeDirectoryForUser(userName),
-            "/Users/\(userName)",
-            homeDirectoryFromPasswordDB(),
+        let normalizedUserName = normalizedUserName(from: userName)
+        var candidates: [String?] = [
             FileManager.default.homeDirectoryForCurrentUser.path,
-            NSHomeDirectory()
+            NSHomeDirectory(),
+            homeDirectoryFromPasswordDB(),
+            NSHomeDirectoryForUser(userName),
         ]
+
+        if normalizedUserName != userName {
+            candidates.append(NSHomeDirectoryForUser(normalizedUserName))
+        }
+
+        candidates.append("/Users/\(normalizedUserName)")
+        if normalizedUserName != userName {
+            candidates.append("/Users/\(userName)")
+        }
 
         for candidate in candidates {
             guard let candidatePath = candidate, !candidatePath.isEmpty else {
@@ -25,11 +34,35 @@ enum UserPaths {
             }
         }
 
-        return URL(fileURLWithPath: "/Users/\(userName)", isDirectory: true).standardizedFileURL
+        return URL(fileURLWithPath: "/Users/\(normalizedUserName)", isDirectory: true).standardizedFileURL
     }
 
     static var homeDirectoryPath: String {
         homeDirectoryURL.path
+    }
+
+    static var desktopDirectoryURL: URL {
+        knownDirectoryURL(for: .desktopDirectory, fallbackComponent: "Desktop")
+    }
+
+    static var documentsDirectoryURL: URL {
+        knownDirectoryURL(for: .documentDirectory, fallbackComponent: "Documents")
+    }
+
+    static var downloadsDirectoryURL: URL {
+        knownDirectoryURL(for: .downloadsDirectory, fallbackComponent: "Downloads")
+    }
+
+    static var desktopDirectoryPath: String {
+        desktopDirectoryURL.path
+    }
+
+    static var documentsDirectoryPath: String {
+        documentsDirectoryURL.path
+    }
+
+    static var downloadsDirectoryPath: String {
+        downloadsDirectoryURL.path
     }
 
     static func resolveBookmarkPath(_ rawPath: String, fileManager: FileManager = .default) -> String {
@@ -55,6 +88,20 @@ enum UserPaths {
         return home.isEmpty ? nil : home
     }
 
+    private static func normalizedUserName(from rawUserName: String) -> String {
+        let trimmedUserName = rawUserName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedUserName.isEmpty else {
+            return rawUserName
+        }
+
+        guard let separator = trimmedUserName.firstIndex(of: "@"), separator > trimmedUserName.startIndex else {
+            return trimmedUserName
+        }
+
+        let sanitized = String(trimmedUserName[..<separator])
+        return sanitized.isEmpty ? trimmedUserName : sanitized
+    }
+
     private static func normalizedHomePath(from rawPath: String) -> String {
         let standardizedPath = URL(fileURLWithPath: rawPath, isDirectory: true)
             .standardizedFileURL
@@ -67,6 +114,18 @@ enum UserPaths {
 
         let unsandboxedPath = String(standardizedPath[..<markerRange.lowerBound])
         return unsandboxedPath.isEmpty ? standardizedPath : unsandboxedPath
+    }
+
+    private static func knownDirectoryURL(
+        for directory: FileManager.SearchPathDirectory,
+        fallbackComponent: String
+    ) -> URL {
+        if let resolvedURL = FileManager.default.urls(for: directory, in: .userDomainMask).first {
+            return resolvedURL.standardizedFileURL
+        }
+        return homeDirectoryURL
+            .appendingPathComponent(fallbackComponent, isDirectory: true)
+            .standardizedFileURL
     }
 
     private static func resolveDropboxPath(from path: String, fileManager: FileManager) -> String? {
