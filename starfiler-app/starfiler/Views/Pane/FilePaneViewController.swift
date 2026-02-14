@@ -1049,26 +1049,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private func statusContextText(for selectedItem: FileItem?) -> String? {
-        guard shouldShowSelectedItemPathInStatusContext else {
-            return nil
-        }
         return selectedItem?.url.standardizedFileURL.path
-    }
-
-    private var shouldShowSelectedItemPathInStatusContext: Bool {
-        let hasActiveFilter = !viewModel.directoryContents.filterText
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .isEmpty
-        guard hasActiveFilter else {
-            return false
-        }
-
-        switch currentDisplayMode {
-        case .browser:
-            return viewModel.filesRecursiveEnabled
-        case .media:
-            return viewModel.mediaRecursiveEnabled
-        }
     }
 
     private func selectedItemAbsolutePath() -> String? {
