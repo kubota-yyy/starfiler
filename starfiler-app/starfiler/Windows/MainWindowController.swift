@@ -1,16 +1,22 @@
 import AppKit
+import CryptoKit
 
 final class MainWindowController: NSWindowController, NSWindowDelegate {
-    private enum ObservedConfigFile: CaseIterable {
+    private enum LaunchMetadata {
+        static let observedConfigSnapshotsKey = "MainWindowController.observedConfigSnapshots"
+    }
+
+    private enum ObservedConfigFile: String, CaseIterable {
         case appConfig
         case bookmarks
         case keybindings
     }
 
-    private struct ConfigFileSnapshot: Equatable {
+    private struct ConfigFileSnapshot: Codable, Equatable {
         let exists: Bool
         let modificationDate: Date?
         let fileSize: UInt64?
+        let contentDigest: String?
     }
 
     private let mainViewModel: MainViewModel
@@ -72,6 +78,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         self.primaryConfigMonitor = primaryConfigMonitor
         self.keybindingsConfigMonitor = keybindingsConfigMonitor
         self.keybindingsConfigURL = KeybindingManager.defaultUserConfigURL(fileManager: fileManager)
+        let previousConfigSnapshots = Self.loadPersistedObservedConfigSnapshots()
 
         let configManager = ConfigManager()
         self.configManager = configManager
@@ -141,6 +148,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         mainViewModel.undoManager = appUndoManager
         configureWindow()
+        applyConfigChangesSinceLastLaunch(previousSnapshots: previousConfigSnapshots)
+        Self.savePersistedObservedConfigSnapshots(currentObservedConfigSnapshots())
         startConfigMonitoring()
     }
 
@@ -722,15 +731,44 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
+    private func applyConfigChangesSinceLastLaunch(previousSnapshots: [ObservedConfigFile: ConfigFileSnapshot]) {
+        guard !previousSnapshots.isEmpty else {
+            return
+        }
+
+        let changedFiles = changedObservedConfigFiles(
+            previousSnapshots: previousSnapshots,
+            latestSnapshots: currentObservedConfigSnapshots()
+        )
+        guard !changedFiles.isEmpty else {
+            return
+        }
+
+        if changedFiles.contains(.appConfig) {
+            applyAppConfigFromDiskWithoutPersisting()
+        }
+        if changedFiles.contains(.bookmarks) {
+            mainSplitViewController.reloadBookmarksConfig()
+        }
+        if changedFiles.contains(.keybindings) {
+            mainSplitViewController.reloadKeybindings()
+        }
+    }
+
+    private func changedObservedConfigFiles(
+        previousSnapshots: [ObservedConfigFile: ConfigFileSnapshot],
+        latestSnapshots: [ObservedConfigFile: ConfigFileSnapshot]
+    ) -> Set<ObservedConfigFile> {
+        let allFiles = Set(previousSnapshots.keys).union(latestSnapshots.keys)
+        return Set(allFiles.filter { previousSnapshots[$0] != latestSnapshots[$0] })
+    }
+
     private func refreshObservedConfigSnapshots() -> Set<ObservedConfigFile> {
         let latestSnapshots = currentObservedConfigSnapshots()
-        var changedFiles = Set<ObservedConfigFile>()
-
-        for (file, latestSnapshot) in latestSnapshots {
-            if observedConfigSnapshots[file] != latestSnapshot {
-                changedFiles.insert(file)
-            }
-        }
+        let changedFiles = changedObservedConfigFiles(
+            previousSnapshots: observedConfigSnapshots,
+            latestSnapshots: latestSnapshots
+        )
 
         observedConfigSnapshots = latestSnapshots
         return changedFiles
@@ -761,12 +799,18 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         guard fileManager.fileExists(atPath: path),
               let attributes = try? fileManager.attributesOfItem(atPath: path)
         else {
-            return ConfigFileSnapshot(exists: false, modificationDate: nil, fileSize: nil)
+            return ConfigFileSnapshot(exists: false, modificationDate: nil, fileSize: nil, contentDigest: nil)
         }
 
         let modificationDate = attributes[.modificationDate] as? Date
         let fileSize = (attributes[.size] as? NSNumber)?.uint64Value
-        return ConfigFileSnapshot(exists: true, modificationDate: modificationDate, fileSize: fileSize)
+        let contentDigest = Self.sha256Hex(of: url)
+        return ConfigFileSnapshot(
+            exists: true,
+            modificationDate: modificationDate,
+            fileSize: fileSize,
+            contentDigest: contentDigest
+        )
     }
 
     private func persistAppConfig() {
@@ -858,6 +902,38 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         case .selection:
             return .selection(ascending: ascending)
         }
+    }
+
+    private static func loadPersistedObservedConfigSnapshots() -> [ObservedConfigFile: ConfigFileSnapshot] {
+        guard let data = UserDefaults.standard.data(forKey: LaunchMetadata.observedConfigSnapshotsKey),
+              let decoded = try? JSONDecoder().decode([String: ConfigFileSnapshot].self, from: data)
+        else {
+            return [:]
+        }
+
+        return decoded.reduce(into: [:]) { result, pair in
+            guard let file = ObservedConfigFile(rawValue: pair.key) else {
+                return
+            }
+            result[file] = pair.value
+        }
+    }
+
+    private static func savePersistedObservedConfigSnapshots(_ snapshots: [ObservedConfigFile: ConfigFileSnapshot]) {
+        let payload = snapshots.reduce(into: [String: ConfigFileSnapshot]()) { result, pair in
+            result[pair.key.rawValue] = pair.value
+        }
+        guard let data = try? JSONEncoder().encode(payload) else {
+            return
+        }
+        UserDefaults.standard.set(data, forKey: LaunchMetadata.observedConfigSnapshotsKey)
+    }
+
+    private static func sha256Hex(of url: URL) -> String? {
+        guard let data = try? Data(contentsOf: url) else {
+            return nil
+        }
+        return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
     private func handleSidebarWidthChanged(_ width: CGFloat) {
