@@ -132,8 +132,7 @@ enum UserPaths {
         }
 
         let sourceExists = fileManager.fileExists(atPath: standardizedPath)
-        let relocatedExists = fileManager.fileExists(atPath: relocatedPath)
-        guard relocatedExists || !sourceExists else {
+        guard !sourceExists else {
             return nil
         }
 
