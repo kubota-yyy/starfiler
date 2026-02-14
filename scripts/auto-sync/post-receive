@@ -18,9 +18,15 @@ if [ -n "${SSH_CLIENT:-}" ]; then
   PUSHER_IP=$(echo "$SSH_CLIENT" | awk '{print $1}')
 fi
 
+# GitHubリモートURL（bare repoからGitHubへも自動push）
+GITHUB_REMOTE="git@github.com:YutakaKubota/starfiler.git"
+
 # mainブランチへのpushかチェック
 while read oldrev newrev refname; do
   if [ "$refname" = "refs/heads/main" ]; then
+    # GitHubへ自動ミラー push
+    git push "$GITHUB_REMOTE" main >> /tmp/auto-sync-post-receive.log 2>&1 &
+
     for target in "${SYNC_TARGETS[@]}"; do
       IFS=':' read -r ip user repo_path <<< "$target"
 
