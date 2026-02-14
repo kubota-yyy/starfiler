@@ -214,6 +214,10 @@ final class FileTableView: NSTableView {
             return false
         }
 
+        if event.key == "/" {
+            return false
+        }
+
         let unsupportedModifiers = event.modifiers.subtracting([.shift])
         return unsupportedModifiers.isEmpty
     }
