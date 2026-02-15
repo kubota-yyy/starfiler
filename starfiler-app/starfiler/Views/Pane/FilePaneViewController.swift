@@ -76,6 +76,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         static let disclosureWidth = CGFloat(14)
     }
 
+    private enum ContextMenuMetrics {
+        static let staticHeaderItemCount = 2
+        static let filterWidth = CGFloat(280)
+        static let filterHeight = CGFloat(30)
+        static let filterFieldInset = CGFloat(8)
+    }
+
     private static let byteFormatter: ByteCountFormatter = {
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file
@@ -105,6 +112,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private let mediaIconSizeValueLabel = NSTextField(labelWithString: "16 px")
     private let searchModeIconView = NSImageView()
     private let searchField = NSSearchField()
+    private lazy var contextMenuFilterField: NSSearchField = makeContextMenuFilterField()
     private let scrollView = NSScrollView()
     private let bookmarkJumpOverlayView = BookmarkJumpOverlayView()
     private let tableView = FileTableView()
@@ -128,6 +136,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private var currentSearchMode: SearchMode = .filter
     private var searchMenuModeItems: [SearchMode: NSMenuItem] = [:]
     private var searchMenuScopeItems: [SpotlightSearchScope: NSMenuItem] = [:]
+    private weak var activeContextMenu: NSMenu?
+    private var contextMenuFilterText = ""
     private var currentDisplayMode: PaneDisplayMode = .browser
     private var starEffectsEnabled = true
     private var animationEffectSettings = AnimationEffectSettings.allEnabled
@@ -1814,7 +1824,16 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     func controlTextDidChange(_ obj: Notification) {
-        guard (obj.object as? NSControl) === searchField else {
+        guard let control = obj.object as? NSControl else {
+            return
+        }
+
+        if control === contextMenuFilterField {
+            handleContextMenuFilterChanged(contextMenuFilterField)
+            return
+        }
+
+        guard control === searchField else {
             return
         }
 
@@ -1965,23 +1984,126 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     // MARK: - Context Menu
 
-    func menuNeedsUpdate(_ menu: NSMenu) {
-        menu.removeAllItems()
+    private struct ContextMenuContext {
+        let contextItem: FileItem?
+        let hasContextItem: Bool
+    }
 
-        let clickedRow: Int
-        if currentDisplayMode == .media {
-            if let selectedIndex = mediaCollectionView.selectionIndexPaths.first?.item {
-                clickedRow = selectedIndex
-            } else {
-                clickedRow = -1
-            }
-        } else {
-            clickedRow = tableView.clickedRow
+    func menuWillOpen(_ menu: NSMenu) {
+        guard isPaneContextMenu(menu) else {
+            return
         }
-        let hasClickedItem = viewModel.directoryContents.displayedItems.indices.contains(clickedRow)
-        let clickedItem = hasClickedItem ? viewModel.directoryContents.displayedItems[clickedRow] : nil
-        let contextItem = clickedItem ?? viewModel.selectedItem
-        let hasContextItem = contextItem != nil
+
+        activeContextMenu = menu
+        focusContextMenuFilterField(in: menu)
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        guard isPaneContextMenu(menu) else {
+            return
+        }
+
+        activeContextMenu = nil
+        contextMenuFilterText = ""
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        guard isPaneContextMenu(menu) else {
+            return
+        }
+
+        activeContextMenu = menu
+        contextMenuFilterText = ""
+        rebuildContextMenu(menu, filterText: contextMenuFilterText)
+        focusContextMenuFilterField(in: menu)
+    }
+
+    private func isPaneContextMenu(_ menu: NSMenu) -> Bool {
+        menu === tableView.menu || menu === mediaCollectionView.menu
+    }
+
+    private func makeContextMenuFilterField() -> NSSearchField {
+        let field = NSSearchField(frame: .zero)
+        field.controlSize = .small
+        field.placeholderString = "Filter actions..."
+        field.font = .systemFont(ofSize: 12)
+        field.sendsSearchStringImmediately = true
+        field.sendsWholeSearchString = true
+        field.target = self
+        field.action = #selector(handleContextMenuFilterChanged(_:))
+        field.delegate = self
+        return field
+    }
+
+    private func rebuildContextMenu(_ menu: NSMenu, filterText: String) {
+        menu.removeAllItems()
+        menu.addItem(makeContextMenuFilterMenuItem())
+        menu.addItem(NSMenuItem.separator())
+        contextMenuFilterField.stringValue = filterText
+        updateContextMenuActionItems(in: menu, filterText: filterText)
+    }
+
+    private func makeContextMenuFilterMenuItem() -> NSMenuItem {
+        let item = NSMenuItem()
+        let container = NSView(
+            frame: NSRect(
+                x: 0,
+                y: 0,
+                width: ContextMenuMetrics.filterWidth,
+                height: ContextMenuMetrics.filterHeight
+            )
+        )
+
+        contextMenuFilterField.removeFromSuperview()
+        contextMenuFilterField.frame = NSRect(
+            x: ContextMenuMetrics.filterFieldInset,
+            y: (ContextMenuMetrics.filterHeight - 22) / 2,
+            width: ContextMenuMetrics.filterWidth - (ContextMenuMetrics.filterFieldInset * 2),
+            height: 22
+        )
+        contextMenuFilterField.autoresizingMask = [.width]
+        container.addSubview(contextMenuFilterField)
+        item.view = container
+        return item
+    }
+
+    private func updateContextMenuActionItems(in menu: NSMenu, filterText: String) {
+        while menu.items.count > ContextMenuMetrics.staticHeaderItemCount {
+            menu.removeItem(at: ContextMenuMetrics.staticHeaderItemCount)
+        }
+
+        let allItems = makeContextMenuActionItems()
+        let visibleItems = filterContextMenuItems(allItems, query: filterText)
+        if visibleItems.isEmpty {
+            let emptyItem = NSMenuItem(title: "No matching actions", action: nil, keyEquivalent: "")
+            emptyItem.isEnabled = false
+            menu.addItem(emptyItem)
+            return
+        }
+
+        visibleItems.forEach { menu.addItem($0) }
+    }
+
+    @objc
+    private func handleContextMenuFilterChanged(_ sender: NSSearchField) {
+        guard sender === contextMenuFilterField else {
+            return
+        }
+
+        contextMenuFilterText = sender.stringValue
+        guard let menu = activeContextMenu else {
+            return
+        }
+
+        updateContextMenuActionItems(in: menu, filterText: contextMenuFilterText)
+    }
+
+    private func makeContextMenuActionItems() -> [NSMenuItem] {
+        let context = currentContextMenuContext()
+        let contextItem = context.contextItem
+        let hasContextItem = context.hasContextItem
+
+        var items: [NSMenuItem] = []
 
         let openTitle: String
         if let contextItem, contextItem.isDirectory && !contextItem.isPackage {
@@ -1990,43 +2112,43 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             openTitle = "Open with Default App"
         }
 
-        menu.addItem(makeContextMenuItem(
+        items.append(makeContextMenuItem(
             title: openTitle,
             action: .openFile,
             shortcutActions: [.enterDirectory, .openFile],
             requiresContextItem: true,
             enabled: hasContextItem
         ))
-        menu.addItem(makeContextMenuItem(
+        items.append(makeContextMenuItem(
             title: "Show in Finder",
             action: .openFileInFinder,
             requiresContextItem: true,
             enabled: hasContextItem
         ))
 
-        menu.addItem(NSMenuItem.separator())
+        items.append(NSMenuItem.separator())
 
-        menu.addItem(makeContextMenuItem(
+        items.append(makeContextMenuItem(
             title: "Toggle Mark",
             action: .toggleMark,
             requiresContextItem: true,
             enabled: hasContextItem
         ))
-        menu.addItem(makeContextMenuItem(
+        items.append(makeContextMenuItem(
             title: "Mark All",
             action: .markAll,
             enabled: !viewModel.directoryContents.displayedItems.isEmpty
         ))
-        menu.addItem(makeContextMenuItem(
+        items.append(makeContextMenuItem(
             title: "Clear Marks",
             action: .clearMarks,
             enabled: viewModel.markedCount > 0
         ))
 
         if vimModeState.mode == .visual {
-            menu.addItem(makeContextMenuItem(title: "End Visual Selection", action: .exitVisualMode))
+            items.append(makeContextMenuItem(title: "End Visual Selection", action: .exitVisualMode))
         } else {
-            menu.addItem(makeContextMenuItem(
+            items.append(makeContextMenuItem(
                 title: "Start Visual Selection",
                 action: .enterVisualMode,
                 requiresContextItem: true,
@@ -2034,89 +2156,192 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             ))
         }
 
-        menu.addItem(NSMenuItem.separator())
+        items.append(NSMenuItem.separator())
 
-        menu.addItem(makeContextMenuItem(
+        items.append(makeContextMenuItem(
             title: "Copy",
             action: .copy,
             requiresContextItem: true,
             enabled: hasContextItem
         ))
-        menu.addItem(makeContextMenuItem(
+        items.append(makeContextMenuItem(
             title: "Copy File/Folder Path",
             action: .copySelectedItemPath,
             requiresContextItem: true,
             enabled: hasContextItem
         ))
-        menu.addItem(makeContextMenuItem(
+        items.append(makeContextMenuItem(
             title: "Cut",
             action: .move,
             requiresContextItem: true,
             enabled: hasContextItem
         ))
-        menu.addItem(makeContextMenuItem(title: "Paste", action: .paste))
+        items.append(makeContextMenuItem(title: "Paste", action: .paste))
 
-        menu.addItem(NSMenuItem.separator())
+        items.append(NSMenuItem.separator())
 
-        menu.addItem(makeContextMenuItem(
+        items.append(makeContextMenuItem(
             title: "Rename...",
             action: .rename,
             requiresContextItem: true,
             enabled: hasContextItem
         ))
-        menu.addItem(makeContextMenuItem(
+        items.append(makeContextMenuItem(
             title: "Move to Trash",
             action: .delete,
             requiresContextItem: true,
             enabled: hasContextItem
         ))
-        menu.addItem(makeContextMenuItem(title: "New Folder", action: .createDirectory))
-        menu.addItem(makeContextMenuItem(
+        items.append(makeContextMenuItem(title: "New Folder", action: .createDirectory))
+        items.append(makeContextMenuItem(
             title: "Batch Rename...",
             action: .batchRename,
             requiresContextItem: true,
             enabled: hasContextItem
         ))
-        menu.addItem(makeContextMenuItem(title: "Sync: Left → Right", action: .syncPanesLeftToRight))
-        menu.addItem(makeContextMenuItem(title: "Sync: Right → Left", action: .syncPanesRightToLeft))
+        items.append(makeContextMenuItem(title: "Sync: Left → Right", action: .syncPanesLeftToRight))
+        items.append(makeContextMenuItem(title: "Sync: Right → Left", action: .syncPanesRightToLeft))
 
-        menu.addItem(NSMenuItem.separator())
+        items.append(NSMenuItem.separator())
 
-        menu.addItem(makeContextMenuItem(title: "Filter...", action: .enterFilterMode))
-        menu.addItem(makeContextMenuItem(title: "Spotlight Search...", action: .enterSpotlightSearch))
-        menu.addItem(makeContextMenuItem(title: "Clear Filter", action: .clearFilter))
-        menu.addItem(makeContextMenuItem(title: "Bookmark Search...", action: .openBookmarkSearch))
-        menu.addItem(makeContextMenuItem(title: "History...", action: .openHistory))
-        menu.addItem(makeContextMenuItem(title: "Add Bookmark...", action: .addBookmark))
-        menu.addItem(makeContextMenuItem(title: "Toggle Pin", action: .togglePin))
+        items.append(makeContextMenuItem(title: "Filter...", action: .enterFilterMode))
+        items.append(makeContextMenuItem(title: "Spotlight Search...", action: .enterSpotlightSearch))
+        items.append(makeContextMenuItem(title: "Clear Filter", action: .clearFilter))
+        items.append(makeContextMenuItem(title: "Bookmark Search...", action: .openBookmarkSearch))
+        items.append(makeContextMenuItem(title: "History...", action: .openHistory))
+        items.append(makeContextMenuItem(title: "Add Bookmark...", action: .addBookmark))
+        items.append(makeContextMenuItem(title: "Toggle Pin", action: .togglePin))
 
-        menu.addItem(NSMenuItem.separator())
+        items.append(NSMenuItem.separator())
 
-        menu.addItem(makeContextMenuItem(title: "Back", action: .goBack))
-        menu.addItem(makeContextMenuItem(title: "Forward", action: .goForward))
-        menu.addItem(makeContextMenuItem(title: "Enclosing Folder", action: .goToParent))
-        menu.addItem(makeContextMenuItem(title: "Home", action: .goHome))
-        menu.addItem(makeContextMenuItem(title: "Desktop", action: .goDesktop))
-        menu.addItem(makeContextMenuItem(title: "Documents", action: .goDocuments))
-        menu.addItem(makeContextMenuItem(title: "Downloads", action: .goDownloads))
-        menu.addItem(makeContextMenuItem(title: "Applications", action: .goApplications))
-        menu.addItem(makeContextMenuItem(title: "Refresh", action: .refresh))
-        menu.addItem(makeContextMenuItem(title: "Toggle Hidden Files", action: .toggleHiddenFiles))
-        menu.addItem(makeSortMenuItem())
-        menu.addItem(makeContextMenuItem(title: "Toggle Media Mode", action: .toggleMediaMode))
-        menu.addItem(makeContextMenuItem(title: "Toggle Files Recursive", action: .toggleFilesRecursive))
-        menu.addItem(makeContextMenuItem(title: "Toggle Media Recursive", action: .toggleMediaRecursive))
+        items.append(makeContextMenuItem(title: "Back", action: .goBack))
+        items.append(makeContextMenuItem(title: "Forward", action: .goForward))
+        items.append(makeContextMenuItem(title: "Enclosing Folder", action: .goToParent))
+        items.append(makeContextMenuItem(title: "Home", action: .goHome))
+        items.append(makeContextMenuItem(title: "Desktop", action: .goDesktop))
+        items.append(makeContextMenuItem(title: "Documents", action: .goDocuments))
+        items.append(makeContextMenuItem(title: "Downloads", action: .goDownloads))
+        items.append(makeContextMenuItem(title: "Applications", action: .goApplications))
+        items.append(makeContextMenuItem(title: "Refresh", action: .refresh))
+        items.append(makeContextMenuItem(title: "Toggle Hidden Files", action: .toggleHiddenFiles))
+        items.append(makeSortMenuItem())
+        items.append(makeContextMenuItem(title: "Toggle Media Mode", action: .toggleMediaMode))
+        items.append(makeContextMenuItem(title: "Toggle Files Recursive", action: .toggleFilesRecursive))
+        items.append(makeContextMenuItem(title: "Toggle Media Recursive", action: .toggleMediaRecursive))
 
-        menu.addItem(NSMenuItem.separator())
+        items.append(NSMenuItem.separator())
 
-        menu.addItem(makeContextMenuItem(title: "Toggle Sidebar", action: .toggleSidebar))
-        menu.addItem(makeContextMenuItem(title: "Toggle Preview", action: .togglePreview))
-        menu.addItem(makeContextMenuItem(title: "Toggle Left Pane", action: .toggleLeftPane))
-        menu.addItem(makeContextMenuItem(title: "Toggle Right Pane", action: .toggleRightPane))
-        menu.addItem(makeContextMenuItem(title: "Equalize Pane Widths", action: .equalizePaneWidths))
-        menu.addItem(makeContextMenuItem(title: "Set Other Pane to Current Folder", action: .matchOtherPaneDirectory))
-        menu.addItem(makeContextMenuItem(title: "Go to Other Pane Folder", action: .goToOtherPaneDirectory))
-        menu.addItem(makeContextMenuItem(title: "Switch Pane", action: .switchPane))
+        items.append(makeContextMenuItem(title: "Toggle Sidebar", action: .toggleSidebar))
+        items.append(makeContextMenuItem(title: "Toggle Preview", action: .togglePreview))
+        items.append(makeContextMenuItem(title: "Toggle Left Pane", action: .toggleLeftPane))
+        items.append(makeContextMenuItem(title: "Toggle Right Pane", action: .toggleRightPane))
+        items.append(makeContextMenuItem(title: "Equalize Pane Widths", action: .equalizePaneWidths))
+        items.append(makeContextMenuItem(title: "Set Other Pane to Current Folder", action: .matchOtherPaneDirectory))
+        items.append(makeContextMenuItem(title: "Go to Other Pane Folder", action: .goToOtherPaneDirectory))
+        items.append(makeContextMenuItem(title: "Switch Pane", action: .switchPane))
+
+        return normalizeContextMenuItems(items)
+    }
+
+    private func currentContextMenuContext() -> ContextMenuContext {
+        let clickedRow = contextMenuClickedRow()
+        let hasClickedItem = viewModel.directoryContents.displayedItems.indices.contains(clickedRow)
+        let clickedItem = hasClickedItem ? viewModel.directoryContents.displayedItems[clickedRow] : nil
+        let contextItem = clickedItem ?? viewModel.selectedItem
+        return ContextMenuContext(contextItem: contextItem, hasContextItem: contextItem != nil)
+    }
+
+    private func contextMenuClickedRow() -> Int {
+        if currentDisplayMode == .media {
+            return mediaCollectionView.selectionIndexPaths.first?.item ?? -1
+        }
+
+        return tableView.clickedRow
+    }
+
+    private func filterContextMenuItems(_ items: [NSMenuItem], query: String) -> [NSMenuItem] {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else {
+            return items
+        }
+
+        var filtered: [NSMenuItem] = []
+        var shouldInsertSeparator = false
+
+        for item in items {
+            if item.isSeparatorItem {
+                shouldInsertSeparator = !filtered.isEmpty
+                continue
+            }
+
+            guard contextMenuItemMatchesQuery(item, query: trimmedQuery) else {
+                continue
+            }
+
+            if shouldInsertSeparator, !filtered.isEmpty {
+                filtered.append(NSMenuItem.separator())
+            }
+            filtered.append(item)
+            shouldInsertSeparator = false
+        }
+
+        return normalizeContextMenuItems(filtered)
+    }
+
+    private func contextMenuItemMatchesQuery(_ item: NSMenuItem, query: String) -> Bool {
+        if item.title.localizedCaseInsensitiveContains(query) {
+            return true
+        }
+
+        guard let submenu = item.submenu else {
+            return false
+        }
+
+        let filteredSubItems = filterContextMenuItems(submenu.items, query: query)
+        guard !filteredSubItems.isEmpty else {
+            return false
+        }
+
+        submenu.removeAllItems()
+        filteredSubItems.forEach { submenu.addItem($0) }
+        return true
+    }
+
+    private func normalizeContextMenuItems(_ items: [NSMenuItem]) -> [NSMenuItem] {
+        var normalized: [NSMenuItem] = []
+        var previousWasSeparator = true
+
+        for item in items {
+            if item.isSeparatorItem {
+                guard !previousWasSeparator else {
+                    continue
+                }
+                normalized.append(item)
+                previousWasSeparator = true
+                continue
+            }
+
+            normalized.append(item)
+            previousWasSeparator = false
+        }
+
+        if normalized.last?.isSeparatorItem == true {
+            normalized.removeLast()
+        }
+
+        return normalized
+    }
+
+    private func focusContextMenuFilterField(in menu: NSMenu) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self,
+                  self.activeContextMenu === menu,
+                  let window = self.contextMenuFilterField.window else {
+                return
+            }
+
+            window.makeFirstResponder(self.contextMenuFilterField)
+        }
     }
 
     private func makeSortMenuItem() -> NSMenuItem {
@@ -2233,16 +2458,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             return true
         }
 
-        let clickedRow: Int
-        if currentDisplayMode == .media {
-            if let selectedIndex = mediaCollectionView.selectionIndexPaths.first?.item {
-                clickedRow = selectedIndex
-            } else {
-                clickedRow = -1
-            }
-        } else {
-            clickedRow = tableView.clickedRow
-        }
+        let clickedRow = contextMenuClickedRow()
         if viewModel.directoryContents.displayedItems.indices.contains(clickedRow) {
             viewModel.setCursor(index: clickedRow)
             return true
