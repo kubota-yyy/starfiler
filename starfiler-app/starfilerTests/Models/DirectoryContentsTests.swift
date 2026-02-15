@@ -244,6 +244,53 @@ final class DirectoryContentsTests: XCTestCase {
         XCTAssertTrue(contents.displayedItems.isEmpty)
     }
 
+    func testFilterByTextIncludesAncestorDirectoriesOfMatchedFiles() {
+        let rootURL = URL(fileURLWithPath: "/test/project", isDirectory: true)
+        let targetDirectoryURL = rootURL.appendingPathComponent("target-folder", isDirectory: true)
+        let matchedFileURL = targetDirectoryURL.appendingPathComponent("needle.txt", isDirectory: false)
+
+        let items = [
+            FileItem(
+                url: targetDirectoryURL,
+                name: "target-folder",
+                isDirectory: true,
+                size: nil,
+                dateModified: nil,
+                isHidden: false,
+                isSymlink: false,
+                isPackage: false
+            ),
+            FileItem(
+                url: matchedFileURL,
+                name: "needle.txt",
+                isDirectory: false,
+                size: nil,
+                dateModified: nil,
+                isHidden: false,
+                isSymlink: false,
+                isPackage: false
+            ),
+            FileItem(
+                url: rootURL.appendingPathComponent("other.txt", isDirectory: false),
+                name: "other.txt",
+                isDirectory: false,
+                size: nil,
+                dateModified: nil,
+                isHidden: false,
+                isSymlink: false,
+                isPackage: false
+            ),
+        ]
+
+        let contents = DirectoryContents(
+            allItems: items,
+            sortDescriptor: .name(ascending: true),
+            filterText: "needle"
+        )
+
+        XCTAssertEqual(contents.displayedItems.map(\.name), ["target-folder", "needle.txt"])
+    }
+
     // MARK: - Show Hidden Files
 
     func testHiddenFilesHiddenByDefault() {

@@ -95,7 +95,7 @@ struct DirectoryContents: Sendable {
 
         let trimmedFilter = filterText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedFilter.isEmpty {
-            items = items.filter { $0.name.localizedCaseInsensitiveContains(trimmedFilter) }
+            items = filterBySearchText(items, query: trimmedFilter)
         }
 
         if sortDescriptor.column == .selection {
@@ -243,7 +243,7 @@ struct DirectoryContents: Sendable {
 
         let trimmedFilter = filterText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedFilter.isEmpty {
-            result = result.filter { $0.name.localizedCaseInsensitiveContains(trimmedFilter) }
+            result = filterBySearchText(result, query: trimmedFilter)
         }
 
         if sortDescriptor.column == .selection {
@@ -263,5 +263,39 @@ struct DirectoryContents: Sendable {
             return false
         }
         return ascending ? result == .orderedAscending : result == .orderedDescending
+    }
+
+    private func filterBySearchText(_ items: [FileItem], query: String) -> [FileItem] {
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedQuery.isEmpty else {
+            return items
+        }
+
+        let directMatches = items.filter { $0.name.localizedCaseInsensitiveContains(normalizedQuery) }
+        guard !directMatches.isEmpty else {
+            return []
+        }
+
+        let directoriesByURL = Dictionary(
+            uniqueKeysWithValues: items
+                .filter(\.isDirectory)
+                .map { ($0.url.standardizedFileURL, $0) }
+        )
+
+        var includedURLs = Set(directMatches.map { $0.url.standardizedFileURL })
+        for item in directMatches {
+            var parentURL = item.url.deletingLastPathComponent().standardizedFileURL
+            while let parentDirectory = directoriesByURL[parentURL] {
+                includedURLs.insert(parentDirectory.url.standardizedFileURL)
+
+                let nextParentURL = parentURL.deletingLastPathComponent().standardizedFileURL
+                if nextParentURL == parentURL {
+                    break
+                }
+                parentURL = nextParentURL
+            }
+        }
+
+        return items.filter { includedURLs.contains($0.url.standardizedFileURL) }
     }
 }
