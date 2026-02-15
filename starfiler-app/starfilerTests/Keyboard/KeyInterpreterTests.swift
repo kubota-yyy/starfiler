@@ -146,6 +146,24 @@ final class KeyInterpreterTests: XCTestCase {
         XCTAssertEqual(result, .unhandled)
     }
 
+    func testCommandModifierReturnsActionWhenBindingExists() {
+        let bindings: [String: [String: String]] = [
+            "normal": [
+                "Cmd-Up": "goForward",
+                "Cmd-Down": "goBack",
+                "Cmd-Left": "goToParent",
+                "Cmd-Right": "cursorRight",
+            ],
+        ]
+        var interpreter = makeInterpreter(bindings: bindings)
+
+        let forward = interpreter.interpret(KeyEvent(key: "ArrowUp", modifiers: .command))
+        XCTAssertEqual(forward, .action(.goForward))
+
+        let backward = interpreter.interpret(KeyEvent(key: "ArrowDown", modifiers: .command))
+        XCTAssertEqual(backward, .action(.goBack))
+    }
+
     // MARK: - Special Keys
 
     func testTabKey() {
