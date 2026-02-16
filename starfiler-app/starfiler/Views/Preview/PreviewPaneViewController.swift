@@ -499,25 +499,55 @@ final class PreviewPaneViewController: NSViewController {
             return
         }
 
-        let widthScale = viewportSize.width / image.size.width
-        let heightScale = viewportSize.height / image.size.height
-        let fitScale = min(widthScale, heightScale, 1.0)
-        setZoomScale(fitScale, centeredAt: NSPoint(x: imageView.bounds.midX, y: imageView.bounds.midY))
+        let anchorPoint = NSPoint(x: imageView.bounds.midX, y: imageView.bounds.midY)
+        let initialFitScale = fitScale(for: image.size, viewportSize: viewportSize)
+        setZoomScale(initialFitScale, centeredAt: anchorPoint)
+
+        if let settledViewportSize = effectiveFitViewportSize() {
+            let settledFitScale = fitScale(for: image.size, viewportSize: settledViewportSize)
+            if settledFitScale < scrollView.magnification {
+                setZoomScale(settledFitScale, centeredAt: anchorPoint)
+            }
+        }
+
         alignFitToContentOrigin()
     }
 
     private func effectiveFitViewportSize() -> NSSize? {
-        let contentBounds = scrollView.contentView.bounds.size
-        guard contentBounds.height > 0 else {
+        let clipBounds = scrollView.contentView.bounds.size
+        let scrollBounds = scrollView.bounds.size
+        let containerBounds = contentContainerView.bounds.size
+
+        guard let effectiveWidth = firstUsableDimension(from: [
+            clipBounds.width,
+            scrollBounds.width,
+            containerBounds.width,
+            preferredFitViewportWidth
+        ]) else {
             return nil
         }
 
-        let effectiveWidth = contentBounds.width > 1 ? contentBounds.width : preferredFitViewportWidth
-        guard effectiveWidth > 0 else {
+        guard let effectiveHeight = firstUsableDimension(from: [
+            clipBounds.height,
+            scrollBounds.height,
+            containerBounds.height
+        ]) else {
             return nil
         }
 
-        return NSSize(width: effectiveWidth, height: contentBounds.height)
+        return NSSize(width: effectiveWidth, height: effectiveHeight)
+    }
+
+    private func fitScale(for imageSize: NSSize, viewportSize: NSSize) -> CGFloat {
+        let widthScale = viewportSize.width / imageSize.width
+        let heightScale = viewportSize.height / imageSize.height
+        let rawScale = min(widthScale, heightScale, 1.0)
+        let minScale = CGFloat(zoomSlider.minValue)
+        return max(rawScale.nextDown, minScale)
+    }
+
+    private func firstUsableDimension(from candidates: [CGFloat]) -> CGFloat? {
+        candidates.first(where: { $0 > 1 })
     }
 
     private func alignFitToContentOrigin() {
