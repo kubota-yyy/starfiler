@@ -97,18 +97,57 @@ enum UserPaths {
             return rawPath
         }
 
+        let normalizedPath = normalizedHomeAliasPath(from: trimmedPath)
+
         let expandedHomePath: String
-        if trimmedPath == "$HOME" || trimmedPath == "${HOME}" {
+        if normalizedPath == "$HOME" || normalizedPath == "${HOME}" {
             expandedHomePath = homeDirectoryPath
-        } else if trimmedPath.hasPrefix("$HOME/") {
-            expandedHomePath = homeDirectoryPath + String(trimmedPath.dropFirst("$HOME".count))
-        } else if trimmedPath.hasPrefix("${HOME}/") {
-            expandedHomePath = homeDirectoryPath + String(trimmedPath.dropFirst("${HOME}".count))
+        } else if normalizedPath.hasPrefix("$HOME/") {
+            expandedHomePath = homeDirectoryPath + String(normalizedPath.dropFirst("$HOME".count))
+        } else if normalizedPath.hasPrefix("${HOME}/") {
+            expandedHomePath = homeDirectoryPath + String(normalizedPath.dropFirst("${HOME}".count))
+        } else if isHomeRelativeShortcutPath(normalizedPath) {
+            expandedHomePath = homeDirectoryPath + "/" + normalizedPath
         } else {
-            expandedHomePath = trimmedPath
+            expandedHomePath = normalizedPath
         }
 
         return (expandedHomePath as NSString).expandingTildeInPath
+    }
+
+    private static func normalizedHomeAliasPath(from path: String) -> String {
+        let lowercasedPath = path.lowercased()
+        if lowercasedPath == "home" {
+            return "~"
+        }
+
+        let prefix = "home/"
+        guard lowercasedPath.hasPrefix(prefix) else {
+            return path
+        }
+
+        let suffixStart = path.index(path.startIndex, offsetBy: prefix.count)
+        return "~/" + String(path[suffixStart...])
+    }
+
+    private static func isHomeRelativeShortcutPath(_ path: String) -> Bool {
+        guard !path.isEmpty else {
+            return false
+        }
+
+        if path.contains("://") {
+            return false
+        }
+
+        if path.hasPrefix("/") || path.hasPrefix("~") || path.hasPrefix("$HOME") || path.hasPrefix("${HOME}") {
+            return false
+        }
+
+        if path == "." || path == ".." || path.hasPrefix("./") || path.hasPrefix("../") {
+            return false
+        }
+
+        return true
     }
 
     private static func relocatedPathToCurrentHome(from path: String, fileManager: FileManager) -> String? {

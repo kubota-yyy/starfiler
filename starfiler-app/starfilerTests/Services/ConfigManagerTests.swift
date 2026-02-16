@@ -90,6 +90,38 @@ final class ConfigManagerTests: XCTestCase {
         XCTAssertEqual(loaded.groups.first?.entries.first?.path, "~/workspace")
     }
 
+    func testSaveBookmarksConfigNormalizesHomeAliasToTilde() throws {
+        let config = BookmarksConfig(groups: [
+            BookmarkGroup(
+                name: "Default",
+                entries: [BookmarkEntry(displayName: "Home Alias", path: "Home", shortcutKey: "h")],
+                shortcutKey: nil,
+                isDefault: true
+            ),
+        ])
+
+        try sut.saveBookmarksConfig(config)
+        let loaded = sut.loadBookmarksConfig()
+
+        XCTAssertEqual(loaded.groups.first?.entries.first?.path, "~")
+    }
+
+    func testSaveBookmarksConfigNormalizesRelativePathToHomeTilde() throws {
+        let config = BookmarksConfig(groups: [
+            BookmarkGroup(
+                name: "Default",
+                entries: [BookmarkEntry(displayName: "Workspace", path: "workspace", shortcutKey: "w")],
+                shortcutKey: nil,
+                isDefault: true
+            ),
+        ])
+
+        try sut.saveBookmarksConfig(config)
+        let loaded = sut.loadBookmarksConfig()
+
+        XCTAssertEqual(loaded.groups.first?.entries.first?.path, "~/workspace")
+    }
+
     func testLoadBookmarksConfigMigratesLegacyAbsoluteUserPathToTilde() throws {
         let legacyConfig = BookmarksConfig(groups: [
             BookmarkGroup(

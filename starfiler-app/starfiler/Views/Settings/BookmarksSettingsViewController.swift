@@ -987,7 +987,8 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
             return
         }
 
-        let url = URL(fileURLWithPath: normalizedPath, isDirectory: true).standardizedFileURL
+        let resolvedPath = UserPaths.resolveBookmarkPath(normalizedPath)
+        let url = URL(fileURLWithPath: resolvedPath, isDirectory: true).standardizedFileURL
         Task { [weak self] in
             guard let self else {
                 return

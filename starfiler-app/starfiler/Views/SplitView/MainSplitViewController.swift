@@ -1205,7 +1205,8 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
             return nil
         }
 
-        let expandedPath = (sanitizedInput as NSString).expandingTildeInPath
+        let homeAliasNormalizedInput = normalizedHomeAliasPath(from: sanitizedInput)
+        let expandedPath = (homeAliasNormalizedInput as NSString).expandingTildeInPath
         let currentDirectory = viewModel.activePane.paneState.currentDirectory
         let rawURL: URL
         if expandedPath.hasPrefix("/") {
@@ -1225,6 +1226,21 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         }
 
         return normalizedURL.deletingLastPathComponent().standardizedFileURL
+    }
+
+    private func normalizedHomeAliasPath(from path: String) -> String {
+        let lowercasedPath = path.lowercased()
+        if lowercasedPath == "home" {
+            return "~"
+        }
+
+        let prefix = "home/"
+        guard lowercasedPath.hasPrefix(prefix) else {
+            return path
+        }
+
+        let suffixStart = path.index(path.startIndex, offsetBy: prefix.count)
+        return "~/" + String(path[suffixStart...])
     }
 
     private func stripSurroundingQuotes(from value: String) -> String {
@@ -1490,7 +1506,8 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     }
 
     private func persistSecurityScopedBookmark(for path: String) {
-        let bookmarkURL = URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
+        let resolvedPath = UserPaths.resolveBookmarkPath(path)
+        let bookmarkURL = URL(fileURLWithPath: resolvedPath, isDirectory: true).standardizedFileURL
         Task { [weak self] in
             guard let self else {
                 return
