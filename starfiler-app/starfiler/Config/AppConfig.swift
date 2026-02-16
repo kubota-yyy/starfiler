@@ -97,7 +97,7 @@ struct AppConfig: Codable, Sendable {
         init(from decoder: Decoder) throws {
             let container = try decoder.singleValueContainer()
             let rawValue = try container.decode(String.self)
-            self = SortColumn(rawValue: rawValue) ?? .name
+            self = SortColumn(rawValue: rawValue) ?? .date
         }
     }
 
@@ -133,8 +133,8 @@ struct AppConfig: Codable, Sendable {
 
     init(
         showHiddenFiles: Bool = true,
-        defaultSortColumn: SortColumn = .name,
-        defaultSortAscending: Bool = true,
+        defaultSortColumn: SortColumn = .date,
+        defaultSortAscending: Bool = false,
         previewPaneVisible: Bool = false,
         sidebarVisible: Bool = true,
         lastLeftPanePath: String = UserPaths.homeDirectoryPath,
@@ -228,8 +228,8 @@ struct AppConfig: Codable, Sendable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         showHiddenFiles = try container.decodeIfPresent(Bool.self, forKey: .showHiddenFiles) ?? true
-        defaultSortColumn = try container.decodeIfPresent(SortColumn.self, forKey: .defaultSortColumn) ?? .name
-        defaultSortAscending = try container.decodeIfPresent(Bool.self, forKey: .defaultSortAscending) ?? true
+        defaultSortColumn = try container.decodeIfPresent(SortColumn.self, forKey: .defaultSortColumn) ?? .date
+        defaultSortAscending = try container.decodeIfPresent(Bool.self, forKey: .defaultSortAscending) ?? false
         previewPaneVisible = try container.decodeIfPresent(Bool.self, forKey: .previewPaneVisible) ?? false
         sidebarVisible = try container.decodeIfPresent(Bool.self, forKey: .sidebarVisible) ?? true
         lastLeftPanePath = try container.decodeIfPresent(String.self, forKey: .lastLeftPanePath) ?? UserPaths.homeDirectoryPath
