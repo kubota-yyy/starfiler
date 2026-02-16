@@ -29,8 +29,8 @@ final class ConfigManagerTests: XCTestCase {
 
         // Default AppConfig values
         XCTAssertTrue(config.showHiddenFiles)
-        XCTAssertEqual(config.defaultSortColumn, .name)
-        XCTAssertTrue(config.defaultSortAscending)
+        XCTAssertEqual(config.defaultSortColumn, .date)
+        XCTAssertFalse(config.defaultSortAscending)
     }
 
     func testSaveAndLoadAppConfig() throws {
