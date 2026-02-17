@@ -3,6 +3,7 @@ import AppKit
 private final class PreviewPopupPanelController {
     private let previewViewController: PreviewPaneViewController
     private var panel: NSPanel?
+    private var escapeEventMonitor: Any?
 
     var onDismiss: (() -> Void)?
 
@@ -14,9 +15,13 @@ private final class PreviewPopupPanelController {
         self.previewViewController = previewViewController
     }
 
-    func show(relativeTo window: NSWindow) {
+    deinit {
+        stopEscapeMonitor()
+    }
+
+    func show(relativeTo window: NSWindow, preferredAnchorFrame: NSRect?) {
         let panel = panel ?? makePanel()
-        updateFrame(of: panel, relativeTo: window)
+        updateFrame(of: panel, relativeTo: window, preferredAnchorFrame: preferredAnchorFrame)
 
         if panel.parent !== window {
             if let parent = panel.parent {
@@ -26,6 +31,7 @@ private final class PreviewPopupPanelController {
         }
 
         panel.orderFront(nil)
+        startEscapeMonitor()
     }
 
     func dismiss() {
@@ -33,6 +39,7 @@ private final class PreviewPopupPanelController {
             return
         }
 
+        stopEscapeMonitor()
         panel.orderOut(nil)
         if let parent = panel.parent {
             parent.removeChildWindow(panel)
@@ -92,19 +99,59 @@ private final class PreviewPopupPanelController {
         return panel
     }
 
-    private func updateFrame(of panel: NSPanel, relativeTo window: NSWindow) {
+    private func updateFrame(of panel: NSPanel, relativeTo window: NSWindow, preferredAnchorFrame: NSRect?) {
         let displayFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? window.frame
-        let width = min(max(displayFrame.width * 0.64, 640), 1400)
+        let anchorFrame = preferredAnchorFrame ?? window.frame
+        let width = min(max(anchorFrame.width * 0.9, 600), min(displayFrame.width * 0.78, 1400))
         let height = min(max(displayFrame.height * 0.72, 420), 1000)
+        let margin = CGFloat(24)
+
+        let proposedX = anchorFrame.midX - (width / 2)
+        let proposedY = anchorFrame.midY - (height / 2)
+        let minX = displayFrame.minX + margin
+        let maxX = displayFrame.maxX - width - margin
+        let minY = displayFrame.minY + margin
+        let maxY = displayFrame.maxY - height - margin
+
         let frame = NSRect(
-            x: displayFrame.midX - (width / 2),
-            y: displayFrame.midY - (height / 2),
+            x: min(max(proposedX, minX), maxX),
+            y: min(max(proposedY, minY), maxY),
             width: width,
             height: height
         )
 
         panel.setFrame(frame, display: true)
         previewViewController.setPreferredFitViewportWidth(width)
+    }
+
+    private func startEscapeMonitor() {
+        guard escapeEventMonitor == nil else {
+            return
+        }
+
+        escapeEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, self.panel != nil else {
+                return event
+            }
+
+            guard let keyEvent = event.keyEvent,
+                  keyEvent.key == "Escape",
+                  keyEvent.modifiers.isEmpty else {
+                return event
+            }
+
+            self.dismiss()
+            return nil
+        }
+    }
+
+    private func stopEscapeMonitor() {
+        guard let escapeEventMonitor else {
+            return
+        }
+
+        NSEvent.removeMonitor(escapeEventMonitor)
+        self.escapeEventMonitor = nil
     }
 }
 
@@ -995,7 +1042,10 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
             return
         }
 
-        previewPopupPanelController.show(relativeTo: window)
+        previewPopupPanelController.show(
+            relativeTo: window,
+            preferredAnchorFrame: previewAnchorFrameInScreen(for: viewModel.activePaneSide)
+        )
     }
 
     private func isPreviewableSelectionAvailableForActivePane() -> Bool {
@@ -1008,6 +1058,45 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         }
 
         return selectedItem.url.isImageFile
+    }
+
+    private func previewAnchorFrameInScreen(for activePaneSide: PaneSide) -> NSRect? {
+        guard let window = view.window else {
+            return nil
+        }
+
+        let oppositeSide: PaneSide = activePaneSide == .left ? .right : .left
+        if let frame = paneFrameInScreen(for: oppositeSide, in: window) {
+            return frame
+        }
+        return paneFrameInScreen(for: activePaneSide, in: window)
+    }
+
+    private func paneFrameInScreen(for side: PaneSide, in window: NSWindow) -> NSRect? {
+        let isVisible: Bool
+        switch side {
+        case .left:
+            isVisible = !leftSplitItem.isCollapsed
+        case .right:
+            isVisible = !rightSplitItem.isCollapsed
+        }
+
+        guard isVisible else {
+            return nil
+        }
+
+        let paneView = paneViewController(for: side).view
+        guard paneView.window === window else {
+            return nil
+        }
+
+        let paneRectInWindow = paneView.convert(paneView.bounds, to: nil)
+        let paneRectInScreen = window.convertToScreen(paneRectInWindow)
+        guard paneRectInScreen.width > 1, paneRectInScreen.height > 1 else {
+            return nil
+        }
+
+        return paneRectInScreen
     }
 
     private func updatePaneStatus(side: PaneSide, path: String, itemCount: Int, markedCount: Int) {
