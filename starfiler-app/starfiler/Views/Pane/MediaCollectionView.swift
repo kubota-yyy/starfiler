@@ -201,7 +201,7 @@ final class MediaCollectionItem: NSCollectionViewItem {
         imageView.translatesAutoresizingMaskIntoConstraints = false
         imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.wantsLayer = true
-        imageView.layer?.cornerRadius = 6
+        imageView.layer?.cornerRadius = 0
         imageView.layer?.masksToBounds = true
         self.imageView = imageView
 
@@ -217,7 +217,7 @@ final class MediaCollectionItem: NSCollectionViewItem {
         markBadge.isHidden = true
 
         view.wantsLayer = true
-        view.layer?.cornerRadius = 8
+        view.layer?.cornerRadius = 0
         view.layer?.borderWidth = 1
         view.layer?.masksToBounds = true
 
@@ -226,9 +226,9 @@ final class MediaCollectionItem: NSCollectionViewItem {
         view.addSubview(markBadge)
 
         NSLayoutConstraint.activate([
-            imageView.topAnchor.constraint(equalTo: view.topAnchor, constant: 8),
-            imageView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
-            imageView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
+            imageView.topAnchor.constraint(equalTo: view.topAnchor),
+            imageView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            imageView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             imageView.heightAnchor.constraint(equalTo: imageView.widthAnchor, multiplier: 0.75),
 
             titleLabel.topAnchor.constraint(equalTo: imageView.bottomAnchor, constant: 6),
