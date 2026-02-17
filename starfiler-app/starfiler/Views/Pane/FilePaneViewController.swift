@@ -244,6 +244,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private let scrollView = NSScrollView()
     private let bookmarkJumpOverlayView = BookmarkJumpOverlayView()
     private let shortcutGuidePopupView = ShortcutGuidePopupView()
+    private let loadingOverlayView = NSVisualEffectView()
+    private let loadingIndicator = NSProgressIndicator()
+    private let loadingLabel = NSTextField(labelWithString: "")
     private let tableView = FileTableView()
     private let mediaCollectionLayout = NSCollectionViewFlowLayout()
     private let mediaCollectionView = MediaCollectionView()
@@ -268,6 +271,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private weak var activeContextMenu: NSMenu?
     private var contextMenuFilterText = ""
     private var currentDisplayMode: PaneDisplayMode = .browser
+    private var isLoadingOverlayVisible = false
     private var starEffectsEnabled = true
     private var animationEffectSettings = AnimationEffectSettings.allEnabled
     private var shortcutGuideEnabled = false
@@ -511,6 +515,28 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             return
         }
         shortcutGuidePopupView.isHidden = true
+    }
+
+    private func updateLoadingOverlay(with context: FilePaneViewModel.LoadingContext?) {
+        guard let context else {
+            guard isLoadingOverlayVisible else {
+                return
+            }
+            isLoadingOverlayVisible = false
+            loadingIndicator.stopAnimation(nil)
+            loadingOverlayView.isHidden = true
+            loadingOverlayView.alphaValue = 0
+            return
+        }
+
+        loadingLabel.stringValue = context.statusText
+        loadingOverlayView.toolTip = context.directory.path
+        if !isLoadingOverlayVisible {
+            isLoadingOverlayVisible = true
+            loadingOverlayView.isHidden = false
+            loadingOverlayView.alphaValue = 1
+            loadingIndicator.startAnimation(nil)
+        }
     }
 
     private func remainingSequence(of sequence: [KeyEvent], after prefix: [KeyEvent]) -> [KeyEvent] {
@@ -907,6 +933,30 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         bookmarkJumpOverlayView.isHidden = true
         shortcutGuidePopupView.isHidden = true
+
+        loadingOverlayView.translatesAutoresizingMaskIntoConstraints = false
+        loadingOverlayView.material = .hudWindow
+        loadingOverlayView.blendingMode = .withinWindow
+        loadingOverlayView.state = .active
+        loadingOverlayView.wantsLayer = true
+        loadingOverlayView.layer?.cornerRadius = 10
+        loadingOverlayView.layer?.borderWidth = 1
+        loadingOverlayView.isHidden = true
+        loadingOverlayView.alphaValue = 0
+
+        loadingIndicator.translatesAutoresizingMaskIntoConstraints = false
+        loadingIndicator.style = .spinning
+        loadingIndicator.controlSize = .regular
+        loadingIndicator.isDisplayedWhenStopped = false
+
+        loadingLabel.translatesAutoresizingMaskIntoConstraints = false
+        loadingLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        loadingLabel.alignment = .left
+        loadingLabel.maximumNumberOfLines = 1
+        loadingLabel.lineBreakMode = .byTruncatingTail
+
+        loadingOverlayView.addSubview(loadingIndicator)
+        loadingOverlayView.addSubview(loadingLabel)
     }
 
     private func configureTableView() {
@@ -1008,6 +1058,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         view.addSubview(scrollView)
         view.addSubview(bookmarkJumpOverlayView)
         view.addSubview(shortcutGuidePopupView)
+        view.addSubview(loadingOverlayView)
         scrollView.setAccessibilityIdentifier("filePane.scrollView")
 
         navigationStackView.addArrangedSubview(backPeekButton)
@@ -1070,13 +1121,28 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             shortcutGuidePopupView.widthAnchor.constraint(greaterThanOrEqualToConstant: 320),
             shortcutGuidePopupView.widthAnchor.constraint(lessThanOrEqualToConstant: 980),
             shortcutGuidePopupView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 12),
-            shortcutGuidePopupView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -12)
+            shortcutGuidePopupView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -12),
+
+            loadingOverlayView.centerXAnchor.constraint(equalTo: scrollView.centerXAnchor),
+            loadingOverlayView.centerYAnchor.constraint(equalTo: scrollView.centerYAnchor),
+            loadingOverlayView.widthAnchor.constraint(greaterThanOrEqualToConstant: 200),
+            loadingOverlayView.widthAnchor.constraint(lessThanOrEqualToConstant: 380)
         ])
 
         NSLayoutConstraint.activate([
             breadcrumbStackView.leadingAnchor.constraint(equalTo: breadcrumbContainerView.leadingAnchor),
             breadcrumbStackView.trailingAnchor.constraint(lessThanOrEqualTo: breadcrumbContainerView.trailingAnchor),
-            breadcrumbStackView.centerYAnchor.constraint(equalTo: breadcrumbContainerView.centerYAnchor)
+            breadcrumbStackView.centerYAnchor.constraint(equalTo: breadcrumbContainerView.centerYAnchor),
+
+            loadingIndicator.leadingAnchor.constraint(equalTo: loadingOverlayView.leadingAnchor, constant: 14),
+            loadingIndicator.topAnchor.constraint(equalTo: loadingOverlayView.topAnchor, constant: 10),
+            loadingIndicator.bottomAnchor.constraint(equalTo: loadingOverlayView.bottomAnchor, constant: -10),
+            loadingIndicator.widthAnchor.constraint(equalToConstant: 16),
+            loadingIndicator.heightAnchor.constraint(equalToConstant: 16),
+
+            loadingLabel.leadingAnchor.constraint(equalTo: loadingIndicator.trailingAnchor, constant: 10),
+            loadingLabel.trailingAnchor.constraint(equalTo: loadingOverlayView.trailingAnchor, constant: -14),
+            loadingLabel.centerYAnchor.constraint(equalTo: loadingIndicator.centerYAnchor)
         ])
     }
 
@@ -1244,6 +1310,10 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             self?.onDirectoryLoadFailed?(directory, error)
         }
 
+        viewModel.onLoadingStateChanged = { [weak self] context in
+            self?.updateLoadingOverlay(with: context)
+        }
+
         publishStatus()
         publishSelection()
         updateColumnHeaderTitles()
@@ -1407,6 +1477,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         scrollView.alphaValue = isPaneActive ? palette.activePaneAlpha : palette.inactivePaneAlpha
         bookmarkJumpOverlayView.applyPalette(palette, backgroundOpacity: backgroundOpacity)
         shortcutGuidePopupView.applyPalette(palette, backgroundOpacity: backgroundOpacity)
+        loadingLabel.textColor = palette.primaryTextColor
+        loadingOverlayView.layer?.backgroundColor = palette.windowBackgroundColor.withAlphaComponent(0.72).cgColor
+        loadingOverlayView.layer?.borderColor = palette.starAccentColor.withAlphaComponent(0.35).cgColor
     }
 
     @objc

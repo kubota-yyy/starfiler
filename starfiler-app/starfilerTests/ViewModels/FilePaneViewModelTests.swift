@@ -767,6 +767,85 @@ final class FilePaneViewModelTests: XCTestCase {
         XCTAssertEqual(capturedURL, newDir.standardizedFileURL)
     }
 
+    // MARK: - Loading Callback
+
+    func testOnLoadingStateChangedFiresWhenNavigatingAndCompleting() async {
+        let destination = URL(fileURLWithPath: "/tmp/other")
+        let expectedItems = sampleItems
+        fileSystem.contentsOfDirectoryHandler = { url in
+            if url.standardizedFileURL == destination.standardizedFileURL {
+                try await Task.sleep(for: .milliseconds(150))
+            }
+            return expectedItems
+        }
+
+        let sut = makeSUT()
+        await waitForLoad()
+
+        var capturedStates: [FilePaneViewModel.LoadingContext?] = []
+        sut.onLoadingStateChanged = { context in
+            capturedStates.append(context)
+        }
+
+        sut.navigate(to: destination)
+
+        await waitForCondition(timeout: 2.0, description: "Loading state transitions for navigation") {
+            capturedStates.contains(where: { $0 != nil }) &&
+                capturedStates.last.flatMap({ $0 }) == nil
+        }
+
+        guard let startState = capturedStates.compactMap(\.self).first else {
+            XCTFail("Expected loading start state")
+            return
+        }
+
+        XCTAssertEqual(startState.directory, destination.standardizedFileURL)
+        XCTAssertEqual(startState.mode, .browser)
+        XCTAssertFalse(startState.isRecursive)
+        XCTAssertEqual(startState.statusText, "Loading files...")
+    }
+
+    func testOnLoadingStateChangedReportsMediaRecursiveContext() async {
+        fileSystem.mediaItemsHandler = { [weak self] _, recursive, _ in
+            guard let self else {
+                return []
+            }
+            if recursive {
+                try await Task.sleep(for: .milliseconds(150))
+            }
+            return [self.makeFileItem(name: recursive ? "recursive.jpg" : "single.jpg")]
+        }
+
+        let sut = makeSUT()
+        await waitForLoad()
+
+        sut.setDisplayMode(.media)
+        await waitForCondition(timeout: 2.0, description: "Media mode base load") {
+            sut.displayMode == .media && self.fileSystem.mediaItemsCallCount >= 1
+        }
+
+        var capturedStates: [FilePaneViewModel.LoadingContext?] = []
+        sut.onLoadingStateChanged = { context in
+            capturedStates.append(context)
+        }
+
+        sut.setMediaRecursiveEnabled(true)
+
+        await waitForCondition(timeout: 2.0, description: "Loading state transitions for media recursive") {
+            capturedStates.contains(where: { $0 != nil }) &&
+                capturedStates.last.flatMap({ $0 }) == nil
+        }
+
+        guard let startState = capturedStates.compactMap(\.self).first else {
+            XCTFail("Expected loading start state")
+            return
+        }
+
+        XCTAssertEqual(startState.mode, .media)
+        XCTAssertTrue(startState.isRecursive)
+        XCTAssertEqual(startState.statusText, "Loading media recursively...")
+    }
+
     // MARK: - Items Changed Callback
 
     func testOnItemsChangedCallbackFires() async {
