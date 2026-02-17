@@ -102,7 +102,10 @@ final class FileTableView: NSTableView {
         case .pending:
             return
         case .unhandled:
-            break
+            if shouldFallbackToPaneSwitch(for: keyEvent),
+               keyActionDelegate?.fileTableView(self, didTrigger: .switchPane) == true {
+                return
+            }
         }
 
         super.keyDown(with: event)
@@ -242,5 +245,14 @@ final class FileTableView: NSTableView {
         // Table input should always run in normal mode.
         // Filter mode is only valid while the search field is actively editing.
         keyInterpreter.setMode(.normal)
+    }
+
+    private func shouldFallbackToPaneSwitch(for event: KeyEvent) -> Bool {
+        guard event.key == "Tab" else {
+            return false
+        }
+
+        let unsupportedModifiers = event.modifiers.subtracting([.shift])
+        return unsupportedModifiers.isEmpty
     }
 }

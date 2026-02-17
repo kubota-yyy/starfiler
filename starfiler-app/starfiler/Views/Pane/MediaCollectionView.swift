@@ -84,7 +84,10 @@ final class MediaCollectionView: NSCollectionView {
         case .pending:
             return
         case .unhandled:
-            break
+            if shouldFallbackToPaneSwitch(for: keyEvent),
+               keyActionDelegate?.mediaCollectionView(self, didTrigger: .switchPane) == true {
+                return
+            }
         }
 
         super.keyDown(with: event)
@@ -176,6 +179,15 @@ final class MediaCollectionView: NSCollectionView {
         }
 
         if event.key == "/" {
+            return false
+        }
+
+        let unsupportedModifiers = event.modifiers.subtracting([.shift])
+        return unsupportedModifiers.isEmpty
+    }
+
+    private func shouldFallbackToPaneSwitch(for event: KeyEvent) -> Bool {
+        guard event.key == "Tab" else {
             return false
         }
 
