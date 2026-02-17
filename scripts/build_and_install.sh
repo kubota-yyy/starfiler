@@ -10,7 +10,9 @@ SCHEME="${SCHEME:-starfiler}"
 CONFIGURATION="${CONFIGURATION:-Debug}"
 DERIVED_DATA_PATH="${DERIVED_DATA_PATH:-$PROJECT_DIR/.derivedData}"
 DEVELOPMENT_TEAM="${DEVELOPMENT_TEAM:-}"
-CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY:-Apple Development}"
+CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY:-}"
+CODE_SIGN_STYLE_SETTING="${CODE_SIGN_STYLE:-}"
+PROVISIONING_PROFILE_SPECIFIER="${PROVISIONING_PROFILE_SPECIFIER:-}"
 APP_NAME="${APP_NAME:-Starfiler.app}"
 APP_SOURCE="$DERIVED_DATA_PATH/Build/Products/$CONFIGURATION/$APP_NAME"
 APP_DEST="${APP_DEST:-/Applications/$APP_NAME}"
@@ -70,8 +72,10 @@ fi
 echo "[build] scheme=$SCHEME configuration=$CONFIGURATION"
 echo "[build] derivedData=$DERIVED_DATA_PATH"
 
+IDENTITY_OUTPUT="$({ /usr/bin/security find-identity -v -p codesigning 2>/dev/null || true; })"
+
 if [[ -z "$DEVELOPMENT_TEAM" ]]; then
-  AUTO_DETECTED_TEAM="$({ /usr/bin/security find-identity -v -p codesigning 2>/dev/null || true; } \
+  AUTO_DETECTED_TEAM="$(printf '%s\n' "$IDENTITY_OUTPUT" \
     | /usr/bin/grep -Eo '\([A-Z0-9]{10}\)' \
     | /usr/bin/tr -d '()' \
     | /usr/bin/sort -u || true)"
@@ -86,6 +90,38 @@ if [[ -z "$DEVELOPMENT_TEAM" ]]; then
   fi
 fi
 
+identity_available_for_team() {
+  local identity_kind="$1"
+  if [[ -n "$DEVELOPMENT_TEAM" ]]; then
+    printf '%s\n' "$IDENTITY_OUTPUT" | /usr/bin/grep -Eq "\"$identity_kind: .*\($DEVELOPMENT_TEAM\)\""
+  else
+    printf '%s\n' "$IDENTITY_OUTPUT" | /usr/bin/grep -Fq "\"$identity_kind:"
+  fi
+}
+
+if [[ -n "$DEVELOPMENT_TEAM" ]] && [[ -z "$CODE_SIGN_IDENTITY" ]]; then
+  if identity_available_for_team "Apple Development"; then
+    CODE_SIGN_IDENTITY="Apple Development"
+    echo "[sign] auto-selected CODE_SIGN_IDENTITY=$CODE_SIGN_IDENTITY"
+  elif identity_available_for_team "Mac Development"; then
+    CODE_SIGN_IDENTITY="Mac Development"
+    echo "[sign] auto-selected CODE_SIGN_IDENTITY=$CODE_SIGN_IDENTITY"
+  elif identity_available_for_team "Apple Distribution"; then
+    CODE_SIGN_IDENTITY="Apple Distribution"
+    echo "[sign] auto-selected CODE_SIGN_IDENTITY=$CODE_SIGN_IDENTITY"
+  else
+    echo "[sign] no matching identity found for DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM; falling back to ad-hoc signing"
+  fi
+fi
+
+if [[ -n "$DEVELOPMENT_TEAM" ]] && [[ -n "$CODE_SIGN_IDENTITY" ]] && [[ -z "$CODE_SIGN_STYLE_SETTING" ]]; then
+  if [[ "$CODE_SIGN_IDENTITY" == "Apple Distribution" ]]; then
+    CODE_SIGN_STYLE_SETTING="Manual"
+  else
+    CODE_SIGN_STYLE_SETTING="Automatic"
+  fi
+fi
+
 XCODEBUILD_ARGS=(
   -project "$PROJECT_FILE"
   -scheme "$SCHEME"
@@ -94,12 +130,16 @@ XCODEBUILD_ARGS=(
   build
 )
 
-if [[ -n "$DEVELOPMENT_TEAM" ]]; then
+if [[ -n "$DEVELOPMENT_TEAM" ]] && [[ -n "$CODE_SIGN_IDENTITY" ]] && [[ -n "$CODE_SIGN_STYLE_SETTING" ]]; then
+  echo "[sign] using CODE_SIGN_IDENTITY=$CODE_SIGN_IDENTITY CODE_SIGN_STYLE=$CODE_SIGN_STYLE_SETTING"
   XCODEBUILD_ARGS+=(
     "DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM"
     "CODE_SIGN_IDENTITY=$CODE_SIGN_IDENTITY"
-    "CODE_SIGN_STYLE=Automatic"
+    "CODE_SIGN_STYLE=$CODE_SIGN_STYLE_SETTING"
   )
+  if [[ "$CODE_SIGN_STYLE_SETTING" == "Manual" ]]; then
+    XCODEBUILD_ARGS+=("PROVISIONING_PROFILE_SPECIFIER=$PROVISIONING_PROFILE_SPECIFIER")
+  fi
 fi
 
 if [[ "$QUIET" == true ]]; then
