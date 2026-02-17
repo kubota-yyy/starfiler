@@ -11,6 +11,7 @@ final class AppearanceSettingsViewController: NSViewController {
     var onSidebarRecentItemsLimitChanged: ((Int) -> Void)?
     var onStarEffectsChanged: ((Bool) -> Void)?
     var onAnimationEffectSettingsChanged: ((AnimationEffectSettings) -> Void)?
+    var onShortcutGuideChanged: ((Bool) -> Void)?
     var onShootingStarTestRequested: (() -> Void)?
 
     private let titleLabel = NSTextField(labelWithString: "Theme")
@@ -22,6 +23,7 @@ final class AppearanceSettingsViewController: NSViewController {
     private let transparentOpacitySlider = NSSlider(value: 0.7, minValue: 0.15, maxValue: 1.0, target: nil, action: nil)
     private let transparentOpacityValueLabel = NSTextField(labelWithString: "")
     private let actionFeedbackButton = NSButton(checkboxWithTitle: "Show Action Feedback Toasts", target: nil, action: nil)
+    private let shortcutGuideButton = NSButton(checkboxWithTitle: "Show Shortcut Guide Popup", target: nil, action: nil)
     private let starEffectsButton = NSButton(checkboxWithTitle: "Enable Star Effects", target: nil, action: nil)
     private let shootingStarTestButton = NSButton(title: "Play Shooting Star Test", target: nil, action: nil)
     private var effectButtons: [(kind: AnimationEffectSettings.EffectKind, button: NSButton)] = []
@@ -56,6 +58,7 @@ final class AppearanceSettingsViewController: NSViewController {
     private var sidebarRecentItemsLimit: Int
     private var isStarEffectsEnabled: Bool
     private var animationEffectSettings: AnimationEffectSettings
+    private var isShortcutGuideEnabled: Bool
 
     init(
         selectedTheme: FilerTheme,
@@ -67,7 +70,8 @@ final class AppearanceSettingsViewController: NSViewController {
         initialSidebarFavoritesVisible: Bool,
         initialSidebarRecentItemsLimit: Int,
         initialStarEffectsEnabled: Bool = true,
-        initialAnimationEffectSettings: AnimationEffectSettings = .allEnabled
+        initialAnimationEffectSettings: AnimationEffectSettings = .allEnabled,
+        initialShortcutGuideEnabled: Bool = false
     ) {
         self.selectedTheme = selectedTheme
         self.isTransparentBackgroundEnabled = isTransparentBackgroundEnabled
@@ -79,6 +83,7 @@ final class AppearanceSettingsViewController: NSViewController {
         self.sidebarRecentItemsLimit = Self.clampedSidebarRecentItemsLimit(initialSidebarRecentItemsLimit)
         self.isStarEffectsEnabled = initialStarEffectsEnabled
         self.animationEffectSettings = initialAnimationEffectSettings
+        self.isShortcutGuideEnabled = initialShortcutGuideEnabled
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -140,6 +145,11 @@ final class AppearanceSettingsViewController: NSViewController {
         actionFeedbackButton.target = self
         actionFeedbackButton.action = #selector(actionFeedbackChanged(_:))
         actionFeedbackButton.state = isActionFeedbackEnabled ? .on : .off
+
+        shortcutGuideButton.translatesAutoresizingMaskIntoConstraints = false
+        shortcutGuideButton.target = self
+        shortcutGuideButton.action = #selector(shortcutGuideChanged(_:))
+        shortcutGuideButton.state = isShortcutGuideEnabled ? .on : .off
 
         starEffectsButton.translatesAutoresizingMaskIntoConstraints = false
         starEffectsButton.target = self
@@ -235,6 +245,7 @@ final class AppearanceSettingsViewController: NSViewController {
         view.addSubview(transparentOpacitySlider)
         view.addSubview(transparentOpacityValueLabel)
         view.addSubview(actionFeedbackButton)
+        view.addSubview(shortcutGuideButton)
         view.addSubview(starEffectsButton)
 
         for (_, button) in effectButtons {
@@ -288,8 +299,11 @@ final class AppearanceSettingsViewController: NSViewController {
             actionFeedbackButton.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             actionFeedbackButton.topAnchor.constraint(equalTo: transparentOpacitySlider.bottomAnchor, constant: 10),
 
+            shortcutGuideButton.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            shortcutGuideButton.topAnchor.constraint(equalTo: actionFeedbackButton.bottomAnchor, constant: 6),
+
             starEffectsButton.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            starEffectsButton.topAnchor.constraint(equalTo: actionFeedbackButton.bottomAnchor, constant: 6),
+            starEffectsButton.topAnchor.constraint(equalTo: shortcutGuideButton.bottomAnchor, constant: 6),
 
             shootingStarTestButton.leadingAnchor.constraint(greaterThanOrEqualTo: starEffectsButton.trailingAnchor, constant: 12),
             shootingStarTestButton.centerYAnchor.constraint(equalTo: starEffectsButton.centerYAnchor),
@@ -375,6 +389,12 @@ final class AppearanceSettingsViewController: NSViewController {
     private func actionFeedbackChanged(_ sender: NSButton) {
         isActionFeedbackEnabled = sender.state == .on
         onActionFeedbackChanged?(isActionFeedbackEnabled)
+    }
+
+    @objc
+    private func shortcutGuideChanged(_ sender: NSButton) {
+        isShortcutGuideEnabled = sender.state == .on
+        onShortcutGuideChanged?(isShortcutGuideEnabled)
     }
 
     @objc

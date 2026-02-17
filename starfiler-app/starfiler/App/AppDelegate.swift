@@ -1,5 +1,44 @@
 import AppKit
 
+private struct LaunchOptions {
+    let isUITest: Bool
+    let sandboxRoot: URL?
+    let configRoot: URL?
+    let disableAnimations: Bool
+
+    init(arguments: [String] = ProcessInfo.processInfo.arguments) {
+        isUITest = arguments.contains("--uitest")
+        sandboxRoot = Self.pathValue(for: "--sandbox-root", arguments: arguments).map {
+            URL(fileURLWithPath: $0, isDirectory: true).standardizedFileURL
+        }
+        configRoot = Self.pathValue(for: "--config-root", arguments: arguments).map {
+            URL(fileURLWithPath: $0, isDirectory: true).standardizedFileURL
+        }
+        disableAnimations = arguments.contains("--disable-animations")
+    }
+
+    private static func pathValue(for option: String, arguments: [String]) -> String? {
+        guard let index = arguments.firstIndex(of: option), index + 1 < arguments.count else {
+            return nil
+        }
+        return arguments[index + 1]
+    }
+}
+
+private actor UITestSecurityScopedBookmarkService: SecurityScopedBookmarkProviding {
+    func loadBookmarks() async throws {}
+
+    func hasBookmarks() async throws -> Bool { true }
+
+    func saveBookmark(for url: URL) async throws {}
+
+    func resolveBookmark(for url: URL) async throws -> URL? { url.standardizedFileURL }
+
+    func startAccessing(_ url: URL) async throws {}
+
+    func stopAccessing(_ url: URL) async {}
+}
+
 @main
 enum StarfilerMain {
     private static let delegate = AppDelegate()
@@ -12,12 +51,16 @@ enum StarfilerMain {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private let launchOptions = LaunchOptions()
     private var mainWindowController: MainWindowController?
     private var settingsWindowController: SettingsWindowController?
     private var launchTask: Task<Void, Never>?
     private var pendingOpenDirectories: [URL] = []
     private var fileClipboardChangeCount: Int?
     private let securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared
+    private lazy var activeSecurityScopedBookmarkService: any SecurityScopedBookmarkProviding = {
+        launchOptions.isUITest ? UITestSecurityScopedBookmarkService() : securityScopedBookmarkService
+    }()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMainMenu()
@@ -44,18 +87,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     private func launchMainWindow() async {
         do {
-            try await securityScopedBookmarkService.loadBookmarks()
+            try await activeSecurityScopedBookmarkService.loadBookmarks()
 
-            let hasBookmarks = try await securityScopedBookmarkService.hasBookmarks()
-            if !hasBookmarks {
+            let hasBookmarks = try await activeSecurityScopedBookmarkService.hasBookmarks()
+            if !hasBookmarks, !launchOptions.isUITest {
                 guard let selectedStartupDisk = requestStartupDiskAccess() else {
                     NSApp.terminate(nil)
                     return
                 }
-                try await securityScopedBookmarkService.saveBookmark(for: selectedStartupDisk)
+                try await activeSecurityScopedBookmarkService.saveBookmark(for: selectedStartupDisk)
             }
 
-            let controller = MainWindowController(securityScopedBookmarkService: securityScopedBookmarkService)
+            let initialDirectory = launchOptions.sandboxRoot ?? UserPaths.homeDirectoryURL
+            let configManager = makeConfigManagerOverride()
+            let controller = MainWindowController(
+                securityScopedBookmarkService: activeSecurityScopedBookmarkService,
+                initialDirectory: initialDirectory,
+                configManager: configManager,
+                disableAnimations: launchOptions.disableAnimations,
+                persistLaunchMetadata: !launchOptions.isUITest
+            )
             mainWindowController = controller
             controller.showWindow(self)
             processPendingOpenDirectories()
@@ -64,6 +115,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             presentStartupError(error)
         }
+    }
+
+    private func makeConfigManagerOverride() -> ConfigManager? {
+        guard let configRoot = launchOptions.configRoot else {
+            return nil
+        }
+        return ConfigManager(configDirectory: configRoot)
     }
 
     @MainActor
@@ -561,6 +619,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let currentSidebarRecentItemsLimit = mainWindowController?.currentSidebarRecentItemsLimit ?? 10
         let currentStarEffectsEnabled = mainWindowController?.isStarEffectsEnabled ?? true
         let currentAnimationEffectSettings = mainWindowController?.currentAnimationEffectSettings ?? .allEnabled
+        let currentShortcutGuideEnabled = mainWindowController?.isShortcutGuideEnabled ?? false
 
         let appearanceVC = AppearanceSettingsViewController(
             selectedTheme: currentTheme,
@@ -572,7 +631,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             initialSidebarFavoritesVisible: currentSidebarFavoritesVisible,
             initialSidebarRecentItemsLimit: currentSidebarRecentItemsLimit,
             initialStarEffectsEnabled: currentStarEffectsEnabled,
-            initialAnimationEffectSettings: currentAnimationEffectSettings
+            initialAnimationEffectSettings: currentAnimationEffectSettings,
+            initialShortcutGuideEnabled: currentShortcutGuideEnabled
         )
         appearanceVC.onThemeChanged = { [weak self] theme in
             self?.mainWindowController?.updateFilerTheme(theme)
@@ -604,6 +664,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appearanceVC.onAnimationEffectSettingsChanged = { [weak self] settings in
             self?.mainWindowController?.updateAnimationEffectSettings(settings)
         }
+        appearanceVC.onShortcutGuideChanged = { [weak self] enabled in
+            self?.mainWindowController?.updateShortcutGuideEnabled(enabled)
+        }
         appearanceVC.onShootingStarTestRequested = { [weak self] in
             self?.playShootingStarTest()
         }
@@ -614,7 +677,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let bookmarksVC = BookmarksSettingsViewController(
-            securityScopedBookmarkService: securityScopedBookmarkService
+            securityScopedBookmarkService: activeSecurityScopedBookmarkService
         )
         bookmarksVC.onBookmarksChanged = { [weak self] in
             self?.mainWindowController?.reloadBookmarksConfig()

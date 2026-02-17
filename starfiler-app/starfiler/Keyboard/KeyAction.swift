@@ -71,6 +71,21 @@ enum KeyAction: String, Codable, CaseIterable, Sendable {
 }
 
 extension KeyAction {
+    var displayName: String {
+        let spaced = rawValue.reduce(into: "") { partialResult, character in
+            if character.isUppercase, !partialResult.isEmpty {
+                partialResult.append(" ")
+            }
+            partialResult.append(character)
+        }
+
+        guard let first = spaced.first else {
+            return rawValue
+        }
+
+        return first.uppercased() + spaced.dropFirst()
+    }
+
     static func fromConfigName(_ rawName: String) -> KeyAction? {
         if let exact = KeyAction(rawValue: rawName) {
             return exact

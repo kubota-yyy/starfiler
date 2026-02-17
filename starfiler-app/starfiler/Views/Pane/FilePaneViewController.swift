@@ -24,6 +24,115 @@ private final class CenteredSearchFieldCell: NSSearchFieldCell {
     override func drawingRect(forBounds rect: NSRect) -> NSRect {
         verticallyCenteredRect(super.drawingRect(forBounds: rect))
     }
+
+    override func titleRect(forBounds rect: NSRect) -> NSRect {
+        verticallyCenteredRect(super.titleRect(forBounds: rect))
+    }
+
+    override func select(
+        withFrame frame: NSRect,
+        in controlView: NSView,
+        editor textObj: NSText,
+        delegate anObject: Any?,
+        start selStart: Int,
+        length selLength: Int
+    ) {
+        super.select(
+            withFrame: searchTextRect(forBounds: frame),
+            in: controlView,
+            editor: textObj,
+            delegate: anObject,
+            start: selStart,
+            length: selLength
+        )
+    }
+
+    override func edit(
+        withFrame frame: NSRect,
+        in controlView: NSView,
+        editor textObj: NSText,
+        delegate anObject: Any?,
+        event: NSEvent?
+    ) {
+        super.edit(
+            withFrame: searchTextRect(forBounds: frame),
+            in: controlView,
+            editor: textObj,
+            delegate: anObject,
+            event: event
+        )
+    }
+}
+
+private final class ShortcutGuidePopupView: NSView {
+    private let titleLabel = NSTextField(labelWithString: "")
+    private let subtitleLabel = NSTextField(labelWithString: "")
+    private let candidatesLabel = NSTextField(wrappingLabelWithString: "")
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        configureView()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        configureView()
+    }
+
+    func update(title: String, subtitle: String, candidates: [String]) {
+        titleLabel.stringValue = title
+        subtitleLabel.stringValue = subtitle
+        subtitleLabel.isHidden = subtitle.isEmpty
+        candidatesLabel.stringValue = candidates.joined(separator: "\n")
+    }
+
+    func applyPalette(_ palette: FilerThemePalette, backgroundOpacity: CGFloat) {
+        let alpha = min(max(0.55 + (backgroundOpacity * 0.2), 0.45), 0.85)
+        layer?.backgroundColor = palette.windowBackgroundColor.withAlphaComponent(alpha).cgColor
+        layer?.borderColor = palette.starAccentColor.withAlphaComponent(0.45).cgColor
+        titleLabel.textColor = palette.primaryTextColor
+        subtitleLabel.textColor = palette.secondaryTextColor
+        candidatesLabel.textColor = palette.primaryTextColor
+    }
+
+    private func configureView() {
+        translatesAutoresizingMaskIntoConstraints = false
+        wantsLayer = true
+        layer?.cornerRadius = 10
+        layer?.borderWidth = 1
+        layer?.masksToBounds = true
+
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.font = .systemFont(ofSize: 12, weight: .semibold)
+
+        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        subtitleLabel.font = .systemFont(ofSize: 11, weight: .regular)
+        subtitleLabel.lineBreakMode = .byTruncatingTail
+
+        candidatesLabel.translatesAutoresizingMaskIntoConstraints = false
+        candidatesLabel.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+        candidatesLabel.maximumNumberOfLines = 12
+        candidatesLabel.lineBreakMode = .byTruncatingTail
+
+        addSubview(titleLabel)
+        addSubview(subtitleLabel)
+        addSubview(candidatesLabel)
+
+        NSLayoutConstraint.activate([
+            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+
+            subtitleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            subtitleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
+
+            candidatesLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            candidatesLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            candidatesLabel.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 8),
+            candidatesLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
+        ])
+    }
 }
 
 final class FilePaneViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSCollectionViewDataSource, NSCollectionViewDelegate, NSCollectionViewDelegateFlowLayout, NSMenuDelegate, KeyActionDelegate, MediaKeyActionDelegate, NSTextFieldDelegate, NSSearchFieldDelegate {
@@ -110,11 +219,11 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private let mediaRecursiveButton = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let mediaIconSizeSlider = NSSlider(value: 16, minValue: 12, maxValue: 40, target: nil, action: nil)
     private let mediaIconSizeValueLabel = NSTextField(labelWithString: "16 px")
-    private let searchModeIconView = NSImageView()
     private let searchField = NSSearchField()
     private lazy var contextMenuFilterField: NSSearchField = makeContextMenuFilterField()
     private let scrollView = NSScrollView()
     private let bookmarkJumpOverlayView = BookmarkJumpOverlayView()
+    private let shortcutGuidePopupView = ShortcutGuidePopupView()
     private let tableView = FileTableView()
     private let mediaCollectionLayout = NSCollectionViewFlowLayout()
     private let mediaCollectionView = MediaCollectionView()
@@ -141,6 +250,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private var currentDisplayMode: PaneDisplayMode = .browser
     private var starEffectsEnabled = true
     private var animationEffectSettings = AnimationEffectSettings.allEnabled
+    private var shortcutGuideEnabled = false
+    private let disableAnimationsForUITest = ProcessInfo.processInfo.arguments.contains("--disable-animations")
     private weak var lastCursorRippleLayer: CALayer?
     private var isSearchFieldFocused = false
 
@@ -172,11 +283,16 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         containerView.onAppearanceChanged = { [weak self] in
             self?.updateActiveAppearance()
         }
+        containerView.setAccessibilityIdentifier("filePane.container")
         view = containerView
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        if disableAnimationsForUITest {
+            starEffectsEnabled = false
+            animationEffectSettings = .allDisabled
+        }
         configureContainerAppearance()
         configureTableView()
         configureCollectionView()
@@ -258,17 +374,31 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         keybindingManager = KeybindingManager()
         tableView.reloadKeybindings()
         mediaCollectionView.reloadKeybindings()
+        hideShortcutGuide()
     }
 
     func setStarEffectsEnabled(_ enabled: Bool) {
-        starEffectsEnabled = enabled
+        starEffectsEnabled = disableAnimationsForUITest ? false : enabled
         tableView.reloadData()
         mediaCollectionView.reloadData()
         updateActiveAppearance()
     }
 
     func setAnimationEffectSettings(_ settings: AnimationEffectSettings) {
-        animationEffectSettings = settings
+        animationEffectSettings = disableAnimationsForUITest ? .allDisabled : settings
+    }
+
+    func setShortcutGuideEnabled(_ enabled: Bool) {
+        shortcutGuideEnabled = enabled
+        guard isViewLoaded else {
+            return
+        }
+
+        tableView.shortcutGuideEnabled = enabled
+        mediaCollectionView.shortcutGuideEnabled = enabled
+        if !enabled {
+            hideShortcutGuide()
+        }
     }
 
     func setSpotlightSearchScope(_ scope: SpotlightSearchScope) {
@@ -285,6 +415,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private func showBookmarkJumpHint(_ hint: BookmarkJumpHint) {
+        hideShortcutGuide()
         bookmarkJumpOverlayView.update(with: hint)
         bookmarkJumpOverlayView.isHidden = false
 
@@ -319,6 +450,127 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             })
         } else {
             bookmarkJumpOverlayView.isHidden = true
+        }
+    }
+
+    private func showShortcutGuide(
+        candidates: [KeybindingHintCandidate],
+        typedSequence: [KeyEvent],
+        initialModifiers: KeyModifiers
+    ) {
+        guard shortcutGuideEnabled, !candidates.isEmpty else {
+            hideShortcutGuide()
+            return
+        }
+
+        let maxRows = 12
+        let visibleCandidates = Array(candidates.prefix(maxRows))
+
+        var rows = visibleCandidates.map { candidate -> String in
+            let remaining = remainingSequence(of: candidate.sequence, after: typedSequence)
+            let sequenceToRender = remaining.isEmpty ? candidate.sequence : remaining
+            let renderedSequence = renderShortcutSequence(sequenceToRender)
+            return "\(renderedSequence)  \(candidate.action.displayName)"
+        }
+
+        if candidates.count > maxRows {
+            rows.append("... +\(candidates.count - maxRows) more")
+        }
+
+        let subtitle: String
+        if typedSequence.isEmpty, !initialModifiers.isEmpty {
+            subtitle = "Modifier: \(renderModifierSymbols(initialModifiers))"
+        } else if !typedSequence.isEmpty {
+            subtitle = "Input: \(renderShortcutSequence(typedSequence))"
+        } else {
+            subtitle = ""
+        }
+
+        let title = candidates.count == 1 ? "Shortcut Candidate" : "Shortcut Candidates (\(candidates.count))"
+        shortcutGuidePopupView.update(title: title, subtitle: subtitle, candidates: rows)
+        shortcutGuidePopupView.isHidden = false
+    }
+
+    private func hideShortcutGuide() {
+        guard !shortcutGuidePopupView.isHidden else {
+            return
+        }
+        shortcutGuidePopupView.isHidden = true
+    }
+
+    private func remainingSequence(of sequence: [KeyEvent], after prefix: [KeyEvent]) -> [KeyEvent] {
+        guard !prefix.isEmpty, sequence.count >= prefix.count else {
+            return sequence
+        }
+
+        for (index, event) in prefix.enumerated() where sequence[index] != event {
+            return sequence
+        }
+
+        return Array(sequence.dropFirst(prefix.count))
+    }
+
+    private func renderShortcutSequence(_ sequence: [KeyEvent]) -> String {
+        sequence.map(renderShortcutToken).joined(separator: " ")
+    }
+
+    private func renderShortcutToken(_ event: KeyEvent) -> String {
+        let modifierSymbols = renderModifierSymbols(event.modifiers)
+        return modifierSymbols + renderKeySymbol(event.key)
+    }
+
+    private func renderModifierSymbols(_ modifiers: KeyModifiers) -> String {
+        var symbols = ""
+        if modifiers.contains(.control) {
+            symbols += "\u{2303}"
+        }
+        if modifiers.contains(.option) {
+            symbols += "\u{2325}"
+        }
+        if modifiers.contains(.shift) {
+            symbols += "\u{21E7}"
+        }
+        if modifiers.contains(.command) {
+            symbols += "\u{2318}"
+        }
+        return symbols
+    }
+
+    private func renderKeySymbol(_ key: String) -> String {
+        switch key {
+        case "Return":
+            return "\u{21A9}"
+        case "Tab":
+            return "\u{21E5}"
+        case "Space":
+            return "\u{2420}"
+        case "Escape":
+            return "\u{238B}"
+        case "Backspace":
+            return "\u{232B}"
+        case "Delete":
+            return "\u{2326}"
+        case "PageUp":
+            return "\u{21DE}"
+        case "PageDown":
+            return "\u{21DF}"
+        case "Home":
+            return "\u{2196}"
+        case "End":
+            return "\u{2198}"
+        case "ArrowLeft":
+            return "\u{2190}"
+        case "ArrowRight":
+            return "\u{2192}"
+        case "ArrowUp":
+            return "\u{2191}"
+        case "ArrowDown":
+            return "\u{2193}"
+        default:
+            if key.count == 1 {
+                return key.uppercased()
+            }
+            return key
         }
     }
 
@@ -591,13 +843,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         mediaIconSizeValueLabel.setContentHuggingPriority(.required, for: .horizontal)
         mediaIconSizeValueLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
 
-        searchModeIconView.translatesAutoresizingMaskIntoConstraints = false
-        searchModeIconView.imageScaling = .scaleProportionallyDown
-        searchModeIconView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
-        searchModeIconView.contentTintColor = .secondaryLabelColor
-        searchModeIconView.setContentHuggingPriority(.required, for: .horizontal)
-        searchModeIconView.setContentCompressionResistancePriority(.required, for: .horizontal)
-
         searchField.translatesAutoresizingMaskIntoConstraints = false
         if !(searchField.cell is CenteredSearchFieldCell) {
             searchField.cell = CenteredSearchFieldCell(textCell: "")
@@ -617,26 +862,36 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         searchField.delegate = self
         searchField.sendsSearchStringImmediately = true
         searchField.sendsWholeSearchString = true
+        searchField.setAccessibilityIdentifier("filePane.searchField")
         searchField.setContentHuggingPriority(.defaultLow, for: .horizontal)
         searchField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         configureSearchFieldMenuTemplate()
         configureSearchFieldButtonAction()
 
         bookmarkJumpOverlayView.isHidden = true
+        shortcutGuidePopupView.isHidden = true
     }
 
     private func configureTableView() {
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.delegate = self
         tableView.dataSource = self
+        tableView.setAccessibilityIdentifier("filePane.tableView")
         tableView.headerView = NSTableHeaderView()
         tableView.intercellSpacing = NSSize(width: 8, height: 0)
         tableView.keyActionDelegate = self
         tableView.setVimMode(vimModeState.mode)
+        tableView.shortcutGuideEnabled = shortcutGuideEnabled
         tableView.target = self
         tableView.doubleAction = #selector(handleDoubleClick(_:))
         tableView.shouldHandleMouseDown = { [weak self] event, point in
             self?.handleTreeDisclosureMouseDown(event: event, at: point) ?? false
+        }
+        tableView.onShortcutGuideUpdated = { [weak self] candidates, typedSequence, modifiers in
+            self?.showShortcutGuide(candidates: candidates, typedSequence: typedSequence, initialModifiers: modifiers)
+        }
+        tableView.onShortcutGuideEnded = { [weak self] in
+            self?.hideShortcutGuide()
         }
         tableView.backgroundColor = filerTheme.palette.tableBackgroundColor
         tableView.rowHeight = max(24, fileIconSize + 8)
@@ -685,12 +940,20 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         mediaCollectionView.collectionViewLayout = mediaCollectionLayout
         mediaCollectionView.delegate = self
         mediaCollectionView.dataSource = self
+        mediaCollectionView.setAccessibilityIdentifier("filePane.mediaCollectionView")
         mediaCollectionView.isSelectable = true
         mediaCollectionView.allowsMultipleSelection = false
         mediaCollectionView.backgroundColors = [filerTheme.palette.tableBackgroundColor]
         mediaCollectionView.register(MediaCollectionItem.self, forItemWithIdentifier: MediaCollectionItem.identifier)
         mediaCollectionView.keyActionDelegate = self
         mediaCollectionView.setVimMode(vimModeState.mode)
+        mediaCollectionView.shortcutGuideEnabled = shortcutGuideEnabled
+        mediaCollectionView.onShortcutGuideUpdated = { [weak self] candidates, typedSequence, modifiers in
+            self?.showShortcutGuide(candidates: candidates, typedSequence: typedSequence, initialModifiers: modifiers)
+        }
+        mediaCollectionView.onShortcutGuideEnded = { [weak self] in
+            self?.hideShortcutGuide()
+        }
         mediaCollectionView.didBecomeFirstResponderHandler = { [weak self] in
             self?.restoreNormalModeIfNeededAfterSearch()
             self?.isSearchFieldFocused = false
@@ -707,6 +970,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         view.addSubview(headerView)
         view.addSubview(scrollView)
         view.addSubview(bookmarkJumpOverlayView)
+        view.addSubview(shortcutGuidePopupView)
+        scrollView.setAccessibilityIdentifier("filePane.scrollView")
 
         navigationStackView.addArrangedSubview(backPeekButton)
         navigationStackView.addArrangedSubview(breadcrumbContainerView)
@@ -721,14 +986,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         searchControlsStackView.addArrangedSubview(mediaRecursiveButton)
         searchControlsStackView.addArrangedSubview(mediaIconSizeSlider)
         searchControlsStackView.addArrangedSubview(mediaIconSizeValueLabel)
-        searchControlsStackView.addArrangedSubview(searchModeIconView)
         searchControlsStackView.addArrangedSubview(searchField)
         searchControlsStackView.setCustomSpacing(8, after: mediaModeButton)
         searchControlsStackView.setCustomSpacing(8, after: filesRecursiveButton)
         searchControlsStackView.setCustomSpacing(8, after: mediaRecursiveButton)
         searchControlsStackView.setCustomSpacing(4, after: mediaIconSizeSlider)
         searchControlsStackView.setCustomSpacing(12, after: mediaIconSizeValueLabel)
-        searchControlsStackView.setCustomSpacing(6, after: searchModeIconView)
 
         NSLayoutConstraint.activate([
             headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -749,8 +1012,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             filesModeButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 46),
             mediaModeButton.heightAnchor.constraint(equalToConstant: 22),
             mediaModeButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 50),
-            searchModeIconView.widthAnchor.constraint(equalToConstant: 16),
-            searchModeIconView.heightAnchor.constraint(equalToConstant: 16),
             searchField.heightAnchor.constraint(equalToConstant: 22),
             mediaIconSizeSlider.widthAnchor.constraint(equalToConstant: 110),
             mediaIconSizeValueLabel.widthAnchor.constraint(equalToConstant: 44),
@@ -765,7 +1026,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             bookmarkJumpOverlayView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             bookmarkJumpOverlayView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
             bookmarkJumpOverlayView.widthAnchor.constraint(greaterThanOrEqualToConstant: 240),
-            bookmarkJumpOverlayView.widthAnchor.constraint(lessThanOrEqualToConstant: 520)
+            bookmarkJumpOverlayView.widthAnchor.constraint(lessThanOrEqualToConstant: 520),
+
+            shortcutGuidePopupView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            shortcutGuidePopupView.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -8),
+            shortcutGuidePopupView.widthAnchor.constraint(greaterThanOrEqualToConstant: 320),
+            shortcutGuidePopupView.widthAnchor.constraint(lessThanOrEqualToConstant: 680)
         ])
 
         NSLayoutConstraint.activate([
@@ -783,6 +1049,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     private func applyDisplayMode(_ mode: PaneDisplayMode) {
         currentDisplayMode = mode
+        hideShortcutGuide()
         updateDisplayModeControls()
 
         if mode == .media {
@@ -1100,6 +1367,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         scrollView.backgroundColor = palette.tableBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
         scrollView.alphaValue = isPaneActive ? palette.activePaneAlpha : palette.inactivePaneAlpha
         bookmarkJumpOverlayView.applyPalette(palette, backgroundOpacity: backgroundOpacity)
+        shortcutGuidePopupView.applyPalette(palette, backgroundOpacity: backgroundOpacity)
     }
 
     @objc
@@ -1439,11 +1707,10 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     private func updateSearchModeUI() {
         let mode = selectedSearchMode
-        searchModeIconView.image = NSImage(
-            systemSymbolName: mode.iconSymbolName,
-            accessibilityDescription: mode.iconAccessibilityLabel
+        updateSearchFieldButtonIcon(
+            symbolName: mode.iconSymbolName,
+            accessibilityLabel: mode.iconAccessibilityLabel
         )
-        searchModeIconView.toolTip = mode.iconAccessibilityLabel
         updateSearchMenuSelectionStates()
         updateSearchFieldAppearance()
     }
@@ -1457,11 +1724,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         let borderColor = isSearchFieldFocused ? palette.activeBorderColor : NSColor.separatorColor
         searchField.layer?.borderColor = borderColor.cgColor
         searchField.layer?.borderWidth = isSearchFieldFocused ? 1.0 : 0.5
-
-        let modeTint: NSColor = selectedSearchMode == .spotlight
-            ? palette.starAccentColor
-            : (isPaneActive ? palette.activePathTextColor : palette.inactivePathTextColor)
-        searchModeIconView.contentTintColor = modeTint
     }
 
     private func updateSearchMenuSelectionStates() {
@@ -1942,6 +2204,22 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
         cell.searchButtonCell?.target = self
         cell.searchButtonCell?.action = #selector(handleSearchFieldButtonClick(_:))
+    }
+
+    private func updateSearchFieldButtonIcon(symbolName: String, accessibilityLabel: String) {
+        guard let cell = searchField.cell as? NSSearchFieldCell,
+              let symbolImage = NSImage(systemSymbolName: symbolName, accessibilityDescription: accessibilityLabel) else {
+            return
+        }
+
+        let configuredImage = symbolImage.withSymbolConfiguration(
+            NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
+        ) ?? symbolImage
+        configuredImage.isTemplate = true
+
+        cell.searchButtonCell?.image = configuredImage
+        cell.searchButtonCell?.alternateImage = configuredImage
+        searchField.toolTip = accessibilityLabel
     }
 
     @objc

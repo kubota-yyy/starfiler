@@ -52,6 +52,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     private var lastReportedSidebarWidth: CGFloat
     private var lastReportedPreviewWidth: CGFloat
     private let toastPresenter = ActionToastPresenter()
+    private let globalActionRouter = GlobalActionRouter()
     private let applicationRelatedItemLocator: any ApplicationRelatedItemLocating = ApplicationRelatedItemLocatorService()
     private var goToPathPopover: NSPopover?
     private weak var goToPathHighlightView: NSView?
@@ -148,6 +149,16 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.setAccessibilityIdentifier("mainSplit.container")
+        splitView.setAccessibilityIdentifier("mainSplit.splitView")
+        sidebarViewController.view.setAccessibilityIdentifier("mainSplit.sidebar")
+        leftPaneViewController.view.setAccessibilityIdentifier("mainSplit.leftPane")
+        rightPaneViewController.view.setAccessibilityIdentifier("mainSplit.rightPane")
+        previewPaneViewController.view.setAccessibilityIdentifier("mainSplit.previewPane")
     }
 
     override func viewDidLayout() {
@@ -411,6 +422,11 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         previewPaneViewController.setAnimationEffectSettings(settings)
     }
 
+    func setShortcutGuideEnabled(_ enabled: Bool) {
+        leftPaneViewController.setShortcutGuideEnabled(enabled)
+        rightPaneViewController.setShortcutGuideEnabled(enabled)
+    }
+
     func setSpotlightSearchScope(_ scope: SpotlightSearchScope) {
         viewModel.setSpotlightSearchScope(scope)
         leftPaneViewController.setSpotlightSearchScope(scope)
@@ -570,88 +586,44 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     }
 
     private func handleGlobalAction(_ action: KeyAction) -> Bool {
-        switch action {
-        case .copy:
-            viewModel.copyMarked()
+        let handlers = GlobalActionRouter.Handlers(
+            copy: { self.viewModel.copyMarked() },
+            paste: { self.viewModel.paste() },
+            move: { self.viewModel.cutMarked() },
+            delete: { self.requestDeleteFromActivePane() },
+            rename: { self.viewModel.rename() },
+            createDirectory: { self.viewModel.createDirectory() },
+            undo: { self.viewModel.undo() },
+            togglePreview: { self.togglePreviewPane() },
+            toggleSidebar: { self.toggleSidebarPane() },
+            toggleLeftPane: { self.toggleLeftPane() },
+            toggleRightPane: { self.toggleRightPane() },
+            toggleSinglePane: { self.toggleSinglePane() },
+            equalizePaneWidths: { self.equalizePaneWidths() },
+            matchOtherPaneDirectory: { self.viewModel.matchOtherPaneDirectoryToActivePane() },
+            goToOtherPaneDirectory: { self.viewModel.moveActivePaneToOtherPaneDirectory() },
+            openBookmarkSearch: { self.presentBookmarkSearchPanel() },
+            openHistory: { self.presentBookmarkSearchPanel() },
+            addBookmark: { self.presentAddBookmarkAlert() },
+            batchRename: { self.presentBatchRenameWindow() },
+            syncPanesLeftToRight: { self.viewModel.syncPanesLeftToRight() },
+            syncPanesRightToLeft: { self.viewModel.syncPanesRightToLeft() },
+            togglePin: {
+                let wasPinned = self.viewModel.isPinnedActiveItem()
+                self.viewModel.togglePinForActivePane()
+                self.sidebarViewModel.reloadSections()
+                return wasPinned ? "Unpinned" : "Pinned"
+            },
+            terminalAction: { self.onTerminalAction?($0) }
+        )
+
+        switch globalActionRouter.route(action, handlers: handlers) {
+        case .handled:
             return true
-        case .paste:
-            viewModel.paste()
+        case .handledWithToast(let message):
+            showActionToast(message)
             return true
-        case .move:
-            viewModel.cutMarked()
-            return true
-        case .delete:
-            requestDeleteFromActivePane()
-            return true
-        case .rename:
-            viewModel.rename()
-            return true
-        case .createDirectory:
-            viewModel.createDirectory()
-            return true
-        case .undo:
-            viewModel.undo()
-            return true
-        case .togglePreview:
-            togglePreviewPane()
-            return true
-        case .toggleSidebar:
-            toggleSidebarPane()
-            return true
-        case .toggleLeftPane:
-            toggleLeftPane()
-            return true
-        case .toggleRightPane:
-            toggleRightPane()
-            return true
-        case .toggleSinglePane:
-            toggleSinglePane()
-            return true
-        case .equalizePaneWidths:
-            equalizePaneWidths()
-            return true
-        case .matchOtherPaneDirectory:
-            let changed = viewModel.matchOtherPaneDirectoryToActivePane()
-            if changed {
-                showActionToast("Other pane set to current folder")
-            }
-            return true
-        case .goToOtherPaneDirectory:
-            let changed = viewModel.moveActivePaneToOtherPaneDirectory()
-            if changed {
-                showActionToast("Moved to other pane folder")
-            }
-            return true
-        case .openBookmarkSearch:
-            presentBookmarkSearchPanel()
-            return true
-        case .openHistory:
-            presentBookmarkSearchPanel()
-            return true
-        case .addBookmark:
-            presentAddBookmarkAlert()
-            return true
-        case .batchRename:
-            presentBatchRenameWindow()
-            return true
-        case .syncPanesLeftToRight:
-            let changed = viewModel.syncPanesLeftToRight()
-            if changed { showActionToast("Synced: Left → Right") }
-            return true
-        case .syncPanesRightToLeft:
-            let changed = viewModel.syncPanesRightToLeft()
-            if changed { showActionToast("Synced: Right → Left") }
-            return true
-        case .togglePin:
-            let wasPinned = viewModel.isPinnedActiveItem()
-            viewModel.togglePinForActivePane()
-            sidebarViewModel.reloadSections()
-            showActionToast(wasPinned ? "Unpinned" : "Pinned")
-            return true
-        case .launchClaude, .launchCodex, .toggleTerminalPanel:
-            onTerminalAction?(action)
-            return true
-        default:
+        case .unhandled:
             return false
         }
     }

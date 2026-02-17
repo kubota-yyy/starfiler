@@ -1,5 +1,10 @@
 import Foundation
 
+struct KeybindingHintCandidate: Equatable, Sendable {
+    let sequence: [KeyEvent]
+    let action: KeyAction
+}
+
 struct KeybindingManager: Sendable {
     private typealias Sequence = [KeyEvent]
 
@@ -33,6 +38,47 @@ struct KeybindingManager: Sendable {
 
     func shortcuts(for action: KeyAction, mode: VimMode = .normal) -> [String] {
         shortcutsByMode[mode]?[action] ?? []
+    }
+
+    func candidates(
+        requiringInitialModifiers requiredModifiers: KeyModifiers,
+        mode: VimMode
+    ) -> [KeybindingHintCandidate] {
+        guard !requiredModifiers.isEmpty else {
+            return []
+        }
+
+        let modeBindings = bindingsByMode[mode] ?? [:]
+        let filtered = modeBindings.compactMap { sequence, action -> KeybindingHintCandidate? in
+            guard let first = sequence.first else {
+                return nil
+            }
+            guard Self.isSuperset(first.modifiers, of: requiredModifiers) else {
+                return nil
+            }
+            return KeybindingHintCandidate(sequence: sequence, action: action)
+        }
+
+        return filtered.sorted(by: Self.compareCandidates)
+    }
+
+    func candidates(
+        startingWith prefix: [KeyEvent],
+        mode: VimMode
+    ) -> [KeybindingHintCandidate] {
+        guard !prefix.isEmpty else {
+            return []
+        }
+
+        let modeBindings = bindingsByMode[mode] ?? [:]
+        let filtered = modeBindings.compactMap { sequence, action -> KeybindingHintCandidate? in
+            guard Self.hasPrefix(sequence, prefix: prefix) else {
+                return nil
+            }
+            return KeybindingHintCandidate(sequence: sequence, action: action)
+        }
+
+        return filtered.sorted(by: Self.compareCandidates)
     }
 
     static func defaultUserConfigURL(
@@ -272,5 +318,58 @@ struct KeybindingManager: Sendable {
         }
 
         return scalar
+    }
+
+    private static func hasPrefix(_ sequence: Sequence, prefix: Sequence) -> Bool {
+        guard sequence.count >= prefix.count else {
+            return false
+        }
+
+        for (index, keyEvent) in prefix.enumerated() where sequence[index] != keyEvent {
+            return false
+        }
+
+        return true
+    }
+
+    private static func isSuperset(_ modifiers: KeyModifiers, of requiredModifiers: KeyModifiers) -> Bool {
+        modifiers.intersection(requiredModifiers) == requiredModifiers
+    }
+
+    private static func compareCandidates(_ lhs: KeybindingHintCandidate, _ rhs: KeybindingHintCandidate) -> Bool {
+        if lhs.sequence.count != rhs.sequence.count {
+            return lhs.sequence.count < rhs.sequence.count
+        }
+
+        let lhsKey = sequenceSortKey(lhs.sequence)
+        let rhsKey = sequenceSortKey(rhs.sequence)
+        if lhsKey != rhsKey {
+            return lhsKey < rhsKey
+        }
+
+        return lhs.action.rawValue < rhs.action.rawValue
+    }
+
+    private static func sequenceSortKey(_ sequence: Sequence) -> String {
+        sequence.map { event in
+            var components: [String] = []
+
+            if event.modifiers.contains(.control) {
+                components.append("Ctrl")
+            }
+            if event.modifiers.contains(.shift) {
+                components.append("Shift")
+            }
+            if event.modifiers.contains(.option) {
+                components.append("Alt")
+            }
+            if event.modifiers.contains(.command) {
+                components.append("Cmd")
+            }
+
+            components.append(event.key)
+            return components.joined(separator: "-")
+        }
+        .joined(separator: " ")
     }
 }

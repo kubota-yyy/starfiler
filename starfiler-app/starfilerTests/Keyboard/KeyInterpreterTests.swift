@@ -221,6 +221,28 @@ final class KeyInterpreterTests: XCTestCase {
         XCTAssertFalse(interpreter.hasExactBinding(for: KeyEvent(key: "z")))
     }
 
+    // MARK: - Shortcut Guide Candidates
+
+    func testCandidatesForInitialModifiersFiltersByModifier() {
+        let interpreter = makeInterpreter(bindings: baseBindings)
+
+        let candidates = interpreter.candidatesForInitialModifiers(.control)
+        let actions = Set(candidates.map(\.action))
+
+        XCTAssertTrue(actions.contains(.pageUp))
+        XCTAssertFalse(actions.contains(.switchPane))
+    }
+
+    func testCandidatesForPendingSequenceNarrowByPrefix() {
+        var interpreter = makeInterpreter(bindings: baseBindings)
+
+        _ = interpreter.interpret(KeyEvent(key: "g"))
+        let candidates = interpreter.candidatesForPendingSequence()
+        let actions = Set(candidates.map(\.action))
+
+        XCTAssertEqual(actions, Set([.goToTop, .goHome]))
+    }
+
     // MARK: - Clear Pending Sequence
 
     func testClearPendingSequence() {

@@ -41,6 +41,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var starEffectsEnabled: Bool
     private var terminalPanelVisible: Bool
     private var animationEffectSettings: AnimationEffectSettings
+    private var shortcutGuideEnabled: Bool
     private lazy var mainSplitViewController = MainSplitViewController(
         viewModel: mainViewModel,
         configManager: configManager,
@@ -65,28 +66,38 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var footerMarkedCount: Int
     private var footerContextText: String?
     private var observedConfigSnapshots: [ObservedConfigFile: ConfigFileSnapshot] = [:]
+    private let disableAnimations: Bool
+    private let persistLaunchMetadata: Bool
 
     init(
         fileSystemService: FileSystemProviding = FileSystemService(),
         securityScopedBookmarkService: any SecurityScopedBookmarkProviding = SecurityScopedBookmarkService.shared,
         initialDirectory: URL = UserPaths.homeDirectoryURL,
+        configManager: ConfigManager? = nil,
+        visitHistoryService: (any VisitHistoryProviding)? = nil,
+        pinnedItemsService: (any PinnedItemsProviding)? = nil,
+        terminalSessionService: (any TerminalSessionProviding)? = nil,
         fileManager: FileManager = .default,
         primaryConfigMonitor: any DirectoryMonitoring = DirectoryMonitor(),
-        keybindingsConfigMonitor: any DirectoryMonitoring = DirectoryMonitor()
+        keybindingsConfigMonitor: any DirectoryMonitoring = DirectoryMonitor(),
+        disableAnimations: Bool = false,
+        persistLaunchMetadata: Bool = true
     ) {
         self.fileManager = fileManager
         self.primaryConfigMonitor = primaryConfigMonitor
         self.keybindingsConfigMonitor = keybindingsConfigMonitor
         self.keybindingsConfigURL = KeybindingManager.defaultUserConfigURL(fileManager: fileManager)
-        let previousConfigSnapshots = Self.loadPersistedObservedConfigSnapshots()
+        self.disableAnimations = disableAnimations
+        self.persistLaunchMetadata = persistLaunchMetadata
+        let previousConfigSnapshots = persistLaunchMetadata ? Self.loadPersistedObservedConfigSnapshots() : [:]
 
-        let configManager = ConfigManager()
-        self.configManager = configManager
+        let resolvedConfigManager = configManager ?? ConfigManager()
+        self.configManager = resolvedConfigManager
 
-        Self.initializeDefaultBookmarksIfNeeded(configManager: configManager)
+        Self.initializeDefaultBookmarksIfNeeded(configManager: resolvedConfigManager)
 
-        let appConfig = configManager.loadAppConfig()
-        let bookmarksConfig = configManager.loadBookmarksConfig()
+        let appConfig = resolvedConfigManager.loadAppConfig()
+        let bookmarksConfig = resolvedConfigManager.loadBookmarksConfig()
         self.filerTheme = appConfig.filerTheme
         self.transparentBackground = appConfig.transparentBackground
         self.transparentBackgroundOpacity = min(max(CGFloat(appConfig.transparentBackgroundOpacity), 0.15), 1.0)
@@ -102,19 +113,22 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         self.rightPaneVisible = appConfig.rightPaneVisible
         self.starEffectsEnabled = appConfig.starEffectsEnabled
         self.animationEffectSettings = appConfig.animationEffectSettings
+        self.shortcutGuideEnabled = appConfig.shortcutGuideEnabled
         self.terminalPanelVisible = appConfig.terminalPanelVisible
         let fallbackDirectory = initialDirectory.standardizedFileURL
         let leftDirectory = Self.resolveDirectory(path: appConfig.lastLeftPanePath, fallback: fallbackDirectory)
         let rightDirectory = Self.resolveDirectory(path: appConfig.lastRightPanePath, fallback: leftDirectory)
 
-        let visitHistoryService = VisitHistoryService(configManager: configManager)
-        let pinnedItemsService = PinnedItemsService(configManager: configManager)
+        let resolvedVisitHistoryService = visitHistoryService ?? VisitHistoryService(configManager: resolvedConfigManager)
+        let resolvedPinnedItemsService = pinnedItemsService ?? PinnedItemsService(configManager: resolvedConfigManager)
+        let resolvedTerminalSessionService = terminalSessionService ?? TerminalSessionService()
 
         self.mainViewModel = MainViewModel(
             fileSystemService: fileSystemService,
             securityScopedBookmarkService: securityScopedBookmarkService,
-            visitHistoryService: visitHistoryService,
-            pinnedItemsService: pinnedItemsService,
+            visitHistoryService: resolvedVisitHistoryService,
+            pinnedItemsService: resolvedPinnedItemsService,
+            terminalSessionService: resolvedTerminalSessionService,
             initialShowHiddenFiles: appConfig.showHiddenFiles,
             initialSortColumn: appConfig.defaultSortColumn,
             initialSortAscending: appConfig.defaultSortAscending,
@@ -149,7 +163,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         mainViewModel.undoManager = appUndoManager
         configureWindow()
         applyConfigChangesSinceLastLaunch(previousSnapshots: previousConfigSnapshots)
-        Self.savePersistedObservedConfigSnapshots(currentObservedConfigSnapshots())
+        if persistLaunchMetadata {
+            Self.savePersistedObservedConfigSnapshots(currentObservedConfigSnapshots())
+        }
         startConfigMonitoring()
     }
 
@@ -169,7 +185,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
         mainSplitViewController.focusActivePane()
 
-        if starEffectsEnabled, animationEffectSettings.windowIntroAnimation, let contentView = window?.contentView {
+        if !disableAnimations, starEffectsEnabled, animationEffectSettings.windowIntroAnimation, let contentView = window?.contentView {
             contentView.wantsLayer = true
             contentView.alphaValue = 0
 
@@ -262,6 +278,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     var currentAnimationEffectSettings: AnimationEffectSettings {
         animationEffectSettings
+    }
+
+    var isShortcutGuideEnabled: Bool {
+        shortcutGuideEnabled
     }
 
     func playShootingStarTestEffect(in targetWindow: NSWindow? = nil) {
@@ -410,6 +430,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         persistAppConfig()
     }
 
+    func updateShortcutGuideEnabled(_ enabled: Bool) {
+        guard shortcutGuideEnabled != enabled else {
+            return
+        }
+
+        shortcutGuideEnabled = enabled
+        mainSplitViewController.setShortcutGuideEnabled(enabled)
+        persistAppConfig()
+    }
+
     func presentBatchRename() {
         mainSplitViewController.presentBatchRenameWindow()
     }
@@ -541,10 +571,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
 
         applyCurrentAppearance()
-        mainSplitViewController.setStarEffectsEnabled(starEffectsEnabled)
-        mainSplitViewController.setAnimationEffectSettings(animationEffectSettings)
-        mainContainerViewController.setStatusBarStarEffectsEnabled(starEffectsEnabled)
-        mainContainerViewController.setStatusBarAnimationEffectSettings(animationEffectSettings)
+        let effectiveStarEffects = disableAnimations ? false : starEffectsEnabled
+        let effectiveAnimationSettings = disableAnimations ? AnimationEffectSettings.allDisabled : animationEffectSettings
+        mainSplitViewController.setStarEffectsEnabled(effectiveStarEffects)
+        mainSplitViewController.setAnimationEffectSettings(effectiveAnimationSettings)
+        mainSplitViewController.setShortcutGuideEnabled(shortcutGuideEnabled)
+        mainContainerViewController.setStatusBarStarEffectsEnabled(effectiveStarEffects)
+        mainContainerViewController.setStatusBarAnimationEffectSettings(effectiveAnimationSettings)
         window.contentViewController = mainContainerViewController
         renderFooterStatus()
         attachWindowControlButtons(to: window)
@@ -747,6 +780,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             mainSplitViewController.setAnimationEffectSettings(animationEffectSettings)
             mainContainerViewController.setStatusBarAnimationEffectSettings(animationEffectSettings)
         }
+
+        if shortcutGuideEnabled != appConfig.shortcutGuideEnabled {
+            shortcutGuideEnabled = appConfig.shortcutGuideEnabled
+            mainSplitViewController.setShortcutGuideEnabled(shortcutGuideEnabled)
+        }
     }
 
     private func applyConfigChangesSinceLastLaunch(previousSnapshots: [ObservedConfigFile: ConfigFileSnapshot]) {
@@ -865,6 +903,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             rightPaneVisible: rightPaneVisible,
             starEffectsEnabled: starEffectsEnabled,
             animationEffectSettings: animationEffectSettings,
+            shortcutGuideEnabled: shortcutGuideEnabled,
             terminalPanelVisible: terminalPanelVisible,
             terminalPanelHeight: Double(mainContainerViewController.terminalPanelHeight)
         )
