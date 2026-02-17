@@ -67,7 +67,8 @@ private final class CenteredSearchFieldCell: NSSearchFieldCell {
 private final class ShortcutGuidePopupView: NSView {
     private let titleLabel = NSTextField(labelWithString: "")
     private let subtitleLabel = NSTextField(labelWithString: "")
-    private let candidatesLabel = NSTextField(wrappingLabelWithString: "")
+    private let columnsStackView = NSStackView()
+    private var columnLabels: [NSTextField] = []
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -79,11 +80,27 @@ private final class ShortcutGuidePopupView: NSView {
         configureView()
     }
 
-    func update(title: String, subtitle: String, candidates: [String]) {
+    func update(title: String, subtitle: String, columns: [[String]]) {
         titleLabel.stringValue = title
         subtitleLabel.stringValue = subtitle
         subtitleLabel.isHidden = subtitle.isEmpty
-        candidatesLabel.stringValue = candidates.joined(separator: "\n")
+
+        for label in columnLabels {
+            columnsStackView.removeArrangedSubview(label)
+            label.removeFromSuperview()
+        }
+        columnLabels.removeAll(keepingCapacity: true)
+
+        for column in columns where !column.isEmpty {
+            let label = NSTextField(labelWithString: column.joined(separator: "\n"))
+            label.translatesAutoresizingMaskIntoConstraints = false
+            label.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+            label.maximumNumberOfLines = 0
+            label.lineBreakMode = .byClipping
+            label.setContentCompressionResistancePriority(.required, for: .horizontal)
+            columnsStackView.addArrangedSubview(label)
+            columnLabels.append(label)
+        }
     }
 
     func applyPalette(_ palette: FilerThemePalette, backgroundOpacity: CGFloat) {
@@ -92,7 +109,9 @@ private final class ShortcutGuidePopupView: NSView {
         layer?.borderColor = palette.starAccentColor.withAlphaComponent(0.45).cgColor
         titleLabel.textColor = palette.primaryTextColor
         subtitleLabel.textColor = palette.secondaryTextColor
-        candidatesLabel.textColor = palette.primaryTextColor
+        for label in columnLabels {
+            label.textColor = palette.primaryTextColor
+        }
     }
 
     private func configureView() {
@@ -109,14 +128,15 @@ private final class ShortcutGuidePopupView: NSView {
         subtitleLabel.font = .systemFont(ofSize: 11, weight: .regular)
         subtitleLabel.lineBreakMode = .byTruncatingTail
 
-        candidatesLabel.translatesAutoresizingMaskIntoConstraints = false
-        candidatesLabel.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
-        candidatesLabel.maximumNumberOfLines = 12
-        candidatesLabel.lineBreakMode = .byTruncatingTail
+        columnsStackView.translatesAutoresizingMaskIntoConstraints = false
+        columnsStackView.orientation = .horizontal
+        columnsStackView.alignment = .top
+        columnsStackView.distribution = .fillProportionally
+        columnsStackView.spacing = 18
 
         addSubview(titleLabel)
         addSubview(subtitleLabel)
-        addSubview(candidatesLabel)
+        addSubview(columnsStackView)
 
         NSLayoutConstraint.activate([
             titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
@@ -127,10 +147,10 @@ private final class ShortcutGuidePopupView: NSView {
             subtitleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
             subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
 
-            candidatesLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            candidatesLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            candidatesLabel.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 8),
-            candidatesLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
+            columnsStackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            columnsStackView.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -12),
+            columnsStackView.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 8),
+            columnsStackView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
         ])
     }
 }
@@ -463,19 +483,14 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             return
         }
 
-        let maxRows = 12
-        let visibleCandidates = Array(candidates.prefix(maxRows))
-
-        var rows = visibleCandidates.map { candidate -> String in
+        let rows = candidates.map { candidate -> String in
             let remaining = remainingSequence(of: candidate.sequence, after: typedSequence)
             let sequenceToRender = remaining.isEmpty ? candidate.sequence : remaining
             let renderedSequence = renderShortcutSequence(sequenceToRender)
             return "\(renderedSequence)  \(candidate.action.displayName)"
         }
 
-        if candidates.count > maxRows {
-            rows.append("... +\(candidates.count - maxRows) more")
-        }
+        let columns = makeShortcutGuideColumns(rows, maximumRowsPerColumn: 18)
 
         let subtitle: String
         if typedSequence.isEmpty, !initialModifiers.isEmpty {
@@ -487,7 +502,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         let title = candidates.count == 1 ? "Shortcut Candidate" : "Shortcut Candidates (\(candidates.count))"
-        shortcutGuidePopupView.update(title: title, subtitle: subtitle, candidates: rows)
+        shortcutGuidePopupView.update(title: title, subtitle: subtitle, columns: columns)
         shortcutGuidePopupView.isHidden = false
     }
 
@@ -572,6 +587,28 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             }
             return key
         }
+    }
+
+    private func makeShortcutGuideColumns(_ rows: [String], maximumRowsPerColumn: Int) -> [[String]] {
+        guard !rows.isEmpty else {
+            return []
+        }
+
+        let rowLimit = max(1, maximumRowsPerColumn)
+        let columnCount = max(1, Int(ceil(Double(rows.count) / Double(rowLimit))))
+        let rowsPerColumn = max(1, Int(ceil(Double(rows.count) / Double(columnCount))))
+
+        var columns: [[String]] = []
+        columns.reserveCapacity(columnCount)
+
+        var currentIndex = 0
+        while currentIndex < rows.count {
+            let end = min(currentIndex + rowsPerColumn, rows.count)
+            columns.append(Array(rows[currentIndex ..< end]))
+            currentIndex = end
+        }
+
+        return columns
     }
 
     func applyTheme(_ theme: FilerTheme, backgroundOpacity: CGFloat = 1.0) {
@@ -1031,7 +1068,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             shortcutGuidePopupView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             shortcutGuidePopupView.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -8),
             shortcutGuidePopupView.widthAnchor.constraint(greaterThanOrEqualToConstant: 320),
-            shortcutGuidePopupView.widthAnchor.constraint(lessThanOrEqualToConstant: 680)
+            shortcutGuidePopupView.widthAnchor.constraint(lessThanOrEqualToConstant: 980),
+            shortcutGuidePopupView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 12),
+            shortcutGuidePopupView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -12)
         ])
 
         NSLayoutConstraint.activate([
