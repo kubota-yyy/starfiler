@@ -78,4 +78,23 @@ final class FileSystemServiceIntegrationTests: XCTestCase {
         XCTAssertEqual(Set(nonRecursive.map(\.name)), Set(["photo.jpg", "video.mp4"]))
         XCTAssertFalse(nonRecursive.contains(where: { $0.name == "script.ts" }))
     }
+
+    func testMediaItemsUsesWhitelistAndExcludesMTS() async throws {
+        let workspace = try SandboxFixtureWorkspace()
+        try "transport stream fixture".write(
+            to: workspace.url("left/media/capture.mts"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let sut = FileSystemService()
+        let nonRecursive = try await sut.mediaItems(
+            in: workspace.url("left/media"),
+            recursive: false,
+            includeHiddenFiles: true
+        )
+
+        XCTAssertEqual(Set(nonRecursive.map(\.name)), Set(["photo.jpg", "video.mp4"]))
+        XCTAssertFalse(nonRecursive.contains(where: { $0.name == "capture.mts" }))
+    }
 }
