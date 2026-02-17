@@ -901,6 +901,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         if shouldCollapse {
             captureCurrentPreviewWidthIfNeeded()
         } else {
+            ensureWindowWidthForPreviewIfNeeded()
             previewPaneViewController.setPreferredFitViewportWidth(lastReportedPreviewWidth)
         }
 
@@ -909,10 +910,16 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
                 context.duration = 0.18
                 previewSplitItem.animator().isCollapsed = shouldCollapse
             }, completionHandler: { [weak self] in
+                if !shouldCollapse {
+                    self?.restorePreviewWidthIfNeeded()
+                }
                 self?.reportPreviewWidthIfNeeded(force: true)
             })
         } else {
             previewSplitItem.isCollapsed = shouldCollapse
+            if !shouldCollapse {
+                restorePreviewWidthIfNeeded()
+            }
             reportPreviewWidthIfNeeded(force: true)
         }
     }
@@ -1069,6 +1076,99 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
 
         lastReportedSidebarWidth = width
         onSidebarWidthChanged?(width)
+    }
+
+    private func ensureWindowWidthForPreviewIfNeeded() {
+        guard let window = view.window, let contentView = window.contentView else {
+            return
+        }
+
+        let desiredPreviewWidth = max(lastReportedPreviewWidth, previewSplitItem.minimumThickness)
+        let requiredContentWidth = minimumRequiredContentWidth(
+            includePreview: true,
+            preferredPreviewWidth: desiredPreviewWidth
+        )
+        let currentContentWidth = contentView.bounds.width
+        guard requiredContentWidth > currentContentWidth + 1 else {
+            return
+        }
+
+        let widthDelta = requiredContentWidth - currentContentWidth
+        var frame = window.frame
+        frame.size.width += widthDelta
+        window.setFrame(frame, display: true, animate: false)
+    }
+
+    private func restorePreviewWidthIfNeeded() {
+        guard !previewSplitItem.isCollapsed else {
+            return
+        }
+
+        let arrangedSubviews = splitView.arrangedSubviews
+        guard let previewIndex = arrangedSubviewIndex(for: previewPaneViewController.view, in: arrangedSubviews),
+              previewIndex > 0 else {
+            return
+        }
+
+        let visibleItems = visibleSplitItems(includePreview: true)
+        let nonPreviewMinimumWidth = visibleItems
+            .filter { $0 !== previewSplitItem }
+            .reduce(CGFloat.zero) { partialResult, item in
+                partialResult + item.minimumThickness
+            }
+        let dividerCount = max(visibleItems.count - 1, 0)
+        let availablePreviewWidth = splitView.bounds.width
+            - nonPreviewMinimumWidth
+            - (CGFloat(dividerCount) * splitView.dividerThickness)
+
+        let targetPreviewWidth = min(
+            max(lastReportedPreviewWidth, previewSplitItem.minimumThickness),
+            availablePreviewWidth
+        )
+        guard targetPreviewWidth >= previewSplitItem.minimumThickness else {
+            return
+        }
+
+        let targetDividerPosition = splitView.bounds.width - targetPreviewWidth - splitView.dividerThickness
+        splitView.setPosition(targetDividerPosition, ofDividerAt: previewIndex - 1)
+        previewPaneViewController.setPreferredFitViewportWidth(targetPreviewWidth)
+    }
+
+    private func minimumRequiredContentWidth(
+        includePreview: Bool,
+        preferredPreviewWidth: CGFloat? = nil
+    ) -> CGFloat {
+        let visibleItems = visibleSplitItems(includePreview: includePreview)
+        guard !visibleItems.isEmpty else {
+            return 0
+        }
+
+        let paneWidth = visibleItems.reduce(CGFloat.zero) { partialResult, item in
+            if item === previewSplitItem, let preferredPreviewWidth {
+                return partialResult + max(item.minimumThickness, preferredPreviewWidth)
+            }
+
+            return partialResult + item.minimumThickness
+        }
+        let dividerCount = max(visibleItems.count - 1, 0)
+        return paneWidth + (CGFloat(dividerCount) * splitView.dividerThickness)
+    }
+
+    private func visibleSplitItems(includePreview: Bool) -> [NSSplitViewItem] {
+        var items: [NSSplitViewItem] = []
+        if !sidebarSplitItem.isCollapsed {
+            items.append(sidebarSplitItem)
+        }
+        if !leftSplitItem.isCollapsed {
+            items.append(leftSplitItem)
+        }
+        if !rightSplitItem.isCollapsed {
+            items.append(rightSplitItem)
+        }
+        if includePreview {
+            items.append(previewSplitItem)
+        }
+        return items
     }
 
     private func captureCurrentPreviewWidthIfNeeded() {
