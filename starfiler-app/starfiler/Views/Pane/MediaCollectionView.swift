@@ -35,18 +35,25 @@ final class MediaCollectionView: NSCollectionView {
 
         if event.modifierFlags.contains(.command), !isAwaitingBookmarkJump {
             bookmarkJumpInterpreter?.reset()
-            if let keyEvent = event.keyEvent {
-                switch keyInterpreter.interpret(keyEvent) {
-                case .action(let action):
-                    endShortcutGuideIfNeeded()
-                    if keyActionDelegate?.mediaCollectionView(self, didTrigger: action) == true {
-                        return
-                    }
-                case .pending:
-                    updateShortcutGuideForPendingSequenceIfNeeded()
-                case .unhandled:
-                    endShortcutGuideIfNeeded()
+            guard let keyEvent = event.keyEvent else {
+                if updateShortcutGuideForModifierFlagsIfNeeded(event.modifierFlags) {
+                    return
                 }
+                endShortcutGuideIfNeeded()
+                super.keyDown(with: event)
+                return
+            }
+
+            switch keyInterpreter.interpret(keyEvent) {
+            case .action(let action):
+                endShortcutGuideIfNeeded()
+                if keyActionDelegate?.mediaCollectionView(self, didTrigger: action) == true {
+                    return
+                }
+            case .pending:
+                updateShortcutGuideForPendingSequenceIfNeeded()
+            case .unhandled:
+                endShortcutGuideIfNeeded()
             }
             endShortcutGuideIfNeeded()
             super.keyDown(with: event)
@@ -54,6 +61,9 @@ final class MediaCollectionView: NSCollectionView {
         }
 
         guard let keyEvent = event.keyEvent else {
+            if updateShortcutGuideForModifierFlagsIfNeeded(event.modifierFlags) {
+                return
+            }
             endShortcutGuideIfNeeded()
             super.keyDown(with: event)
             return
@@ -122,34 +132,39 @@ final class MediaCollectionView: NSCollectionView {
     override func flagsChanged(with event: NSEvent) {
         defer { super.flagsChanged(with: event) }
 
-        guard shortcutGuideEnabled else {
-            endShortcutGuideIfNeeded()
-            return
-        }
-
-        guard bookmarkJumpInterpreter?.state == .idle else {
-            endShortcutGuideIfNeeded()
-            return
-        }
-
         guard keyInterpreter.currentPendingSequence.isEmpty else {
             return
         }
 
-        let modifiers = KeyModifiers(modifierFlags: event.modifierFlags)
-        guard !modifiers.isEmpty else {
-            endShortcutGuideIfNeeded()
+        if updateShortcutGuideForModifierFlagsIfNeeded(event.modifierFlags) {
             return
+        }
+
+        endShortcutGuideIfNeeded()
+    }
+
+    private func updateShortcutGuideForModifierFlagsIfNeeded(_ modifierFlags: NSEvent.ModifierFlags) -> Bool {
+        guard shortcutGuideEnabled else {
+            return false
+        }
+
+        guard bookmarkJumpInterpreter?.state == .idle else {
+            return false
+        }
+
+        let modifiers = KeyModifiers(modifierFlags: modifierFlags)
+        guard !modifiers.isEmpty else {
+            return false
         }
 
         let candidates = keyInterpreter.candidatesForInitialModifiers(modifiers)
         guard !candidates.isEmpty else {
-            endShortcutGuideIfNeeded()
-            return
+            return false
         }
 
         onShortcutGuideUpdated?(candidates, [], modifiers)
         isShortcutGuideVisible = true
+        return true
     }
 
     override func becomeFirstResponder() -> Bool {
