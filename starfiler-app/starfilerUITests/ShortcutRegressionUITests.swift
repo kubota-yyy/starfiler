@@ -22,8 +22,8 @@ final class ShortcutRegressionUITests: BaseUITestCase {
         // pane/layout toggles
         app.typeKey("8", modifierFlags: [.control])
         app.typeKey("8", modifierFlags: [.control])
-        app.typeKey("p", modifierFlags: [.control])
-        app.typeKey("p", modifierFlags: [.control])
+        app.typeKey(XCUIKeyboardKey.space.rawValue, modifierFlags: [])
+        app.typeKey(XCUIKeyboardKey.space.rawValue, modifierFlags: [])
 
         XCTAssertTrue(app.windows.firstMatch.exists)
     }

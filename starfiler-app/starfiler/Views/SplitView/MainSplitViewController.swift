@@ -1,8 +1,115 @@
 import AppKit
 
+private final class PreviewPopupPanelController {
+    private let previewViewController: PreviewPaneViewController
+    private var panel: NSPanel?
+
+    var onDismiss: (() -> Void)?
+
+    var isVisible: Bool {
+        panel != nil
+    }
+
+    init(previewViewController: PreviewPaneViewController) {
+        self.previewViewController = previewViewController
+    }
+
+    func show(relativeTo window: NSWindow) {
+        let panel = panel ?? makePanel()
+        updateFrame(of: panel, relativeTo: window)
+
+        if panel.parent !== window {
+            if let parent = panel.parent {
+                parent.removeChildWindow(panel)
+            }
+            window.addChildWindow(panel, ordered: .above)
+        }
+
+        panel.orderFront(nil)
+    }
+
+    func dismiss() {
+        guard let panel else {
+            return
+        }
+
+        panel.orderOut(nil)
+        if let parent = panel.parent {
+            parent.removeChildWindow(panel)
+        }
+        self.panel = nil
+        onDismiss?()
+    }
+
+    private func makePanel() -> NSPanel {
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 920, height: 620),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.isFloatingPanel = true
+        panel.level = .floating
+        panel.hidesOnDeactivate = false
+        panel.isMovableByWindowBackground = true
+        panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
+
+        let containerView = NSVisualEffectView()
+        containerView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.material = .hudWindow
+        containerView.blendingMode = .behindWindow
+        containerView.state = .active
+        containerView.wantsLayer = true
+        containerView.layer?.cornerRadius = 14
+        containerView.layer?.masksToBounds = true
+        containerView.layer?.borderWidth = 1
+        containerView.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.35).cgColor
+
+        let rootView = NSView()
+        rootView.addSubview(containerView)
+
+        let previewView = previewViewController.view
+        previewView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(previewView)
+
+        NSLayoutConstraint.activate([
+            containerView.leadingAnchor.constraint(equalTo: rootView.leadingAnchor),
+            containerView.trailingAnchor.constraint(equalTo: rootView.trailingAnchor),
+            containerView.topAnchor.constraint(equalTo: rootView.topAnchor),
+            containerView.bottomAnchor.constraint(equalTo: rootView.bottomAnchor),
+
+            previewView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            previewView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            previewView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            previewView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
+        ])
+
+        panel.contentView = rootView
+        self.panel = panel
+        return panel
+    }
+
+    private func updateFrame(of panel: NSPanel, relativeTo window: NSWindow) {
+        let displayFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? window.frame
+        let width = min(max(displayFrame.width * 0.64, 640), 1400)
+        let height = min(max(displayFrame.height * 0.72, 420), 1000)
+        let frame = NSRect(
+            x: displayFrame.midX - (width / 2),
+            y: displayFrame.midY - (height / 2),
+            width: width,
+            height: height
+        )
+
+        panel.setFrame(frame, display: true)
+        previewViewController.setPreferredFitViewportWidth(width)
+    }
+}
+
 final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     private static let defaultSidebarWidth = CGFloat(AppConfig.defaultSidebarWidth)
-    private static let defaultPreviewWidth = CGFloat(320)
     private static let sidebarWidthRange: ClosedRange<CGFloat> = CGFloat(AppConfig.sidebarWidthRange.lowerBound) ... CGFloat(AppConfig.sidebarWidthRange.upperBound)
     private static var lastSelectedBookmarkGroupIndex: Int = 0
 
@@ -28,8 +135,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     private let rightPaneViewController: FilePaneViewController
     private let leftSplitItem: NSSplitViewItem
     private let rightSplitItem: NSSplitViewItem
-    private let previewPaneViewController: PreviewPaneViewController
-    private let previewSplitItem: NSSplitViewItem
+    private let previewPopupPaneViewController: PreviewPaneViewController
 
     private var bookmarksConfig: BookmarksConfig
     private var bookmarkSearchPanelController: BookmarkSearchPanelController?
@@ -50,13 +156,23 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     private let initialSidebarWidth: CGFloat
     private var hasAppliedInitialSidebarWidth = false
     private var lastReportedSidebarWidth: CGFloat
-    private var lastReportedPreviewWidth: CGFloat
     private let toastPresenter = ActionToastPresenter()
     private let globalActionRouter = GlobalActionRouter()
     private let applicationRelatedItemLocator: any ApplicationRelatedItemLocating = ApplicationRelatedItemLocatorService()
     private var goToPathPopover: NSPopover?
     private weak var goToPathHighlightView: NSView?
     private var shouldRefocusAfterGoToPathDismiss = true
+    private lazy var previewPopupPanelController: PreviewPopupPanelController = {
+        let controller = PreviewPopupPanelController(previewViewController: previewPopupPaneViewController)
+        controller.onDismiss = { [weak self] in
+            guard let self else {
+                return
+            }
+            self.viewModel.previewVisible = false
+            self.focusActivePane()
+        }
+        return controller
+    }()
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
     var onStatusContextTextChanged: ((String?) -> Void)?
@@ -84,7 +200,6 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         self.rightPaneFileIconSize = min(max(rightPaneFileIconSize, 12), 40)
         self.initialSidebarWidth = clampedSidebarWidth
         self.lastReportedSidebarWidth = clampedSidebarWidth
-        self.lastReportedPreviewWidth = Self.defaultPreviewWidth
 
         self.sidebarViewModel = SidebarViewModel(
             configManager: configManager,
@@ -98,8 +213,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         self.rightPaneViewController = FilePaneViewController(viewModel: viewModel.rightPane)
         self.leftSplitItem = NSSplitViewItem(viewController: leftPaneViewController)
         self.rightSplitItem = NSSplitViewItem(viewController: rightPaneViewController)
-        self.previewPaneViewController = PreviewPaneViewController(viewModel: viewModel.previewPane)
-        self.previewSplitItem = NSSplitViewItem(viewController: previewPaneViewController)
+        self.previewPopupPaneViewController = PreviewPaneViewController(viewModel: viewModel.previewPane)
         self.bookmarksConfig = configManager.loadBookmarksConfig()
 
         self.leftPaneStatus = PaneStatus(
@@ -138,8 +252,6 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         applySidebarVisibility(animated: false)
         applyPaneVisibility(leftVisible: initialLeftPaneVisible, rightVisible: initialRightPaneVisible, animated: false)
         applyPreviewPaneVisibility(animated: false)
-        previewPaneViewController.setPreferredFitViewportWidth(lastReportedPreviewWidth)
-        reportPreviewWidthIfNeeded(force: true)
 
         propagateBookmarksConfig()
         setSpotlightSearchScope(viewModel.leftPane.spotlightSearchScope)
@@ -158,7 +270,6 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         sidebarViewController.view.setAccessibilityIdentifier("mainSplit.sidebar")
         leftPaneViewController.view.setAccessibilityIdentifier("mainSplit.leftPane")
         rightPaneViewController.view.setAccessibilityIdentifier("mainSplit.rightPane")
-        previewPaneViewController.view.setAccessibilityIdentifier("mainSplit.previewPane")
     }
 
     override func viewDidLayout() {
@@ -169,7 +280,6 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     override func splitViewDidResizeSubviews(_ notification: Notification) {
         super.splitViewDidResizeSubviews(notification)
         reportSidebarWidthIfNeeded(force: false)
-        reportPreviewWidthIfNeeded(force: false)
     }
 
     func focusActivePane() {
@@ -181,7 +291,17 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     }
 
     func togglePreviewPane() {
-        viewModel.togglePreviewPane()
+        if previewPopupPanelController.isVisible {
+            previewPopupPanelController.dismiss()
+            return
+        }
+
+        guard isPreviewableSelectionAvailableForActivePane() else {
+            NSSound.beep()
+            return
+        }
+
+        viewModel.previewVisible = true
         applyPreviewPaneVisibility(animated: false)
     }
 
@@ -255,7 +375,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         leftPaneViewController.applyTheme(theme, backgroundOpacity: backgroundOpacity)
         rightPaneViewController.applyTheme(theme, backgroundOpacity: backgroundOpacity)
         sidebarViewController.applyTheme(theme, backgroundOpacity: backgroundOpacity)
-        previewPaneViewController.applyTheme(theme, backgroundOpacity: backgroundOpacity)
+        previewPopupPaneViewController.applyTheme(theme, backgroundOpacity: backgroundOpacity)
     }
 
     func reloadBookmarksConfig() {
@@ -412,14 +532,14 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         toastPresenter.starEffectsEnabled = enabled
         leftPaneViewController.setStarEffectsEnabled(enabled)
         rightPaneViewController.setStarEffectsEnabled(enabled)
-        previewPaneViewController.setStarEffectsEnabled(enabled)
+        previewPopupPaneViewController.setStarEffectsEnabled(enabled)
     }
 
     func setAnimationEffectSettings(_ settings: AnimationEffectSettings) {
         animationEffectSettings = settings
         leftPaneViewController.setAnimationEffectSettings(settings)
         rightPaneViewController.setAnimationEffectSettings(settings)
-        previewPaneViewController.setAnimationEffectSettings(settings)
+        previewPopupPaneViewController.setAnimationEffectSettings(settings)
     }
 
     func setShortcutGuideEnabled(_ enabled: Bool) {
@@ -482,18 +602,15 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         rightSplitItem.canCollapse = true
         rightSplitItem.titlebarSeparatorStyle = .none
         addSplitViewItem(rightSplitItem)
-
-        previewSplitItem.minimumThickness = 260
-        previewSplitItem.canCollapse = true
-        previewSplitItem.titlebarSeparatorStyle = .none
-        addSplitViewItem(previewSplitItem)
-        lastReportedPreviewWidth = max(lastReportedPreviewWidth, previewSplitItem.minimumThickness)
     }
 
     private func bindPaneControllers() {
         bindPaneCallbacks(for: leftPaneViewController, side: .left)
         bindPaneCallbacks(for: rightPaneViewController, side: .right)
+        bindPreviewPaneCallbacks(for: previewPopupPaneViewController)
+    }
 
+    private func bindPreviewPaneCallbacks(for previewPaneViewController: PreviewPaneViewController) {
         previewPaneViewController.onImageSelectionChanged = { [weak self] selectedURL in
             self?.viewModel.previewPane.setSelectedFileURL(selectedURL)
         }
@@ -865,35 +982,32 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     }
 
     private func applyPreviewPaneVisibility(animated: Bool) {
-        let shouldCollapse = !viewModel.previewVisible
-        guard previewSplitItem.isCollapsed != shouldCollapse else {
+        _ = animated
+
+        guard viewModel.previewVisible else {
+            if previewPopupPanelController.isVisible {
+                previewPopupPanelController.dismiss()
+            }
             return
         }
 
-        if shouldCollapse {
-            captureCurrentPreviewWidthIfNeeded()
-        } else {
-            ensureWindowWidthForPreviewIfNeeded()
-            previewPaneViewController.setPreferredFitViewportWidth(lastReportedPreviewWidth)
+        guard let window = view.window else {
+            return
         }
 
-        if animated {
-            NSAnimationContext.runAnimationGroup({ context in
-                context.duration = 0.18
-                previewSplitItem.animator().isCollapsed = shouldCollapse
-            }, completionHandler: { [weak self] in
-                if !shouldCollapse {
-                    self?.restorePreviewWidthIfNeeded()
-                }
-                self?.reportPreviewWidthIfNeeded(force: true)
-            })
-        } else {
-            previewSplitItem.isCollapsed = shouldCollapse
-            if !shouldCollapse {
-                restorePreviewWidthIfNeeded()
-            }
-            reportPreviewWidthIfNeeded(force: true)
+        previewPopupPanelController.show(relativeTo: window)
+    }
+
+    private func isPreviewableSelectionAvailableForActivePane() -> Bool {
+        guard let selectedItem = viewModel.activePane.selectedItem else {
+            return false
         }
+
+        if selectedItem.isDirectory && !selectedItem.isPackage {
+            return false
+        }
+
+        return selectedItem.url.isImageFile
     }
 
     private func updatePaneStatus(side: PaneSide, path: String, itemCount: Int, markedCount: Int) {
@@ -1048,133 +1162,6 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
 
         lastReportedSidebarWidth = width
         onSidebarWidthChanged?(width)
-    }
-
-    private func ensureWindowWidthForPreviewIfNeeded() {
-        guard let window = view.window, let contentView = window.contentView else {
-            return
-        }
-
-        let desiredPreviewWidth = max(lastReportedPreviewWidth, previewSplitItem.minimumThickness)
-        let requiredContentWidth = minimumRequiredContentWidth(
-            includePreview: true,
-            preferredPreviewWidth: desiredPreviewWidth
-        )
-        let currentContentWidth = contentView.bounds.width
-        guard requiredContentWidth > currentContentWidth + 1 else {
-            return
-        }
-
-        let widthDelta = requiredContentWidth - currentContentWidth
-        var frame = window.frame
-        frame.size.width += widthDelta
-        window.setFrame(frame, display: true, animate: false)
-    }
-
-    private func restorePreviewWidthIfNeeded() {
-        guard !previewSplitItem.isCollapsed else {
-            return
-        }
-
-        let arrangedSubviews = splitView.arrangedSubviews
-        guard let previewIndex = arrangedSubviewIndex(for: previewPaneViewController.view, in: arrangedSubviews),
-              previewIndex > 0 else {
-            return
-        }
-
-        let visibleItems = visibleSplitItems(includePreview: true)
-        let nonPreviewMinimumWidth = visibleItems
-            .filter { $0 !== previewSplitItem }
-            .reduce(CGFloat.zero) { partialResult, item in
-                partialResult + item.minimumThickness
-            }
-        let dividerCount = max(visibleItems.count - 1, 0)
-        let availablePreviewWidth = splitView.bounds.width
-            - nonPreviewMinimumWidth
-            - (CGFloat(dividerCount) * splitView.dividerThickness)
-
-        let targetPreviewWidth = min(
-            max(lastReportedPreviewWidth, previewSplitItem.minimumThickness),
-            availablePreviewWidth
-        )
-        guard targetPreviewWidth >= previewSplitItem.minimumThickness else {
-            return
-        }
-
-        let targetDividerPosition = splitView.bounds.width - targetPreviewWidth - splitView.dividerThickness
-        splitView.setPosition(targetDividerPosition, ofDividerAt: previewIndex - 1)
-        previewPaneViewController.setPreferredFitViewportWidth(targetPreviewWidth)
-    }
-
-    private func minimumRequiredContentWidth(
-        includePreview: Bool,
-        preferredPreviewWidth: CGFloat? = nil
-    ) -> CGFloat {
-        let visibleItems = visibleSplitItems(includePreview: includePreview)
-        guard !visibleItems.isEmpty else {
-            return 0
-        }
-
-        let paneWidth = visibleItems.reduce(CGFloat.zero) { partialResult, item in
-            if item === previewSplitItem, let preferredPreviewWidth {
-                return partialResult + max(item.minimumThickness, preferredPreviewWidth)
-            }
-
-            return partialResult + item.minimumThickness
-        }
-        let dividerCount = max(visibleItems.count - 1, 0)
-        return paneWidth + (CGFloat(dividerCount) * splitView.dividerThickness)
-    }
-
-    private func visibleSplitItems(includePreview: Bool) -> [NSSplitViewItem] {
-        var items: [NSSplitViewItem] = []
-        if !sidebarSplitItem.isCollapsed {
-            items.append(sidebarSplitItem)
-        }
-        if !leftSplitItem.isCollapsed {
-            items.append(leftSplitItem)
-        }
-        if !rightSplitItem.isCollapsed {
-            items.append(rightSplitItem)
-        }
-        if includePreview {
-            items.append(previewSplitItem)
-        }
-        return items
-    }
-
-    private func captureCurrentPreviewWidthIfNeeded() {
-        guard !previewSplitItem.isCollapsed else {
-            return
-        }
-
-        let width = max(previewPaneViewController.view.frame.width, previewSplitItem.minimumThickness)
-        guard width > 0 else {
-            return
-        }
-
-        lastReportedPreviewWidth = width
-        previewPaneViewController.setPreferredFitViewportWidth(width)
-    }
-
-    private func reportPreviewWidthIfNeeded(force: Bool) {
-        if previewSplitItem.isCollapsed {
-            previewPaneViewController.setPreferredFitViewportWidth(lastReportedPreviewWidth)
-            return
-        }
-
-        let width = max(previewPaneViewController.view.frame.width, previewSplitItem.minimumThickness)
-        guard width > 0 else {
-            return
-        }
-
-        guard force || abs(width - lastReportedPreviewWidth) >= 1 else {
-            previewPaneViewController.setPreferredFitViewportWidth(lastReportedPreviewWidth)
-            return
-        }
-
-        lastReportedPreviewWidth = width
-        previewPaneViewController.setPreferredFitViewportWidth(width)
     }
 
     private static func clampedSidebarWidth(_ width: CGFloat) -> CGFloat {

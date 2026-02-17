@@ -2072,15 +2072,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private func handleEnterKeyAction() {
-        guard let selectedItem = viewModel.selectedItem else {
-            return
-        }
-
-        if selectedItem.url.isImageFile,
-           onFileOperationRequested?(.togglePreview) == true {
-            return
-        }
-
         openSelectedFile()
     }
 
@@ -2549,7 +2540,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         items.append(NSMenuItem.separator())
 
         items.append(makeContextMenuItem(title: "Toggle Sidebar", action: .toggleSidebar))
-        items.append(makeContextMenuItem(title: "Toggle Preview", action: .togglePreview))
         items.append(makeContextMenuItem(title: "Toggle Left Pane", action: .toggleLeftPane))
         items.append(makeContextMenuItem(title: "Toggle Right Pane", action: .toggleRightPane))
         items.append(makeContextMenuItem(title: "Equalize Pane Widths", action: .equalizePaneWidths))

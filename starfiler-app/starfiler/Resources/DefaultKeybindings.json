@@ -41,7 +41,7 @@
       "/": "enterFilterMode",
       "Tab": "switchPane",
       "Ctrl-Tab": "switchPane",
-      "Ctrl-p": "togglePreview",
+      "Space": "togglePreview",
       "Ctrl-8": "toggleSidebar",
       "Ctrl-1": "toggleLeftPane",
       "Ctrl-2": "toggleRightPane",

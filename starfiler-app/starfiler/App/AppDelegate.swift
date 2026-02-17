@@ -260,9 +260,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let viewMenu = NSMenu(title: "View")
         let toggleSidebarItem = viewMenu.addItem(withTitle: "Toggle Sidebar", action: #selector(menuToggleSidebar(_:)), keyEquivalent: "s")
         toggleSidebarItem.keyEquivalentModifierMask = [.command]
-
-        let togglePreviewItem = viewMenu.addItem(withTitle: "Toggle Preview", action: #selector(menuTogglePreview(_:)), keyEquivalent: "p")
-        togglePreviewItem.keyEquivalentModifierMask = [.control]
         let showFilesModeItem = viewMenu.addItem(withTitle: "Show Files", action: #selector(menuShowFilesMode(_:)), keyEquivalent: "1")
         showFilesModeItem.keyEquivalentModifierMask = [.command]
         let showMediaModeItem = viewMenu.addItem(withTitle: "Show Media", action: #selector(menuShowMediaMode(_:)), keyEquivalent: "2")
@@ -457,10 +454,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func menuSelectAll(_ sender: Any?) {
         mainWindowController?.performAction { $0.activePane.markAll() }
-    }
-
-    @objc private func menuTogglePreview(_ sender: Any?) {
-        mainWindowController?.togglePreviewPane()
     }
 
     @objc private func menuShowFilesMode(_ sender: Any?) {
