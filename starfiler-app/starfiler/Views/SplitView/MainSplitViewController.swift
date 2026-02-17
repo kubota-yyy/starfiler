@@ -1344,6 +1344,10 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
             ? url
             : url.deletingLastPathComponent().standardizedFileURL
 
+        if viewModel.activePane.displayMode == .media {
+            viewModel.activePane.setDisplayMode(.browser)
+        }
+
         navigateActivePane(to: destination)
     }
 
