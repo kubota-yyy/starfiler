@@ -317,11 +317,16 @@ extension URL {
             return false
         }
 
+        let lowercasedExtension = pathExtension.lowercased()
+        if lowercasedExtension == "ts" {
+            // Avoid treating TypeScript source files as MPEG transport stream videos.
+            return false
+        }
+
         if let type = (try? resourceValues(forKeys: [.contentTypeKey]))?.contentType {
             return type.conforms(to: .movie) || type.conforms(to: .video)
         }
 
-        let lowercasedExtension = pathExtension.lowercased()
         guard !lowercasedExtension.isEmpty else {
             return false
         }
@@ -331,7 +336,7 @@ extension URL {
         }
 
         let commonVideoExtensions: Set<String> = [
-            "mp4", "mov", "m4v", "avi", "mkv", "webm", "wmv", "mpg", "mpeg", "3gp", "ts", "m2ts"
+            "mp4", "mov", "m4v", "avi", "mkv", "webm", "wmv", "mpg", "mpeg", "3gp", "m2ts"
         ]
         return commonVideoExtensions.contains(lowercasedExtension)
     }

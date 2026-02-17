@@ -59,4 +59,23 @@ final class FileSystemServiceIntegrationTests: XCTestCase {
 
         XCTAssertTrue(recursive.contains(where: { $0.name == "nested.png" }))
     }
+
+    func testMediaItemsDoesNotTreatTypeScriptAsMedia() async throws {
+        let workspace = try SandboxFixtureWorkspace()
+        try "const answer: number = 42".write(
+            to: workspace.url("left/media/script.ts"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let sut = FileSystemService()
+        let nonRecursive = try await sut.mediaItems(
+            in: workspace.url("left/media"),
+            recursive: false,
+            includeHiddenFiles: true
+        )
+
+        XCTAssertEqual(Set(nonRecursive.map(\.name)), Set(["photo.jpg", "video.mp4"]))
+        XCTAssertFalse(nonRecursive.contains(where: { $0.name == "script.ts" }))
+    }
 }
