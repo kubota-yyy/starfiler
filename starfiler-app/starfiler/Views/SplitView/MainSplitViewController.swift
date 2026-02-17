@@ -1451,21 +1451,16 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         alert.addButton(withTitle: "Save")
         alert.addButton(withTitle: "Cancel")
 
-        let accessoryContainer = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 134))
+        let groupNames = bookmarksConfig.groups.map(\.name)
+        let accessoryContainer = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 108))
 
-        let groupPopup = NSPopUpButton(frame: NSRect(x: 0, y: 104, width: 340, height: 26), pullsDown: false)
-        groupPopup.addItems(withTitles: bookmarksConfig.groups.map(\.name))
-        groupPopup.addItem(withTitle: "New Group")
+        let groupPopup = NSPopUpButton(frame: NSRect(x: 0, y: 82, width: 340, height: 26), pullsDown: false)
+        groupPopup.addItems(withTitles: groupNames)
+        groupPopup.addItem(withTitle: "New…")
         let lastIndex = Self.lastSelectedBookmarkGroupIndex
         if lastIndex >= 0, lastIndex < groupPopup.numberOfItems {
             groupPopup.selectItem(at: lastIndex)
         }
-
-        let newGroupField = NSTextField(frame: NSRect(x: 0, y: 78, width: 210, height: 24))
-        newGroupField.placeholderString = "New group name"
-
-        let groupShortcutField = NSTextField(frame: NSRect(x: 220, y: 78, width: 120, height: 24))
-        groupShortcutField.placeholderString = "Group key"
 
         let displayNameField = NSTextField(frame: NSRect(x: 0, y: 52, width: 340, height: 24))
         displayNameField.stringValue = defaultDisplayName
@@ -1479,8 +1474,6 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         shortcutField.placeholderString = "e.g. d or d u"
 
         accessoryContainer.addSubview(groupPopup)
-        accessoryContainer.addSubview(newGroupField)
-        accessoryContainer.addSubview(groupShortcutField)
         accessoryContainer.addSubview(displayNameField)
         accessoryContainer.addSubview(shortcutLabel)
         accessoryContainer.addSubview(shortcutField)
@@ -1497,11 +1490,14 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
 
         let selectedGroupName: String
         var groupShortcutKey: String?
-        if selectedGroupIndex >= 0, selectedGroupIndex < bookmarksConfig.groups.count {
-            selectedGroupName = bookmarksConfig.groups[selectedGroupIndex].name
+        if selectedGroupIndex >= 0, selectedGroupIndex < groupNames.count {
+            selectedGroupName = groupNames[selectedGroupIndex]
         } else {
-            selectedGroupName = newGroupField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            groupShortcutKey = BookmarkShortcut.canonical(from: groupShortcutField.stringValue)
+            guard let newGroup = presentNewBookmarkGroupAlert() else {
+                return
+            }
+            selectedGroupName = newGroup.name
+            groupShortcutKey = newGroup.shortcutKey
         }
 
         guard !selectedGroupName.isEmpty else {
@@ -1521,6 +1517,51 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
             ),
             groupName: selectedGroupName,
             groupShortcutKey: groupShortcutKey
+        )
+    }
+
+    private func presentNewBookmarkGroupAlert() -> (name: String, shortcutKey: String?)? {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Create New Bookmark Group"
+        alert.addButton(withTitle: "Create")
+        alert.addButton(withTitle: "Cancel")
+
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 50))
+
+        let groupNameField = NSTextField(frame: NSRect(x: 0, y: 26, width: 210, height: 24))
+        groupNameField.placeholderString = "Group name"
+
+        let groupShortcutField = NSTextField(frame: NSRect(x: 220, y: 26, width: 120, height: 24))
+        groupShortcutField.placeholderString = "Group key"
+
+        let shortcutHintLabel = NSTextField(labelWithString: "Shortcut sequence (optional)")
+        shortcutHintLabel.frame = NSRect(x: 0, y: 2, width: 250, height: 20)
+        shortcutHintLabel.font = .systemFont(ofSize: 11)
+        shortcutHintLabel.textColor = .secondaryLabelColor
+
+        container.addSubview(groupNameField)
+        container.addSubview(groupShortcutField)
+        container.addSubview(shortcutHintLabel)
+        alert.accessoryView = container
+        alert.window.initialFirstResponder = groupNameField
+
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            return nil
+        }
+
+        let groupName = groupNameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !groupName.isEmpty else {
+            presentErrorAlert(
+                title: "Missing Group Name",
+                informativeText: "Group name is required when creating a new group."
+            )
+            return nil
+        }
+
+        return (
+            name: groupName,
+            shortcutKey: BookmarkShortcut.canonical(from: groupShortcutField.stringValue)
         )
     }
 
