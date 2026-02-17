@@ -679,7 +679,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private func configureCollectionView() {
         mediaCollectionLayout.minimumInteritemSpacing = 0
         mediaCollectionLayout.minimumLineSpacing = 0
-        mediaCollectionLayout.sectionInset = NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
+        mediaCollectionLayout.sectionInset = .zero
 
         mediaCollectionView.translatesAutoresizingMaskIntoConstraints = false
         mediaCollectionView.collectionViewLayout = mediaCollectionLayout
