@@ -222,6 +222,117 @@ final class FilePaneViewModelTests: XCTestCase {
         XCTAssertEqual(sut.paneState.currentDirectory.path, URL(fileURLWithPath: "/tmp/test").standardizedFileURL.path)
     }
 
+    // MARK: - Tree Expand/Collapse
+
+    func testExpandSelectedFolderLoadsChildren() async {
+        let folder = makeFileItem(name: "Folder", isDirectory: true)
+        let child = FileItem(
+            url: folder.url.appendingPathComponent("inside.txt"),
+            name: "inside.txt",
+            isDirectory: false,
+            size: 1,
+            dateModified: Date(),
+            isHidden: false,
+            isSymlink: false,
+            isPackage: false
+        )
+
+        let sut = makeSUT(items: [folder])
+        await waitForLoad()
+
+        fileSystem.contentsOfDirectoryResult = .success([child])
+        sut.expandSelectedFolder()
+        await waitForCondition(timeout: 2.0, description: "Folder expansion") {
+            sut.directoryContents.displayedItems.contains(where: { $0.url.standardizedFileURL == child.url.standardizedFileURL })
+        }
+
+        XCTAssertTrue(sut.directoryContents.displayedItems.contains(where: { $0.url.standardizedFileURL == child.url.standardizedFileURL }))
+    }
+
+    func testCollapseSelectedFolderHidesChildrenAfterExpansion() async {
+        let folder = makeFileItem(name: "Folder", isDirectory: true)
+        let child = FileItem(
+            url: folder.url.appendingPathComponent("inside.txt"),
+            name: "inside.txt",
+            isDirectory: false,
+            size: 1,
+            dateModified: Date(),
+            isHidden: false,
+            isSymlink: false,
+            isPackage: false
+        )
+
+        let sut = makeSUT(items: [folder])
+        await waitForLoad()
+
+        fileSystem.contentsOfDirectoryResult = .success([child])
+        sut.expandSelectedFolder()
+        await waitForCondition(timeout: 2.0, description: "Folder expansion before collapse") {
+            sut.directoryContents.displayedItems.contains(where: { $0.url.standardizedFileURL == child.url.standardizedFileURL })
+        }
+
+        sut.collapseSelectedFolder()
+
+        XCTAssertFalse(sut.directoryContents.displayedItems.contains(where: { $0.url.standardizedFileURL == child.url.standardizedFileURL }))
+    }
+
+    // MARK: - Spotlight Search
+
+    func testEnterSpotlightSearchModeClearsMarksAndVisualAnchor() async {
+        let sut = makeSUT()
+        await waitForLoad()
+
+        sut.toggleMark()
+        sut.enterVisualMode()
+        sut.enterSpotlightSearchMode()
+
+        XCTAssertTrue(sut.paneState.markedIndices.isEmpty)
+        XCTAssertNil(sut.paneState.visualAnchorIndex)
+        XCTAssertEqual(sut.directoryContents.displayedItems.count, 0)
+    }
+
+    func testUpdateSpotlightSearchQueryUsesCurrentScopeAndAppliesResults() async {
+        let spotlightFile = FileItem(
+            url: URL(fileURLWithPath: "/tmp/spotlight-result.txt"),
+            name: "spotlight-result.txt",
+            isDirectory: false,
+            size: 32,
+            dateModified: Date(),
+            isHidden: false,
+            isSymlink: false,
+            isPackage: false
+        )
+
+        let sut = makeSUT()
+        await waitForLoad()
+
+        spotlight.searchResults = [spotlightFile]
+        sut.setSpotlightSearchScope(.userHome)
+        sut.enterSpotlightSearchMode()
+        sut.updateSpotlightSearchQuery("spot")
+        await waitForLoad()
+
+        XCTAssertEqual(spotlight.searchCallCount, 1)
+        XCTAssertEqual(spotlight.searchCapturedArgs.last?.scope, .userHome)
+        XCTAssertEqual(sut.directoryContents.displayedItems.map(\.name), [spotlightFile.name])
+    }
+
+    func testExitSpotlightSearchModeRestoresDirectoryContents() async {
+        let sut = makeSUT(items: sampleItems)
+        await waitForLoad()
+
+        spotlight.searchResults = [makeFileItem(name: "filtered.txt")]
+        sut.enterSpotlightSearchMode()
+        sut.updateSpotlightSearchQuery("filtered")
+        await waitForLoad()
+        XCTAssertEqual(sut.directoryContents.displayedItems.count, 1)
+
+        sut.exitSpotlightSearchMode()
+        await waitForLoad()
+
+        XCTAssertEqual(sut.directoryContents.displayedItems.count, sampleItems.count)
+    }
+
     // MARK: - Cursor Movement
 
     func testMoveCursorDownIncrementsCursor() async {
