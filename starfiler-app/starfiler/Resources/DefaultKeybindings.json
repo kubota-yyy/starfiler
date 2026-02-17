@@ -37,6 +37,7 @@
       "Ctrl-c Ctrl-w": "rename",
       "Ctrl-n": "createDirectory",
       "/": "enterFilterMode",
+      "Tab": "switchPane",
       "Ctrl-Tab": "switchPane",
       "Ctrl-p": "togglePreview",
       "Ctrl-8": "toggleSidebar",
@@ -80,6 +81,7 @@
     "visual": {
       "Ctrl-j": "cursorDown",
       "Ctrl-k": "cursorUp",
+      "Escape": "exitVisualMode",
       "Ctrl-Escape": "exitVisualMode",
       "Ctrl-y": "copy",
       "Ctrl-d": "delete"
