@@ -63,6 +63,7 @@ actor SecurityScopedBookmarkService: SecurityScopedBookmarkProviding {
     private let fileManager: FileManager
     private let bundleIdentifier: String
     private let isSandboxed: Bool
+    private let bookmarkStoreURLOverride: URL?
 
     private var store = BookmarkStore()
     private var isStoreLoaded = false
@@ -80,10 +81,12 @@ actor SecurityScopedBookmarkService: SecurityScopedBookmarkProviding {
 
     init(
         fileManager: FileManager = .default,
-        bundleIdentifier: String = Bundle.main.bundleIdentifier ?? "com.nilone.starfiler"
+        bundleIdentifier: String = Bundle.main.bundleIdentifier ?? "com.nilone.starfiler",
+        bookmarkStoreURL: URL? = nil
     ) {
         self.fileManager = fileManager
         self.bundleIdentifier = bundleIdentifier
+        self.bookmarkStoreURLOverride = bookmarkStoreURL
         self.isSandboxed = ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil
     }
 
@@ -372,6 +375,14 @@ actor SecurityScopedBookmarkService: SecurityScopedBookmarkProviding {
     }
 
     private func bookmarkStoreURL() throws -> URL {
+        if let bookmarkStoreURLOverride {
+            let directoryURL = bookmarkStoreURLOverride.deletingLastPathComponent()
+            if !fileManager.fileExists(atPath: directoryURL.path) {
+                try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+            }
+            return bookmarkStoreURLOverride
+        }
+
         let applicationSupportURL = try fileManager.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,

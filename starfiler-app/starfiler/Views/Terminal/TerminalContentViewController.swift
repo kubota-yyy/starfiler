@@ -6,6 +6,7 @@ final class TerminalContentViewController: NSViewController {
     private let sessionViewModel: TerminalSessionViewModel
     private var terminalView: LocalProcessTerminalView?
     private var hasLaunched = false
+    private let isUITestLaunch = ProcessInfo.processInfo.arguments.contains("--uitest")
 
     var onProcessExited: ((UUID, Int32) -> Void)?
 
@@ -36,6 +37,13 @@ final class TerminalContentViewController: NSViewController {
 
     func launchProcess(command: TerminalSessionCommand, workingDirectory: URL, environment: [String: String]? = nil) {
         guard let tv = terminalView else { return }
+
+        if isUITestLaunch {
+            tv.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+            sessionViewModel.processStarted()
+            sessionViewModel.outputReceived()
+            return
+        }
 
         var env = environment ?? ProcessInfo.processInfo.environment
         env["TERM"] = "xterm-256color"

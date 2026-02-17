@@ -45,6 +45,7 @@ final class MainViewModel {
         fileOperationQueue: FileOperationQueue = FileOperationQueue(),
         visitHistoryService: any VisitHistoryProviding,
         pinnedItemsService: any PinnedItemsProviding,
+        terminalSessionService: any TerminalSessionProviding = TerminalSessionService(),
         initialShowHiddenFiles: Bool = false,
         initialSortColumn: AppConfig.SortColumn = .date,
         initialSortAscending: Bool = false,
@@ -86,6 +87,7 @@ final class MainViewModel {
         )
 
         self.terminalSessionListViewModel = TerminalSessionListViewModel(
+            service: terminalSessionService,
             initialPanelVisible: initialTerminalPanelVisible
         )
 
