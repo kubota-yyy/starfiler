@@ -28,7 +28,6 @@ final class PreviewPaneViewController: NSViewController {
     private var currentTheme: FilerTheme = .system
     private var backgroundOpacity: CGFloat = 1.0
 
-    private let emptyStarImageView = NSImageView()
     private var starEffectsEnabled = true
     private var animationEffectSettings = AnimationEffectSettings.allEnabled
     private var currentState: PreviewViewModel.State = .default
@@ -77,7 +76,6 @@ final class PreviewPaneViewController: NSViewController {
 
     func setStarEffectsEnabled(_ enabled: Bool) {
         starEffectsEnabled = enabled
-        emptyStarImageView.isHidden = !enabled
     }
 
     func setAnimationEffectSettings(_ settings: AnimationEffectSettings) {
@@ -172,12 +170,6 @@ final class PreviewPaneViewController: NSViewController {
         emptyStateLabel.alignment = .center
         emptyStateLabel.font = .systemFont(ofSize: 13, weight: .regular)
         emptyStateLabel.maximumNumberOfLines = 3
-
-        emptyStarImageView.translatesAutoresizingMaskIntoConstraints = false
-        emptyStarImageView.image = NSImage(systemSymbolName: "star", accessibilityDescription: nil)
-        emptyStarImageView.imageScaling = .scaleProportionallyUpOrDown
-        emptyStarImageView.contentTintColor = currentTheme.palette.starAccentColor.withAlphaComponent(0.25)
-        emptyStarImageView.isHidden = !starEffectsEnabled
     }
 
     private func configureLayout() {
@@ -198,7 +190,6 @@ final class PreviewPaneViewController: NSViewController {
 
         contentContainerView.addSubview(scrollView)
         contentContainerView.addSubview(playerView)
-        contentContainerView.addSubview(emptyStarImageView)
         contentContainerView.addSubview(emptyStateLabel)
 
         NSLayoutConstraint.activate([
@@ -231,15 +222,10 @@ final class PreviewPaneViewController: NSViewController {
             playerView.topAnchor.constraint(equalTo: contentContainerView.topAnchor),
             playerView.bottomAnchor.constraint(equalTo: contentContainerView.bottomAnchor),
 
-            emptyStarImageView.centerXAnchor.constraint(equalTo: contentContainerView.centerXAnchor),
-            emptyStarImageView.centerYAnchor.constraint(equalTo: contentContainerView.centerYAnchor, constant: -20),
-            emptyStarImageView.widthAnchor.constraint(equalToConstant: 64),
-            emptyStarImageView.heightAnchor.constraint(equalToConstant: 64),
-
             emptyStateLabel.leadingAnchor.constraint(equalTo: contentContainerView.leadingAnchor, constant: 18),
             emptyStateLabel.trailingAnchor.constraint(equalTo: contentContainerView.trailingAnchor, constant: -18),
             emptyStateLabel.centerXAnchor.constraint(equalTo: contentContainerView.centerXAnchor),
-            emptyStateLabel.topAnchor.constraint(equalTo: emptyStarImageView.bottomAnchor, constant: 8),
+            emptyStateLabel.centerYAnchor.constraint(equalTo: contentContainerView.centerYAnchor),
 
             previousButton.leadingAnchor.constraint(equalTo: toolbarView.leadingAnchor, constant: 8),
             previousButton.centerYAnchor.constraint(equalTo: toolbarView.centerYAnchor),
@@ -467,8 +453,6 @@ final class PreviewPaneViewController: NSViewController {
         contentContainerView.layer?.backgroundColor = palette.previewBackgroundColor.applyingBackgroundOpacity(backgroundOpacity).cgColor
         scrollView.backgroundColor = palette.previewBackgroundColor.applyingBackgroundOpacity(backgroundOpacity)
         emptyStateLabel.textColor = palette.secondaryTextColor
-        emptyStarImageView.contentTintColor = palette.starAccentColor.withAlphaComponent(0.25)
-        emptyStarImageView.isHidden = !starEffectsEnabled
         positionLabel.textColor = palette.secondaryTextColor
         zoomLabel.textColor = palette.secondaryTextColor
     }
