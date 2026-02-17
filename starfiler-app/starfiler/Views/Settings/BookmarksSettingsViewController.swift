@@ -349,7 +349,7 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
 
         let entries = bookmarksConfig.groups[groupIndex].entries
         guard let entryIndex = entries.firstIndex(where: { entry in
-            entry.path == row.path &&
+            isSameBookmarkPath(entry.path, row.path) &&
                 entry.displayName == row.displayName &&
                 entry.shortcutKey == row.shortcutKey
         }) else {
@@ -558,7 +558,7 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
                 BookmarkIdentity(
                     groupName: row.groupName,
                     displayName: row.displayName,
-                    path: row.path,
+                    path: normalizedBookmarkPath(row.path),
                     shortcutKey: row.shortcutKey
                 )
             }
@@ -570,7 +570,7 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
                     BookmarkIdentity(
                         groupName: groupName,
                         displayName: entry.displayName,
-                        path: entry.path,
+                        path: normalizedBookmarkPath(entry.path),
                         shortcutKey: entry.shortcutKey
                     )
                 )
@@ -887,22 +887,25 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
 
     private func upsertBookmark(with result: EditorResult, replacing existingRow: BookmarkRow?) {
         var groups = bookmarksConfig.groups
+        let normalizedResultPath = normalizedBookmarkPath(result.path)
 
         if let existingRow,
            let existingGroupIndex = groups.firstIndex(where: { $0.name == existingRow.groupName }) {
             groups[existingGroupIndex].entries.removeAll { entry in
-                entry.path == existingRow.path && entry.displayName == existingRow.displayName
+                isSameBookmarkPath(entry.path, existingRow.path) && entry.displayName == existingRow.displayName
             }
         }
 
         let newEntry = BookmarkEntry(
             displayName: result.displayName,
-            path: result.path,
+            path: normalizedResultPath,
             shortcutKey: result.shortcutKey
         )
 
         if let targetGroupIndex = groups.firstIndex(where: { $0.name == result.groupName }) {
-            if let existingEntryIndex = groups[targetGroupIndex].entries.firstIndex(where: { $0.path == result.path }) {
+            if let existingEntryIndex = groups[targetGroupIndex].entries.firstIndex(where: {
+                isSameBookmarkPath($0.path, normalizedResultPath)
+            }) {
                 groups[targetGroupIndex].entries[existingEntryIndex] = newEntry
             } else {
                 groups[targetGroupIndex].entries.append(newEntry)
@@ -963,8 +966,8 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
     private func persist(_ config: BookmarksConfig, selecting selectionTarget: BookmarkSelectionTarget? = nil) {
         do {
             try configManager.saveBookmarksConfig(config)
-            bookmarksConfig = config
-            rows = flattenRows(from: config)
+            bookmarksConfig = configManager.loadBookmarksConfig()
+            rows = flattenRows(from: bookmarksConfig)
             tableView.reloadData()
             if let selectionTarget {
                 selectRow(matching: selectionTarget)
@@ -987,7 +990,8 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
             return
         }
 
-        let url = URL(fileURLWithPath: normalizedPath, isDirectory: true).standardizedFileURL
+        let resolvedPath = UserPaths.resolveBookmarkPath(normalizedPath)
+        let url = URL(fileURLWithPath: resolvedPath, isDirectory: true).standardizedFileURL
         Task { [weak self] in
             guard let self else {
                 return
@@ -1015,7 +1019,7 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
         guard let rowIndex = rows.firstIndex(where: { row in
             row.groupName == target.groupName &&
                 row.displayName == target.displayName &&
-                row.path == target.path
+                isSameBookmarkPath(row.path, target.path)
         }) else {
             return
         }
@@ -1086,5 +1090,13 @@ final class BookmarksSettingsViewController: NSViewController, NSTableViewDataSo
             return hint
         }
         return "-"
+    }
+
+    private func normalizedBookmarkPath(_ rawPath: String) -> String {
+        UserPaths.portableBookmarkPath(rawPath)
+    }
+
+    private func isSameBookmarkPath(_ lhs: String, _ rhs: String) -> Bool {
+        normalizedBookmarkPath(lhs) == normalizedBookmarkPath(rhs)
     }
 }

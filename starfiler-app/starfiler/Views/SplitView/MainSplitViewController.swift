@@ -1568,17 +1568,20 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     private func saveBookmark(entry: BookmarkEntry, groupName: String, groupShortcutKey: String? = nil) {
         var latestConfig = configManager.loadBookmarksConfig()
         var groups = latestConfig.groups
+        let normalizedEntry = normalizeBookmarkEntry(entry)
 
         if let groupIndex = groups.firstIndex(where: { $0.name == groupName }) {
-            if let entryIndex = groups[groupIndex].entries.firstIndex(where: { $0.path == entry.path }) {
-                groups[groupIndex].entries[entryIndex] = entry
+            if let entryIndex = groups[groupIndex].entries.firstIndex(where: {
+                isSameBookmarkPath($0.path, normalizedEntry.path)
+            }) {
+                groups[groupIndex].entries[entryIndex] = normalizedEntry
             } else {
-                groups[groupIndex].entries.append(entry)
+                groups[groupIndex].entries.append(normalizedEntry)
             }
         } else {
             groups.append(BookmarkGroup(
                 name: groupName,
-                entries: [entry],
+                entries: [normalizedEntry],
                 shortcutKey: groupShortcutKey
             ))
         }
@@ -1588,10 +1591,10 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         do {
             try configManager.saveBookmarksConfig(latestConfig)
             bookmarksConfig = latestConfig
-            persistSecurityScopedBookmark(for: entry.path)
+            persistSecurityScopedBookmark(for: normalizedEntry.path)
             sidebarViewModel.reloadSections()
             propagateBookmarksConfig()
-            showActionToast("Saved bookmark \"\(entry.displayName)\"")
+            showActionToast("Saved bookmark \"\(normalizedEntry.displayName)\"")
         } catch {
             let alert = NSAlert()
             alert.alertStyle = .critical
@@ -1603,7 +1606,8 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     }
 
     private func persistSecurityScopedBookmark(for path: String) {
-        let bookmarkURL = URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
+        let resolvedPath = UserPaths.resolveBookmarkPath(path)
+        let bookmarkURL = URL(fileURLWithPath: resolvedPath, isDirectory: true).standardizedFileURL
         Task { [weak self] in
             guard let self else {
                 return
@@ -1616,6 +1620,22 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
                 }
             }
         }
+    }
+
+    private func normalizeBookmarkEntry(_ entry: BookmarkEntry) -> BookmarkEntry {
+        BookmarkEntry(
+            displayName: entry.displayName,
+            path: normalizedBookmarkPath(entry.path),
+            shortcutKey: entry.shortcutKey
+        )
+    }
+
+    private func normalizedBookmarkPath(_ rawPath: String) -> String {
+        UserPaths.portableBookmarkPath(rawPath)
+    }
+
+    private func isSameBookmarkPath(_ lhs: String, _ rhs: String) -> Bool {
+        normalizedBookmarkPath(lhs) == normalizedBookmarkPath(rhs)
     }
 
     private func presentSidebarBookmarkEditor(
@@ -1661,7 +1681,9 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         }
 
         let previousCount = latestConfig.groups[groupIndex].entries.count
-        latestConfig.groups[groupIndex].entries.removeAll { $0.path == entry.path }
+        latestConfig.groups[groupIndex].entries.removeAll {
+            isSameBookmarkPath($0.path, entry.path)
+        }
         guard latestConfig.groups[groupIndex].entries.count != previousCount else {
             NSSound.beep()
             return
@@ -1700,7 +1722,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         let initialShortcut = groups
             .first(where: { $0.name == initialGroupName })?
             .entries
-            .first(where: { $0.path == initialEntry.path })?
+            .first(where: { isSameBookmarkPath($0.path, initialEntry.path) })?
             .shortcutKey
 
         let alert = NSAlert()
@@ -1801,14 +1823,18 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
             return
         }
 
-        latestConfig.groups[originalGroupIndex].entries.removeAll { $0.path == originalEntry.path }
+        latestConfig.groups[originalGroupIndex].entries.removeAll {
+            isSameBookmarkPath($0.path, originalEntry.path)
+        }
         let updatedEntry = BookmarkEntry(
             displayName: result.displayName,
-            path: result.path,
+            path: normalizedBookmarkPath(result.path),
             shortcutKey: result.shortcutKey
         )
 
-        if let existingIndex = latestConfig.groups[targetGroupIndex].entries.firstIndex(where: { $0.path == result.path }) {
+        if let existingIndex = latestConfig.groups[targetGroupIndex].entries.firstIndex(where: {
+            isSameBookmarkPath($0.path, updatedEntry.path)
+        }) {
             latestConfig.groups[targetGroupIndex].entries[existingIndex] = updatedEntry
         } else {
             latestConfig.groups[targetGroupIndex].entries.append(updatedEntry)
