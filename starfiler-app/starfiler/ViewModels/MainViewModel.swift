@@ -239,7 +239,31 @@ final class MainViewModel {
     }
 
     func cutMarked() {
-        _ = cutMarkedToClipboard()
+        moveMarked()
+    }
+
+    func moveMarked() {
+        let urls = activePane.markedOrSelectedURLs()
+        guard !urls.isEmpty else {
+            return
+        }
+
+        let destinationDirectory = inactivePane.paneState.currentDirectory.standardizedFileURL
+        let items = urls.map { source in
+            let normalizedSource = source.standardizedFileURL
+            return FileLocationChange(
+                source: normalizedSource,
+                destination: destinationDirectory
+                    .appendingPathComponent(normalizedSource.lastPathComponent, isDirectory: normalizedSource.hasDirectoryPath)
+                    .standardizedFileURL
+            )
+        }
+
+        execute(
+            operation: .move(items: items),
+            registerUndoWithManager: true,
+            clearCutClipboardOnSuccess: false
+        )
     }
 
     func paste() {

@@ -148,17 +148,19 @@ final class MainViewModelTests: XCTestCase {
         XCTAssertEqual(sut.clipboardOperation, .copy)
     }
 
-    func testCutMarkedSetsClipboardWithCutOperation() async {
+    func testCutMarkedToClipboardSetsClipboardWithCutOperation() async {
         let items = [makeFileItem(name: "file.txt")]
         fileSystem.contentsOfDirectoryResult = .success(items)
         let sut = makeSUT()
         await waitForLoad()
 
         sut.activePane.toggleMark()
-        sut.cutMarked()
+        let cutURLs = sut.cutMarkedToClipboard()
 
+        XCTAssertEqual(cutURLs, [items[0].url.standardizedFileURL])
         XCTAssertFalse(sut.clipboard.isEmpty)
         XCTAssertEqual(sut.clipboardOperation, .cut)
+        XCTAssertEqual(mockExecutor.executeCallCount, 0)
     }
 
     func testCopyMarkedWithNoSelectionDoesNothing() async {
@@ -232,6 +234,37 @@ final class MainViewModelTests: XCTestCase {
         await waitForLoad()
 
         XCTAssertEqual(mockExecutor.executeCallCount, 0)
+    }
+
+    func testMoveMarkedMovesSelectionToInactivePaneDirectory() async {
+        let leftDir = URL(fileURLWithPath: "/tmp/left", isDirectory: true)
+        let rightDir = URL(fileURLWithPath: "/tmp/right", isDirectory: true)
+        let selectedItem = FileItem(
+            url: leftDir.appendingPathComponent("file.txt", isDirectory: false),
+            name: "file.txt",
+            isDirectory: false,
+            size: 1024,
+            dateModified: Date(),
+            isHidden: false,
+            isSymlink: false,
+            isPackage: false
+        )
+        fileSystem.contentsOfDirectoryResult = .success([selectedItem])
+
+        let sut = makeSUT(initialLeftDirectory: leftDir, initialRightDirectory: rightDir)
+        await waitForLoad()
+
+        sut.activePane.toggleMark()
+        sut.moveMarked()
+        await waitForLoad()
+
+        let expectedMove = FileLocationChange(
+            source: selectedItem.url.standardizedFileURL,
+            destination: rightDir.appendingPathComponent("file.txt", isDirectory: false).standardizedFileURL
+        )
+
+        XCTAssertEqual(mockExecutor.executeCallCount, 1)
+        XCTAssertEqual(mockExecutor.executeCapturedOperations.last, .move(items: [expectedMove]))
     }
 
     // MARK: - Delete
