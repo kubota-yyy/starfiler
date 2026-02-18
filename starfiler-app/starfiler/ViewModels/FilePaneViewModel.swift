@@ -73,6 +73,7 @@ final class FilePaneViewModel {
     private var pendingRevealURL: URL?
     private var activeNavigationTaskID: UUID?
     private var activeLoadingTaskID: UUID?
+    private var loadingContext: LoadingContext?
     private var lastRefreshFailureSignature: String?
     private var hasActiveFilter: Bool {
         !directoryContents.filterText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -140,6 +141,10 @@ final class FilePaneViewModel {
 
     var isMediaModeEnabled: Bool {
         displayMode == .media
+    }
+
+    var effectiveDirectory: URL {
+        loadingContext?.directory ?? paneState.currentDirectory.standardizedFileURL
     }
 
     func markedOrSelectedURLs() -> [URL] {
@@ -897,10 +902,11 @@ final class FilePaneViewModel {
 
     private func beginLoading(taskID: UUID, directory: URL, notify: Bool) {
         activeLoadingTaskID = taskID
+        loadingContext = currentLoadingContext(for: directory)
         guard notify else {
             return
         }
-        onLoadingStateChanged?(currentLoadingContext(for: directory))
+        onLoadingStateChanged?(loadingContext)
     }
 
     private func endLoading(taskID: UUID) {
@@ -912,6 +918,7 @@ final class FilePaneViewModel {
             return
         }
         activeLoadingTaskID = nil
+        loadingContext = nil
         guard notify else {
             return
         }

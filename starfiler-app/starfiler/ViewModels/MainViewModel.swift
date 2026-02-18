@@ -143,8 +143,8 @@ final class MainViewModel {
 
     @discardableResult
     func matchOtherPaneDirectoryToActivePane() -> Bool {
-        let destinationDirectory = activePane.paneState.currentDirectory.standardizedFileURL
-        let currentInactiveDirectory = inactivePane.paneState.currentDirectory.standardizedFileURL
+        let destinationDirectory = activePane.effectiveDirectory
+        let currentInactiveDirectory = inactivePane.effectiveDirectory
         guard currentInactiveDirectory != destinationDirectory else {
             return false
         }
@@ -155,8 +155,8 @@ final class MainViewModel {
 
     @discardableResult
     func moveActivePaneToOtherPaneDirectory() -> Bool {
-        let destinationDirectory = inactivePane.paneState.currentDirectory.standardizedFileURL
-        let currentActiveDirectory = activePane.paneState.currentDirectory.standardizedFileURL
+        let destinationDirectory = inactivePane.effectiveDirectory
+        let currentActiveDirectory = activePane.effectiveDirectory
         guard currentActiveDirectory != destinationDirectory else {
             return false
         }
@@ -167,8 +167,8 @@ final class MainViewModel {
 
     @discardableResult
     func syncPanesLeftToRight() -> Bool {
-        let leftDir = leftPane.paneState.currentDirectory.standardizedFileURL
-        let rightDir = rightPane.paneState.currentDirectory.standardizedFileURL
+        let leftDir = leftPane.effectiveDirectory
+        let rightDir = rightPane.effectiveDirectory
         guard rightDir != leftDir else { return false }
         rightPane.navigate(to: leftDir)
         return true
@@ -176,8 +176,8 @@ final class MainViewModel {
 
     @discardableResult
     func syncPanesRightToLeft() -> Bool {
-        let rightDir = rightPane.paneState.currentDirectory.standardizedFileURL
-        let leftDir = leftPane.paneState.currentDirectory.standardizedFileURL
+        let rightDir = rightPane.effectiveDirectory
+        let leftDir = leftPane.effectiveDirectory
         guard leftDir != rightDir else { return false }
         leftPane.navigate(to: rightDir)
         return true

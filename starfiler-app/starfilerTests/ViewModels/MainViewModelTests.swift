@@ -366,6 +366,38 @@ final class MainViewModelTests: XCTestCase {
         XCTAssertFalse(result)
     }
 
+    func testMatchOtherPaneUsesActivePaneLoadingDestination() async {
+        let leftDir = URL(fileURLWithPath: "/tmp/left")
+        let rightDir = URL(fileURLWithPath: "/tmp/right")
+        let destination = URL(fileURLWithPath: "/tmp/left/new")
+
+        fileSystem.contentsOfDirectoryHandler = { url in
+            if url.standardizedFileURL == destination.standardizedFileURL {
+                try await Task.sleep(for: .milliseconds(250))
+            }
+            return []
+        }
+
+        let sut = MainViewModel(
+            fileSystemService: fileSystem,
+            securityScopedBookmarkService: bookmarkService,
+            fileOperationQueue: fileOpQueue,
+            visitHistoryService: visitHistory,
+            pinnedItemsService: MockPinnedItemsService(),
+            initialLeftDirectory: leftDir,
+            initialRightDirectory: rightDir
+        )
+        await waitForLoad()
+
+        sut.activePane.navigate(to: destination)
+        let result = sut.matchOtherPaneDirectoryToActivePane()
+
+        XCTAssertTrue(result)
+        await waitForCondition(timeout: 2.0, description: "Inactive pane navigates to active pane loading destination") {
+            sut.inactivePane.paneState.currentDirectory.standardizedFileURL == destination.standardizedFileURL
+        }
+    }
+
     // MARK: - onFileOperationCompleted
 
     func testOnFileOperationCompletedCallbackFires() async {
