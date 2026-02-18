@@ -252,9 +252,14 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private let mediaCollectionView = MediaCollectionView()
     private let fileDragSource = FileDragSource()
 
-    private lazy var fileDropTarget = FileDropTarget { [weak self] in
-        self?.viewModel.paneState.currentDirectory ?? UserPaths.homeDirectoryURL
-    }
+    private lazy var fileDropTarget = FileDropTarget(
+        destinationDirectoryProvider: { [weak self] in
+            self?.viewModel.paneState.currentDirectory ?? UserPaths.homeDirectoryURL
+        },
+        dropDestinationDirectoryProvider: { [weak self] draggingInfo in
+            self?.dropDestinationDirectory(for: draggingInfo)
+        }
+    )
 
     private var isPaneActive = false
     private var isDropTargetHighlighted = false
@@ -1237,6 +1242,21 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         fileDropTarget.onDropFailed = { [weak self] message in
             self?.presentDropError(message)
         }
+    }
+
+    private func dropDestinationDirectory(for draggingInfo: NSDraggingInfo) -> URL? {
+        let dropPoint = tableView.convert(draggingInfo.draggingLocation, from: nil)
+        let row = tableView.row(at: dropPoint)
+        guard viewModel.directoryContents.displayedItems.indices.contains(row) else {
+            return nil
+        }
+
+        let item = viewModel.directoryContents.displayedItems[row]
+        guard item.isDirectory, !item.isPackage else {
+            return nil
+        }
+
+        return item.url.standardizedFileURL
     }
 
     private func bindViewModel() {

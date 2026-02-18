@@ -3,6 +3,8 @@ import AppKit
 final class FileDropTarget: NSObject {
     private let fileOperationService: any FileOperationExecuting
     private let destinationDirectoryProvider: () -> URL
+    private let dropDestinationDirectoryProvider: ((NSDraggingInfo) -> URL?)?
+    private let fileManager: FileManager
 
     var onHighlightChanged: ((Bool) -> Void)?
     var onDropCompleted: ((NSDragOperation, Int) -> Void)?
@@ -10,10 +12,14 @@ final class FileDropTarget: NSObject {
 
     init(
         fileOperationService: any FileOperationExecuting = FileOperationService(),
-        destinationDirectoryProvider: @escaping () -> URL
+        destinationDirectoryProvider: @escaping () -> URL,
+        dropDestinationDirectoryProvider: ((NSDraggingInfo) -> URL?)? = nil,
+        fileManager: FileManager = .default
     ) {
         self.fileOperationService = fileOperationService
         self.destinationDirectoryProvider = destinationDirectoryProvider
+        self.dropDestinationDirectoryProvider = dropDestinationDirectoryProvider
+        self.fileManager = fileManager
     }
 
     func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
@@ -61,13 +67,20 @@ final class FileDropTarget: NSObject {
         }
 
         let uniqueURLs = Array(Set(droppedURLs.map(\.standardizedFileURL))).sorted { $0.path < $1.path }
+        let destinationDirectory = resolveDestinationDirectory(for: sender).standardizedFileURL
 
         Task { [weak self] in
             guard let self else {
                 return
             }
 
-            let destinationDirectory = await MainActor.run { destinationDirectoryProvider().standardizedFileURL }
+            if let invalidMoveReason = validationErrorMessage(for: uniqueURLs, destinationDirectory: destinationDirectory) {
+                await MainActor.run {
+                    self.onHighlightChanged?(false)
+                    self.onDropFailed?(invalidMoveReason)
+                }
+                return
+            }
 
             // Skip when all files are already in the destination directory
             let allAlreadyInDestination = uniqueURLs.allSatisfy {
@@ -116,11 +129,7 @@ final class FileDropTarget: NSObject {
         let sourceMask = sender.draggingSourceOperationMask
         let optionPressed = NSApp.currentEvent?.modifierFlags.contains(.option) == true
 
-        if optionPressed, sourceMask.contains(.move) {
-            return .move
-        }
-
-        if sourceMask.contains(.copy) {
+        if optionPressed, sourceMask.contains(.copy) {
             return .copy
         }
 
@@ -128,7 +137,42 @@ final class FileDropTarget: NSObject {
             return .move
         }
 
+        if sourceMask.contains(.copy) {
+            return .copy
+        }
+
         return []
+    }
+
+    private func resolveDestinationDirectory(for sender: NSDraggingInfo) -> URL {
+        if let destination = dropDestinationDirectoryProvider?(sender) {
+            return destination
+        }
+        return destinationDirectoryProvider()
+    }
+
+    private func validationErrorMessage(for sourceURLs: [URL], destinationDirectory: URL) -> String? {
+        for sourceURL in sourceURLs {
+            guard isDirectory(at: sourceURL) else {
+                continue
+            }
+
+            let sourcePath = sourceURL.standardizedFileURL.path
+            let destinationPath = destinationDirectory.standardizedFileURL.path
+            if PathNormalizer.isSameOrDescendant(destinationPath, of: sourcePath) {
+                return "Cannot move a folder into itself or its subfolder."
+            }
+        }
+
+        return nil
+    }
+
+    private func isDirectory(at url: URL) -> Bool {
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
+            return false
+        }
+        return isDirectory.boolValue
     }
 
     private func canReadFileURLs(from sender: NSDraggingInfo) -> Bool {
