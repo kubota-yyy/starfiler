@@ -713,6 +713,32 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         return viewModel.directoryContents.displayedItems[row].name
     }
 
+    func tableView(
+        _ tableView: NSTableView,
+        nextTypeSelectMatchFromRow startRow: Int,
+        toRow endRow: Int,
+        for searchString: String
+    ) -> Int {
+        let normalizedSearch = searchString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedSearch.isEmpty else {
+            return -1
+        }
+
+        for (index, item) in viewModel.directoryContents.displayedItems.enumerated() {
+            let matchedRange = item.name.range(
+                of: normalizedSearch,
+                options: [.anchored, .caseInsensitive, .diacriticInsensitive, .widthInsensitive],
+                range: nil,
+                locale: .current
+            )
+            if matchedRange != nil {
+                return index
+            }
+        }
+
+        return -1
+    }
+
     func tableViewSelectionDidChange(_ notification: Notification) {
         let selectedRow = tableView.selectedRow
         guard selectedRow >= 0 else {
