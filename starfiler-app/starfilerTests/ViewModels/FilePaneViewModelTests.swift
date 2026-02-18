@@ -501,6 +501,35 @@ final class FilePaneViewModelTests: XCTestCase {
         XCTAssertEqual(urls.count, 1)
     }
 
+    func testMarkedOrSelectedPathsReturnsMarkedWhenPresent() async {
+        let sut = makeSUT()
+        await waitForLoad()
+
+        sut.moveCursorDown()
+        sut.toggleMark()
+        sut.moveCursorDown()
+        sut.toggleMark()
+
+        let paths = sut.markedOrSelectedPaths()
+        let expected = sut.paneState.markedIndices.compactMap { index -> String? in
+            guard sut.directoryContents.displayedItems.indices.contains(index) else {
+                return nil
+            }
+            return sut.directoryContents.displayedItems[index].url.standardizedFileURL.path
+        }
+        XCTAssertEqual(paths, expected)
+    }
+
+    func testMarkedOrSelectedPathsReturnsSelectedWhenNoMarks() async {
+        let sut = makeSUT()
+        await waitForLoad()
+
+        sut.moveCursorDown()
+
+        let paths = sut.markedOrSelectedPaths()
+        XCTAssertEqual(paths, ["/tmp/test/beta.txt"])
+    }
+
     // MARK: - Visual Mode
 
     func testEnterVisualModeSetsAnchor() async {

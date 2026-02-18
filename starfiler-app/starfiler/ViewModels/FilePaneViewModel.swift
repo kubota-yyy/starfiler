@@ -164,6 +164,10 @@ final class FilePaneViewModel {
         return [selectedItem.url]
     }
 
+    func markedOrSelectedPaths() -> [String] {
+        markedOrSelectedURLs().map { $0.standardizedFileURL.path }
+    }
+
     func navigate(to directory: URL) {
         if isSpotlightSearchActive {
             endSpotlightSearch(restoringDirectoryContents: false)

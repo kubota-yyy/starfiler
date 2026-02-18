@@ -383,14 +383,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func menuCopySelectedItemPath(_ sender: Any?) {
         mainWindowController?.performAction { vm in
-            guard let selectedURL = vm.activePane.selectedItem?.url.standardizedFileURL else {
+            let paths = vm.activePane.markedOrSelectedPaths()
+            guard !paths.isEmpty else {
                 NSSound.beep()
                 return
             }
 
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
-            pasteboard.setString(selectedURL.path, forType: .string)
+            pasteboard.setString(paths.joined(separator: "\n"), forType: .string)
         }
     }
 

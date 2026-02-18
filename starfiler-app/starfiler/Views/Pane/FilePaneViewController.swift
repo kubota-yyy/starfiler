@@ -1439,10 +1439,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         return selectedItem?.url.standardizedFileURL.path
     }
 
-    private func selectedItemAbsolutePath() -> String? {
-        viewModel.selectedItem?.url.standardizedFileURL.path
-    }
-
     private func updateActiveAppearance() {
         let palette = filerTheme.palette
         let headerColor: NSColor
@@ -2159,14 +2155,15 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private func copySelectedItemPathToPasteboard() {
-        guard let path = selectedItemAbsolutePath() else {
+        let paths = viewModel.markedOrSelectedPaths()
+        guard !paths.isEmpty else {
             NSSound.beep()
             return
         }
 
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(path, forType: .string)
+        pasteboard.setString(paths.joined(separator: "\n"), forType: .string)
     }
 
     private func presentDropError(_ message: String) {
