@@ -7,43 +7,17 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		EE0000000000000000000001 /* NavigationHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000001 /* NavigationHistoryTests.swift */; };
-		EE0000000000000000000002 /* DirectoryContentsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000002 /* DirectoryContentsTests.swift */; };
-		EE0000000000000000000003 /* PaneStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000003 /* PaneStateTests.swift */; };
-		EE0000000000000000000004 /* VimModeStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000004 /* VimModeStateTests.swift */; };
-		EE0000000000000000000005 /* FileOperationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000005 /* FileOperationTests.swift */; };
-		EE0000000000000000000006 /* BatchRenameServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000006 /* BatchRenameServiceTests.swift */; };
-		EE0000000000000000000007 /* KeyInterpreterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000007 /* KeyInterpreterTests.swift */; };
-		EE0000000000000000000008 /* MockFileSystemService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000008 /* MockFileSystemService.swift */; };
-		EE0000000000000000000010 /* MockSecurityScopedBookmarkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000010 /* MockSecurityScopedBookmarkService.swift */; };
-		EE0000000000000000000011 /* MockDirectoryMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000011 /* MockDirectoryMonitor.swift */; };
-		EE0000000000000000000012 /* MockSpotlightSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000012 /* MockSpotlightSearchService.swift */; };
-		EE0000000000000000000013 /* MockFileOperationExecuting.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000013 /* MockFileOperationExecuting.swift */; };
-		EE0000000000000000000014 /* MockDirectoryComparing.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000014 /* MockDirectoryComparing.swift */; };
-		EE0000000000000000000015 /* MockSyncExecuting.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000015 /* MockSyncExecuting.swift */; };
-		EE0000000000000000000016 /* MockBatchRenameComputing.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000016 /* MockBatchRenameComputing.swift */; };
-		EE0000000000000000000017 /* MockVisitHistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000017 /* MockVisitHistoryService.swift */; };
-		EE0000000000000000000018 /* MockTerminalSessionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000018 /* MockTerminalSessionService.swift */; };
-		EE0000000000000000000020 /* PreviewViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000020 /* PreviewViewModelTests.swift */; };
-		EE0000000000000000000021 /* BookmarkSearchViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000021 /* BookmarkSearchViewModelTests.swift */; };
-		EE0000000000000000000022 /* BatchRenameViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000022 /* BatchRenameViewModelTests.swift */; };
-		EE0000000000000000000023 /* FilePaneViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000023 /* FilePaneViewModelTests.swift */; };
-		EE0000000000000000000024 /* MainViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000024 /* MainViewModelTests.swift */; };
-		EE0000000000000000000025 /* SidebarViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000025 /* SidebarViewModelTests.swift */; };
-		EE0000000000000000000026 /* SyncViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000026 /* SyncViewModelTests.swift */; };
-		EE0000000000000000000027 /* TerminalSessionListViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000027 /* TerminalSessionListViewModelTests.swift */; };
-		EE0000000000000000000028 /* FileOperationQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000028 /* FileOperationQueueTests.swift */; };
-		EE0000000000000000000029 /* ConfigManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000029 /* ConfigManagerTests.swift */; };
-		EE000000000000000000A001 /* FileItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A001 /* FileItemFactory.swift */; };
-		EE000000000000000000A002 /* TestURLFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A002 /* TestURLFactory.swift */; };
-		EE000000000000000000A003 /* AsyncTestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A003 /* AsyncTestHelpers.swift */; };
-		EE000000000000000000A004 /* MockPinnedItemsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A004 /* MockPinnedItemsService.swift */; };
-		EE000000000000000000002A /* PinnedItemsServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000002A /* PinnedItemsServiceTests.swift */; };
-		CC0000000000000000000070 /* TreeExpansionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000070 /* TreeExpansionState.swift */; };
-		CC0000000000000000000071 /* TreeDisplayItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000071 /* TreeDisplayItem.swift */; };
-		CC0000000000000000000072 /* PinnedItemsConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000072 /* PinnedItemsConfig.swift */; };
-		CC0000000000000000000073 /* PinnedItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000073 /* PinnedItem.swift */; };
-		CC0000000000000000000074 /* PinnedItemsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000074 /* PinnedItemsService.swift */; };
+		26291D95CC1DE84D46C97B18 /* GlobalActionRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB62D59F8B8F0D0859950655 /* GlobalActionRouter.swift */; };
+		41EE05820918C9D664F40420 /* FeatureRegressionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCA70B511E56E61D85B994DC /* FeatureRegressionUITests.swift */; };
+		45DFBE0D6C1ABE4E2390F550 /* SecurityScopedBookmarkServiceIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02AAF2688F1616CD1D0FD85C /* SecurityScopedBookmarkServiceIntegrationTests.swift */; };
+		609C81EFEC2EC739DF00A1A9 /* GlobalActionRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 060024D18787057241DAE6D4 /* GlobalActionRouterTests.swift */; };
+		817C3301D10A09566C8D98B5 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 060CBF0D5054826A7CCFB945 /* Cocoa.framework */; };
+		893B9717C9949290E99BE6E0 /* DefaultShortcutCoverageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2533AA15ECD04A067DEC511D /* DefaultShortcutCoverageTests.swift */; };
+		8A3765E00AAE2C3258403B70 /* DragDropSmokeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 756FB87F81BD373FD51CB70A /* DragDropSmokeUITests.swift */; };
+		8E4331A82F9C8E9640C4A956 /* BaseUITestCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DA02617092C30A871EDC359 /* BaseUITestCase.swift */; };
+		A044C0BCB493112E23403E93 /* ShortcutRegressionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 230E7EDA0891551B6E0419BC /* ShortcutRegressionUITests.swift */; };
+		A6F98E73AAE0447658073E71 /* SandboxFixtureWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 625BBF22ED7C8DF9F963DCEE /* SandboxFixtureWorkspace.swift */; };
+		BA1730EC76F454E2A789144E /* FileOperationServiceIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8744C2A33062020B5AC45A7 /* FileOperationServiceIntegrationTests.swift */; };
 		CC0000000000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000001 /* AppDelegate.swift */; };
 		CC0000000000000000000002 /* MainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000002 /* MainWindowController.swift */; };
 		CC0000000000000000000003 /* FilePaneViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* FilePaneViewController.swift */; };
@@ -137,9 +111,74 @@
 		CC000000000000000000005C /* BorderlessSplitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000005E /* BorderlessSplitView.swift */; };
 		CC000000000000000000005D /* PaneHighlightOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000000000000000000005F /* PaneHighlightOverlayView.swift */; };
 		CC000000000000000000005E /* GoToPathPopoverViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000060 /* GoToPathPopoverViewController.swift */; };
+		CC0000000000000000000070 /* TreeExpansionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000070 /* TreeExpansionState.swift */; };
+		CC0000000000000000000071 /* TreeDisplayItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000071 /* TreeDisplayItem.swift */; };
+		CC0000000000000000000072 /* PinnedItemsConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000072 /* PinnedItemsConfig.swift */; };
+		CC0000000000000000000073 /* PinnedItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000073 /* PinnedItem.swift */; };
+		CC0000000000000000000074 /* PinnedItemsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000074 /* PinnedItemsService.swift */; };
+		DF99C6034CD13D0468E0FD89 /* FileSystemServiceIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 876B6E0CED4A9C9FCAB9CF9C /* FileSystemServiceIntegrationTests.swift */; };
+		EE0000000000000000000001 /* NavigationHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000001 /* NavigationHistoryTests.swift */; };
+		EE0000000000000000000002 /* DirectoryContentsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000002 /* DirectoryContentsTests.swift */; };
+		EE0000000000000000000003 /* PaneStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000003 /* PaneStateTests.swift */; };
+		EE0000000000000000000004 /* VimModeStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000004 /* VimModeStateTests.swift */; };
+		EE0000000000000000000005 /* FileOperationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000005 /* FileOperationTests.swift */; };
+		EE0000000000000000000006 /* BatchRenameServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000006 /* BatchRenameServiceTests.swift */; };
+		EE0000000000000000000007 /* KeyInterpreterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000007 /* KeyInterpreterTests.swift */; };
+		EE0000000000000000000008 /* MockFileSystemService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000008 /* MockFileSystemService.swift */; };
+		EE0000000000000000000010 /* MockSecurityScopedBookmarkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000010 /* MockSecurityScopedBookmarkService.swift */; };
+		EE0000000000000000000011 /* MockDirectoryMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000011 /* MockDirectoryMonitor.swift */; };
+		EE0000000000000000000012 /* MockSpotlightSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000012 /* MockSpotlightSearchService.swift */; };
+		EE0000000000000000000013 /* MockFileOperationExecuting.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000013 /* MockFileOperationExecuting.swift */; };
+		EE0000000000000000000014 /* MockDirectoryComparing.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000014 /* MockDirectoryComparing.swift */; };
+		EE0000000000000000000015 /* MockSyncExecuting.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000015 /* MockSyncExecuting.swift */; };
+		EE0000000000000000000016 /* MockBatchRenameComputing.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000016 /* MockBatchRenameComputing.swift */; };
+		EE0000000000000000000017 /* MockVisitHistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000017 /* MockVisitHistoryService.swift */; };
+		EE0000000000000000000018 /* MockTerminalSessionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000018 /* MockTerminalSessionService.swift */; };
+		EE0000000000000000000020 /* PreviewViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000020 /* PreviewViewModelTests.swift */; };
+		EE0000000000000000000021 /* BookmarkSearchViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000021 /* BookmarkSearchViewModelTests.swift */; };
+		EE0000000000000000000022 /* BatchRenameViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000022 /* BatchRenameViewModelTests.swift */; };
+		EE0000000000000000000023 /* FilePaneViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000023 /* FilePaneViewModelTests.swift */; };
+		EE0000000000000000000024 /* MainViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000024 /* MainViewModelTests.swift */; };
+		EE0000000000000000000025 /* SidebarViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000025 /* SidebarViewModelTests.swift */; };
+		EE0000000000000000000026 /* SyncViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000026 /* SyncViewModelTests.swift */; };
+		EE0000000000000000000027 /* TerminalSessionListViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000027 /* TerminalSessionListViewModelTests.swift */; };
+		EE0000000000000000000028 /* FileOperationQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000028 /* FileOperationQueueTests.swift */; };
+		EE0000000000000000000029 /* ConfigManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000029 /* ConfigManagerTests.swift */; };
+		EE000000000000000000002A /* PinnedItemsServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000002A /* PinnedItemsServiceTests.swift */; };
+		EE000000000000000000A001 /* FileItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A001 /* FileItemFactory.swift */; };
+		EE000000000000000000A002 /* TestURLFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A002 /* TestURLFactory.swift */; };
+		EE000000000000000000A003 /* AsyncTestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A003 /* AsyncTestHelpers.swift */; };
+		EE000000000000000000A004 /* MockPinnedItemsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A004 /* MockPinnedItemsService.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		702F2D12FFA0EC63073D2DB9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA0000000000000000000000 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA0000000000000000000010;
+			remoteInfo = starfiler;
+		};
+		EE00000000000000000000C1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA0000000000000000000000 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA0000000000000000000010;
+			remoteInfo = starfiler;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		02AAF2688F1616CD1D0FD85C /* SecurityScopedBookmarkServiceIntegrationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SecurityScopedBookmarkServiceIntegrationTests.swift; sourceTree = "<group>"; };
+		060024D18787057241DAE6D4 /* GlobalActionRouterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GlobalActionRouterTests.swift; sourceTree = "<group>"; };
+		060CBF0D5054826A7CCFB945 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
+		1DA02617092C30A871EDC359 /* BaseUITestCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BaseUITestCase.swift; sourceTree = "<group>"; };
+		230E7EDA0891551B6E0419BC /* ShortcutRegressionUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShortcutRegressionUITests.swift; sourceTree = "<group>"; };
+		2533AA15ECD04A067DEC511D /* DefaultShortcutCoverageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DefaultShortcutCoverageTests.swift; sourceTree = "<group>"; };
+		625BBF22ED7C8DF9F963DCEE /* SandboxFixtureWorkspace.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SandboxFixtureWorkspace.swift; sourceTree = "<group>"; };
+		756FB87F81BD373FD51CB70A /* DragDropSmokeUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DragDropSmokeUITests.swift; sourceTree = "<group>"; };
+		876B6E0CED4A9C9FCAB9CF9C /* FileSystemServiceIntegrationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FileSystemServiceIntegrationTests.swift; sourceTree = "<group>"; };
+		A8744C2A33062020B5AC45A7 /* FileOperationServiceIntegrationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FileOperationServiceIntegrationTests.swift; sourceTree = "<group>"; };
 		BB0000000000000000000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		BB0000000000000000000002 /* MainWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowController.swift; sourceTree = "<group>"; };
 		BB0000000000000000000003 /* FilePaneViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePaneViewController.swift; sourceTree = "<group>"; };
@@ -216,11 +255,6 @@
 		BB000000000000000000004B /* MarkdownPreviewPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownPreviewPanelController.swift; sourceTree = "<group>"; };
 		BB000000000000000000004C /* markdown-preview.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "markdown-preview.html"; sourceTree = "<group>"; };
 		BB000000000000000000004D /* TerminalSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSession.swift; sourceTree = "<group>"; };
-		BB0000000000000000000070 /* TreeExpansionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreeExpansionState.swift; sourceTree = "<group>"; };
-		BB0000000000000000000071 /* TreeDisplayItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreeDisplayItem.swift; sourceTree = "<group>"; };
-		BB0000000000000000000072 /* PinnedItemsConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedItemsConfig.swift; sourceTree = "<group>"; };
-		BB0000000000000000000073 /* PinnedItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedItem.swift; sourceTree = "<group>"; };
-		BB0000000000000000000074 /* PinnedItemsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedItemsService.swift; sourceTree = "<group>"; };
 		BB000000000000000000004E /* TerminalSessionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionService.swift; sourceTree = "<group>"; };
 		BB000000000000000000004F /* TerminalSessionListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionListViewModel.swift; sourceTree = "<group>"; };
 		BB0000000000000000000050 /* TerminalSessionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionViewModel.swift; sourceTree = "<group>"; };
@@ -240,6 +274,14 @@
 		BB000000000000000000005E /* BorderlessSplitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BorderlessSplitView.swift; sourceTree = "<group>"; };
 		BB000000000000000000005F /* PaneHighlightOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneHighlightOverlayView.swift; sourceTree = "<group>"; };
 		BB0000000000000000000060 /* GoToPathPopoverViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoToPathPopoverViewController.swift; sourceTree = "<group>"; };
+		BB0000000000000000000070 /* TreeExpansionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreeExpansionState.swift; sourceTree = "<group>"; };
+		BB0000000000000000000071 /* TreeDisplayItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreeDisplayItem.swift; sourceTree = "<group>"; };
+		BB0000000000000000000072 /* PinnedItemsConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedItemsConfig.swift; sourceTree = "<group>"; };
+		BB0000000000000000000073 /* PinnedItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedItem.swift; sourceTree = "<group>"; };
+		BB0000000000000000000074 /* PinnedItemsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedItemsService.swift; sourceTree = "<group>"; };
+		BCA70B511E56E61D85B994DC /* FeatureRegressionUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeatureRegressionUITests.swift; sourceTree = "<group>"; };
+		DB62D59F8B8F0D0859950655 /* GlobalActionRouter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GlobalActionRouter.swift; sourceTree = "<group>"; };
+		E0EA844564F4E9B8E81C9467 /* starfilerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = starfilerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FF0000000000000000000001 /* NavigationHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationHistoryTests.swift; sourceTree = "<group>"; };
 		FF0000000000000000000002 /* DirectoryContentsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectoryContentsTests.swift; sourceTree = "<group>"; };
 		FF0000000000000000000003 /* PaneStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneStateTests.swift; sourceTree = "<group>"; };
@@ -248,6 +290,7 @@
 		FF0000000000000000000006 /* BatchRenameServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchRenameServiceTests.swift; sourceTree = "<group>"; };
 		FF0000000000000000000007 /* KeyInterpreterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyInterpreterTests.swift; sourceTree = "<group>"; };
 		FF0000000000000000000008 /* MockFileSystemService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockFileSystemService.swift; sourceTree = "<group>"; };
+		FF0000000000000000000009 /* StarfilerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StarfilerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FF0000000000000000000010 /* MockSecurityScopedBookmarkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSecurityScopedBookmarkService.swift; sourceTree = "<group>"; };
 		FF0000000000000000000011 /* MockDirectoryMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDirectoryMonitor.swift; sourceTree = "<group>"; };
 		FF0000000000000000000012 /* MockSpotlightSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSpotlightSearchService.swift; sourceTree = "<group>"; };
@@ -267,15 +310,22 @@
 		FF0000000000000000000027 /* TerminalSessionListViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionListViewModelTests.swift; sourceTree = "<group>"; };
 		FF0000000000000000000028 /* FileOperationQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileOperationQueueTests.swift; sourceTree = "<group>"; };
 		FF0000000000000000000029 /* ConfigManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigManagerTests.swift; sourceTree = "<group>"; };
-		FF0000000000000000000009 /* StarfilerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StarfilerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FF000000000000000000002A /* PinnedItemsServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedItemsServiceTests.swift; sourceTree = "<group>"; };
 		FF000000000000000000A001 /* FileItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileItemFactory.swift; sourceTree = "<group>"; };
 		FF000000000000000000A002 /* TestURLFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestURLFactory.swift; sourceTree = "<group>"; };
 		FF000000000000000000A003 /* AsyncTestHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AsyncTestHelpers.swift; sourceTree = "<group>"; };
 		FF000000000000000000A004 /* MockPinnedItemsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockPinnedItemsService.swift; sourceTree = "<group>"; };
-		FF000000000000000000002A /* PinnedItemsServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedItemsServiceTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		0D23F8F89EE21E604808948C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				817C3301D10A09566C8D98B5 /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AA0000000000000000000012 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -294,135 +344,32 @@
 		};
 /* End PBXFrameworksBuildPhase section */
 
-/* Begin PBXContainerItemProxy section */
-		EE00000000000000000000C1 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = AA0000000000000000000000 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = AA0000000000000000000010;
-			remoteInfo = starfiler;
-		};
-/* End PBXContainerItemProxy section */
-
-/* Begin PBXTargetDependency section */
-		EE00000000000000000000D1 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = AA0000000000000000000010 /* starfiler */;
-			targetProxy = EE00000000000000000000C1 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
-
 /* Begin PBXGroup section */
+		64374B081BA97E70D0FB8B04 /* OS X */ = {
+			isa = PBXGroup;
+			children = (
+				060CBF0D5054826A7CCFB945 /* Cocoa.framework */,
+			);
+			name = "OS X";
+			sourceTree = "<group>";
+		};
+		7B9EEF0DD0AACEB46DB90D2F /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				64374B081BA97E70D0FB8B04 /* OS X */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		AA0000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
 				AA0000000000000000000002 /* starfiler */,
 				AA00000000000000000000E0 /* starfilerTests */,
 				AA0000000000000000000003 /* Products */,
+				7B9EEF0DD0AACEB46DB90D2F /* Frameworks */,
+				E51335E9A438C47C9DC151B7 /* starfilerUITests */,
 			);
-			sourceTree = "<group>";
-		};
-		AA00000000000000000000E0 /* starfilerTests */ = {
-			isa = PBXGroup;
-			children = (
-				AA00000000000000000000E1 /* Models */,
-				AA00000000000000000000E6 /* ViewModels */,
-				AA00000000000000000000E2 /* Services */,
-				AA00000000000000000000E3 /* Keyboard */,
-				AA00000000000000000000E4 /* TestSupport */,
-			);
-			path = starfilerTests;
-			sourceTree = "<group>";
-		};
-		AA00000000000000000000E6 /* ViewModels */ = {
-			isa = PBXGroup;
-			children = (
-				FF0000000000000000000020 /* PreviewViewModelTests.swift */,
-				FF0000000000000000000021 /* BookmarkSearchViewModelTests.swift */,
-				FF0000000000000000000022 /* BatchRenameViewModelTests.swift */,
-				FF0000000000000000000023 /* FilePaneViewModelTests.swift */,
-				FF0000000000000000000024 /* MainViewModelTests.swift */,
-				FF0000000000000000000025 /* SidebarViewModelTests.swift */,
-				FF0000000000000000000026 /* SyncViewModelTests.swift */,
-				FF0000000000000000000027 /* TerminalSessionListViewModelTests.swift */,
-			);
-			path = ViewModels;
-			sourceTree = "<group>";
-		};
-		AA00000000000000000000E1 /* Models */ = {
-			isa = PBXGroup;
-			children = (
-				FF0000000000000000000001 /* NavigationHistoryTests.swift */,
-				FF0000000000000000000002 /* DirectoryContentsTests.swift */,
-				FF0000000000000000000003 /* PaneStateTests.swift */,
-				FF0000000000000000000004 /* VimModeStateTests.swift */,
-				FF0000000000000000000005 /* FileOperationTests.swift */,
-			);
-			path = Models;
-			sourceTree = "<group>";
-		};
-		AA00000000000000000000E2 /* Services */ = {
-			isa = PBXGroup;
-			children = (
-				FF0000000000000000000006 /* BatchRenameServiceTests.swift */,
-				FF0000000000000000000028 /* FileOperationQueueTests.swift */,
-				FF0000000000000000000029 /* ConfigManagerTests.swift */,
-				FF000000000000000000002A /* PinnedItemsServiceTests.swift */,
-			);
-			path = Services;
-			sourceTree = "<group>";
-		};
-		AA00000000000000000000E3 /* Keyboard */ = {
-			isa = PBXGroup;
-			children = (
-				FF0000000000000000000007 /* KeyInterpreterTests.swift */,
-			);
-			path = Keyboard;
-			sourceTree = "<group>";
-		};
-		AA00000000000000000000E4 /* TestSupport */ = {
-			isa = PBXGroup;
-			children = (
-				AA00000000000000000000E5 /* Mocks */,
-				AA000000000000000000A001 /* Factories */,
-				AA000000000000000000A002 /* Helpers */,
-			);
-			path = TestSupport;
-			sourceTree = "<group>";
-		};
-		AA000000000000000000A001 /* Factories */ = {
-			isa = PBXGroup;
-			children = (
-				FF000000000000000000A001 /* FileItemFactory.swift */,
-				FF000000000000000000A002 /* TestURLFactory.swift */,
-			);
-			path = Factories;
-			sourceTree = "<group>";
-		};
-		AA000000000000000000A002 /* Helpers */ = {
-			isa = PBXGroup;
-			children = (
-				FF000000000000000000A003 /* AsyncTestHelpers.swift */,
-			);
-			path = Helpers;
-			sourceTree = "<group>";
-		};
-		AA00000000000000000000E5 /* Mocks */ = {
-			isa = PBXGroup;
-			children = (
-				FF0000000000000000000008 /* MockFileSystemService.swift */,
-				FF0000000000000000000010 /* MockSecurityScopedBookmarkService.swift */,
-				FF0000000000000000000011 /* MockDirectoryMonitor.swift */,
-				FF0000000000000000000012 /* MockSpotlightSearchService.swift */,
-				FF0000000000000000000013 /* MockFileOperationExecuting.swift */,
-				FF0000000000000000000014 /* MockDirectoryComparing.swift */,
-				FF0000000000000000000015 /* MockSyncExecuting.swift */,
-				FF0000000000000000000016 /* MockBatchRenameComputing.swift */,
-				FF0000000000000000000017 /* MockVisitHistoryService.swift */,
-				FF0000000000000000000018 /* MockTerminalSessionService.swift */,
-				FF000000000000000000A004 /* MockPinnedItemsService.swift */,
-			);
-			path = Mocks;
 			sourceTree = "<group>";
 		};
 		AA0000000000000000000002 /* starfiler */ = {
@@ -452,6 +399,7 @@
 			children = (
 				BB000000000000000000000F /* Starfiler.app */,
 				FF0000000000000000000009 /* StarfilerTests.xctest */,
+				E0EA844564F4E9B8E81C9467 /* starfilerUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -494,56 +442,6 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		AA0000000000000000000030 /* Sidebar */ = {
-			isa = PBXGroup;
-			children = (
-				BB000000000000000000002D /* SidebarViewController.swift */,
-			);
-			path = Sidebar;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000031 /* Settings */ = {
-			isa = PBXGroup;
-			children = (
-				BB000000000000000000002E /* KeybindingsViewController.swift */,
-				BB0000000000000000000043 /* SettingsWindowController.swift */,
-				BB0000000000000000000044 /* AppearanceSettingsViewController.swift */,
-				BB0000000000000000000045 /* KeyRecorderView.swift */,
-				BB0000000000000000000046 /* BookmarksSettingsViewController.swift */,
-				BB0000000000000000000047 /* AdvancedSettingsViewController.swift */,
-			);
-			path = Settings;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000032 /* BatchRename */ = {
-			isa = PBXGroup;
-			children = (
-				BB000000000000000000003A /* BatchRenameViewController.swift */,
-			);
-			path = BatchRename;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000033 /* Sync */ = {
-			isa = PBXGroup;
-			children = (
-				BB000000000000000000003B /* SyncViewController.swift */,
-			);
-			path = Sync;
-			sourceTree = "<group>";
-		};
-		AA000000000000000000000D /* SplitView */ = {
-			isa = PBXGroup;
-			children = (
-				BB0000000000000000000012 /* MainSplitViewController.swift */,
-				BB0000000000000000000055 /* MainContainerViewController.swift */,
-				BB000000000000000000005D /* ActionToastPresenter.swift */,
-				BB000000000000000000005E /* BorderlessSplitView.swift */,
-				BB000000000000000000005F /* PaneHighlightOverlayView.swift */,
-				BB0000000000000000000060 /* GoToPathPopoverViewController.swift */,
-			);
-			path = SplitView;
-			sourceTree = "<group>";
-		};
 		AA0000000000000000000007 /* Pane */ = {
 			isa = PBXGroup;
 			children = (
@@ -565,30 +463,6 @@
 				BB0000000000000000000005 /* StatusBarView.swift */,
 			);
 			path = StatusBar;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000023 /* FilterBar */ = {
-			isa = PBXGroup;
-			children = (
-				BB000000000000000000001F /* FilterBarViewController.swift */,
-			);
-			path = FilterBar;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000024 /* Preview */ = {
-			isa = PBXGroup;
-			children = (
-				BB0000000000000000000025 /* PreviewPaneViewController.swift */,
-			);
-			path = Preview;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000025 /* Bookmarks */ = {
-			isa = PBXGroup;
-			children = (
-				BB0000000000000000000041 /* BookmarkSearchPanelController.swift */,
-			);
-			path = Bookmarks;
 			sourceTree = "<group>";
 		};
 		AA0000000000000000000009 /* ViewModels */ = {
@@ -658,6 +532,19 @@
 			path = Extensions;
 			sourceTree = "<group>";
 		};
+		AA000000000000000000000D /* SplitView */ = {
+			isa = PBXGroup;
+			children = (
+				BB0000000000000000000012 /* MainSplitViewController.swift */,
+				BB0000000000000000000055 /* MainContainerViewController.swift */,
+				BB000000000000000000005D /* ActionToastPresenter.swift */,
+				BB000000000000000000005E /* BorderlessSplitView.swift */,
+				BB000000000000000000005F /* PaneHighlightOverlayView.swift */,
+				BB0000000000000000000060 /* GoToPathPopoverViewController.swift */,
+			);
+			path = SplitView;
+			sourceTree = "<group>";
+		};
 		AA0000000000000000000020 /* Keyboard */ = {
 			isa = PBXGroup;
 			children = (
@@ -667,6 +554,7 @@
 				BB0000000000000000000016 /* KeybindingManager.swift */,
 				BB0000000000000000000017 /* VimModeState.swift */,
 				BB000000000000000000003F /* BookmarkJumpInterpreter.swift */,
+				DB62D59F8B8F0D0859950655 /* GlobalActionRouter.swift */,
 			);
 			path = Keyboard;
 			sourceTree = "<group>";
@@ -687,6 +575,39 @@
 			path = Config;
 			sourceTree = "<group>";
 		};
+		AA0000000000000000000022 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				BB000000000000000000001A /* DefaultKeybindings.json */,
+				BB000000000000000000004C /* markdown-preview.html */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000023 /* FilterBar */ = {
+			isa = PBXGroup;
+			children = (
+				BB000000000000000000001F /* FilterBarViewController.swift */,
+			);
+			path = FilterBar;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000024 /* Preview */ = {
+			isa = PBXGroup;
+			children = (
+				BB0000000000000000000025 /* PreviewPaneViewController.swift */,
+			);
+			path = Preview;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000025 /* Bookmarks */ = {
+			isa = PBXGroup;
+			children = (
+				BB0000000000000000000041 /* BookmarkSearchPanelController.swift */,
+			);
+			path = Bookmarks;
+			sourceTree = "<group>";
+		};
 		AA0000000000000000000026 /* DragDrop */ = {
 			isa = PBXGroup;
 			children = (
@@ -696,13 +617,41 @@
 			path = DragDrop;
 			sourceTree = "<group>";
 		};
-		AA0000000000000000000022 /* Resources */ = {
+		AA0000000000000000000030 /* Sidebar */ = {
 			isa = PBXGroup;
 			children = (
-				BB000000000000000000001A /* DefaultKeybindings.json */,
-				BB000000000000000000004C /* markdown-preview.html */,
+				BB000000000000000000002D /* SidebarViewController.swift */,
 			);
-			path = Resources;
+			path = Sidebar;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000031 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				BB000000000000000000002E /* KeybindingsViewController.swift */,
+				BB0000000000000000000043 /* SettingsWindowController.swift */,
+				BB0000000000000000000044 /* AppearanceSettingsViewController.swift */,
+				BB0000000000000000000045 /* KeyRecorderView.swift */,
+				BB0000000000000000000046 /* BookmarksSettingsViewController.swift */,
+				BB0000000000000000000047 /* AdvancedSettingsViewController.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000032 /* BatchRename */ = {
+			isa = PBXGroup;
+			children = (
+				BB000000000000000000003A /* BatchRenameViewController.swift */,
+			);
+			path = BatchRename;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000033 /* Sync */ = {
+			isa = PBXGroup;
+			children = (
+				BB000000000000000000003B /* SyncViewController.swift */,
+			);
+			path = Sync;
 			sourceTree = "<group>";
 		};
 		AA0000000000000000000034 /* Theme */ = {
@@ -740,9 +689,157 @@
 			path = Terminal;
 			sourceTree = "<group>";
 		};
+		AA00000000000000000000E0 /* starfilerTests */ = {
+			isa = PBXGroup;
+			children = (
+				AA00000000000000000000E1 /* Models */,
+				AA00000000000000000000E6 /* ViewModels */,
+				AA00000000000000000000E2 /* Services */,
+				AA00000000000000000000E3 /* Keyboard */,
+				AA00000000000000000000E4 /* TestSupport */,
+			);
+			path = starfilerTests;
+			sourceTree = "<group>";
+		};
+		AA00000000000000000000E1 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				FF0000000000000000000001 /* NavigationHistoryTests.swift */,
+				FF0000000000000000000002 /* DirectoryContentsTests.swift */,
+				FF0000000000000000000003 /* PaneStateTests.swift */,
+				FF0000000000000000000004 /* VimModeStateTests.swift */,
+				FF0000000000000000000005 /* FileOperationTests.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		AA00000000000000000000E2 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				FF0000000000000000000006 /* BatchRenameServiceTests.swift */,
+				FF0000000000000000000028 /* FileOperationQueueTests.swift */,
+				FF0000000000000000000029 /* ConfigManagerTests.swift */,
+				FF000000000000000000002A /* PinnedItemsServiceTests.swift */,
+				876B6E0CED4A9C9FCAB9CF9C /* FileSystemServiceIntegrationTests.swift */,
+				A8744C2A33062020B5AC45A7 /* FileOperationServiceIntegrationTests.swift */,
+				02AAF2688F1616CD1D0FD85C /* SecurityScopedBookmarkServiceIntegrationTests.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		AA00000000000000000000E3 /* Keyboard */ = {
+			isa = PBXGroup;
+			children = (
+				FF0000000000000000000007 /* KeyInterpreterTests.swift */,
+				2533AA15ECD04A067DEC511D /* DefaultShortcutCoverageTests.swift */,
+				060024D18787057241DAE6D4 /* GlobalActionRouterTests.swift */,
+			);
+			path = Keyboard;
+			sourceTree = "<group>";
+		};
+		AA00000000000000000000E4 /* TestSupport */ = {
+			isa = PBXGroup;
+			children = (
+				AA00000000000000000000E5 /* Mocks */,
+				AA000000000000000000A001 /* Factories */,
+				AA000000000000000000A002 /* Helpers */,
+				C0D66BCAB899AB86ECDFC090 /* Sandbox */,
+			);
+			path = TestSupport;
+			sourceTree = "<group>";
+		};
+		AA00000000000000000000E5 /* Mocks */ = {
+			isa = PBXGroup;
+			children = (
+				FF0000000000000000000008 /* MockFileSystemService.swift */,
+				FF0000000000000000000010 /* MockSecurityScopedBookmarkService.swift */,
+				FF0000000000000000000011 /* MockDirectoryMonitor.swift */,
+				FF0000000000000000000012 /* MockSpotlightSearchService.swift */,
+				FF0000000000000000000013 /* MockFileOperationExecuting.swift */,
+				FF0000000000000000000014 /* MockDirectoryComparing.swift */,
+				FF0000000000000000000015 /* MockSyncExecuting.swift */,
+				FF0000000000000000000016 /* MockBatchRenameComputing.swift */,
+				FF0000000000000000000017 /* MockVisitHistoryService.swift */,
+				FF0000000000000000000018 /* MockTerminalSessionService.swift */,
+				FF000000000000000000A004 /* MockPinnedItemsService.swift */,
+			);
+			path = Mocks;
+			sourceTree = "<group>";
+		};
+		AA00000000000000000000E6 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				FF0000000000000000000020 /* PreviewViewModelTests.swift */,
+				FF0000000000000000000021 /* BookmarkSearchViewModelTests.swift */,
+				FF0000000000000000000022 /* BatchRenameViewModelTests.swift */,
+				FF0000000000000000000023 /* FilePaneViewModelTests.swift */,
+				FF0000000000000000000024 /* MainViewModelTests.swift */,
+				FF0000000000000000000025 /* SidebarViewModelTests.swift */,
+				FF0000000000000000000026 /* SyncViewModelTests.swift */,
+				FF0000000000000000000027 /* TerminalSessionListViewModelTests.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		AA000000000000000000A001 /* Factories */ = {
+			isa = PBXGroup;
+			children = (
+				FF000000000000000000A001 /* FileItemFactory.swift */,
+				FF000000000000000000A002 /* TestURLFactory.swift */,
+			);
+			path = Factories;
+			sourceTree = "<group>";
+		};
+		AA000000000000000000A002 /* Helpers */ = {
+			isa = PBXGroup;
+			children = (
+				FF000000000000000000A003 /* AsyncTestHelpers.swift */,
+			);
+			path = Helpers;
+			sourceTree = "<group>";
+		};
+		C0D66BCAB899AB86ECDFC090 /* Sandbox */ = {
+			isa = PBXGroup;
+			children = (
+				625BBF22ED7C8DF9F963DCEE /* SandboxFixtureWorkspace.swift */,
+			);
+			name = Sandbox;
+			path = Sandbox;
+			sourceTree = "<group>";
+		};
+		E51335E9A438C47C9DC151B7 /* starfilerUITests */ = {
+			isa = PBXGroup;
+			children = (
+				1DA02617092C30A871EDC359 /* BaseUITestCase.swift */,
+				230E7EDA0891551B6E0419BC /* ShortcutRegressionUITests.swift */,
+				BCA70B511E56E61D85B994DC /* FeatureRegressionUITests.swift */,
+				756FB87F81BD373FD51CB70A /* DragDropSmokeUITests.swift */,
+			);
+			name = starfilerUITests;
+			path = starfilerUITests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		269A1525926C09595CACEC02 /* starfilerUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B1B3FF7B236F5BE697A6812C /* Build configuration list for PBXNativeTarget "starfilerUITests" */;
+			buildPhases = (
+				897F249A7CD79A7DBA7EC65F /* Sources */,
+				0D23F8F89EE21E604808948C /* Frameworks */,
+				D7D2DB3AEDF4F2D744A96B06 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7661DDF10C5495C002976FDF /* PBXTargetDependency */,
+			);
+			name = starfilerUITests;
+			productName = starfilerUITests;
+			productReference = E0EA844564F4E9B8E81C9467 /* starfilerUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		AA0000000000000000000010 /* starfiler */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AA0000000000000000000015 /* Build configuration list for PBXNativeTarget "starfiler" */;
@@ -817,6 +914,7 @@
 			targets = (
 				AA0000000000000000000010 /* starfiler */,
 				AA00000000000000000000F0 /* starfilerTests */,
+				269A1525926C09595CACEC02 /* starfilerUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -832,9 +930,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D7D2DB3AEDF4F2D744A96B06 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		897F249A7CD79A7DBA7EC65F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8E4331A82F9C8E9640C4A956 /* BaseUITestCase.swift in Sources */,
+				A044C0BCB493112E23403E93 /* ShortcutRegressionUITests.swift in Sources */,
+				41EE05820918C9D664F40420 /* FeatureRegressionUITests.swift in Sources */,
+				8A3765E00AAE2C3258403B70 /* DragDropSmokeUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AA0000000000000000000011 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -932,6 +1048,7 @@
 				CC0000000000000000000072 /* PinnedItemsConfig.swift in Sources */,
 				CC0000000000000000000073 /* PinnedItem.swift in Sources */,
 				CC0000000000000000000074 /* PinnedItemsService.swift in Sources */,
+				26291D95CC1DE84D46C97B18 /* GlobalActionRouter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -971,12 +1088,64 @@
 				EE000000000000000000A003 /* AsyncTestHelpers.swift in Sources */,
 				EE000000000000000000A004 /* MockPinnedItemsService.swift in Sources */,
 				EE000000000000000000002A /* PinnedItemsServiceTests.swift in Sources */,
+				893B9717C9949290E99BE6E0 /* DefaultShortcutCoverageTests.swift in Sources */,
+				609C81EFEC2EC739DF00A1A9 /* GlobalActionRouterTests.swift in Sources */,
+				DF99C6034CD13D0468E0FD89 /* FileSystemServiceIntegrationTests.swift in Sources */,
+				BA1730EC76F454E2A789144E /* FileOperationServiceIntegrationTests.swift in Sources */,
+				45DFBE0D6C1ABE4E2390F550 /* SecurityScopedBookmarkServiceIntegrationTests.swift in Sources */,
+				A6F98E73AAE0447658073E71 /* SandboxFixtureWorkspace.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		7661DDF10C5495C002976FDF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = starfiler;
+			target = AA0000000000000000000010 /* starfiler */;
+			targetProxy = 702F2D12FFA0EC63073D2DB9 /* PBXContainerItemProxy */;
+		};
+		EE00000000000000000000D1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA0000000000000000000010 /* starfiler */;
+			targetProxy = EE00000000000000000000C1 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		5E7A84AD11B54B6FEA79544B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_TESTING_SEARCH_PATHS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nilone.starfilerUITests;
+				PRODUCT_MODULE_NAME = starfilerUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = starfiler;
+			};
+			name = Release;
+		};
+		7B99B7FF9DF21DFF8E14F2EE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_TESTING_SEARCH_PATHS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nilone.starfilerUITests;
+				PRODUCT_MODULE_NAME = starfilerUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = starfiler;
+			};
+			name = Debug;
+		};
 		AA0000000000000000000016 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1009,7 +1178,6 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				ONLY_ACTIVE_ARCH = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
 					"$(inherited)",
@@ -1021,6 +1189,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -1184,6 +1353,15 @@
 			buildConfigurations = (
 				AA00000000000000000000F6 /* Debug */,
 				AA00000000000000000000F7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B1B3FF7B236F5BE697A6812C /* Build configuration list for PBXNativeTarget "starfilerUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5E7A84AD11B54B6FEA79544B /* Release */,
+				7B99B7FF9DF21DFF8E14F2EE /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

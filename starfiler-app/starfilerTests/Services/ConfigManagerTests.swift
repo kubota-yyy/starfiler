@@ -31,6 +31,7 @@ final class ConfigManagerTests: XCTestCase {
         XCTAssertTrue(config.showHiddenFiles)
         XCTAssertEqual(config.defaultSortColumn, .date)
         XCTAssertFalse(config.defaultSortAscending)
+        XCTAssertFalse(config.shortcutGuideEnabled)
     }
 
     func testSaveAndLoadAppConfig() throws {
@@ -38,6 +39,7 @@ final class ConfigManagerTests: XCTestCase {
         config.showHiddenFiles = false
         config.defaultSortColumn = .size
         config.defaultSortAscending = false
+        config.shortcutGuideEnabled = true
 
         try sut.saveAppConfig(config)
         let loaded = sut.loadAppConfig()
@@ -45,6 +47,7 @@ final class ConfigManagerTests: XCTestCase {
         XCTAssertFalse(loaded.showHiddenFiles)
         XCTAssertEqual(loaded.defaultSortColumn, .size)
         XCTAssertFalse(loaded.defaultSortAscending)
+        XCTAssertTrue(loaded.shortcutGuideEnabled)
     }
 
     // MARK: - BookmarksConfig

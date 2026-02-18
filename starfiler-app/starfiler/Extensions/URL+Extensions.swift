@@ -1,6 +1,5 @@
 import Foundation
 import Darwin
-import UniformTypeIdentifiers
 
 enum UserPaths {
     static var homeDirectoryURL: URL {
@@ -315,6 +314,14 @@ enum UserPaths {
 }
 
 extension URL {
+    private static let mediaImageExtensionWhitelist: Set<String> = [
+        "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "heic", "heif", "webp", "avif", "svg", "ico"
+    ]
+
+    private static let mediaVideoExtensionWhitelist: Set<String> = [
+        "mp4", "mov", "m4v", "avi", "mkv", "webm", "wmv", "mpg", "mpeg", "3gp", "m2ts"
+    ]
+
     var isDirectory: Bool {
         (try? resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
     }
@@ -332,23 +339,12 @@ extension URL {
             return false
         }
 
-        if let type = (try? resourceValues(forKeys: [.contentTypeKey]))?.contentType {
-            return type.conforms(to: .image)
-        }
-
         let lowercasedExtension = pathExtension.lowercased()
         guard !lowercasedExtension.isEmpty else {
             return false
         }
 
-        if let type = UTType(filenameExtension: lowercasedExtension) {
-            return type.conforms(to: .image)
-        }
-
-        let commonImageExtensions: Set<String> = [
-            "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "heic", "webp", "avif", "svg", "ico"
-        ]
-        return commonImageExtensions.contains(lowercasedExtension)
+        return Self.mediaImageExtensionWhitelist.contains(lowercasedExtension)
     }
 
     var isVideoFile: Bool {
@@ -356,23 +352,12 @@ extension URL {
             return false
         }
 
-        if let type = (try? resourceValues(forKeys: [.contentTypeKey]))?.contentType {
-            return type.conforms(to: .movie) || type.conforms(to: .video)
-        }
-
         let lowercasedExtension = pathExtension.lowercased()
         guard !lowercasedExtension.isEmpty else {
             return false
         }
 
-        if let type = UTType(filenameExtension: lowercasedExtension) {
-            return type.conforms(to: .movie) || type.conforms(to: .video)
-        }
-
-        let commonVideoExtensions: Set<String> = [
-            "mp4", "mov", "m4v", "avi", "mkv", "webm", "wmv", "mpg", "mpeg", "3gp", "ts", "m2ts"
-        ]
-        return commonVideoExtensions.contains(lowercasedExtension)
+        return Self.mediaVideoExtensionWhitelist.contains(lowercasedExtension)
     }
 
     var isMediaFile: Bool {

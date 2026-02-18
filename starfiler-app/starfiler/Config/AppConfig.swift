@@ -128,6 +128,7 @@ struct AppConfig: Codable, Sendable {
     var rightPaneVisible: Bool
     var starEffectsEnabled: Bool
     var animationEffectSettings: AnimationEffectSettings
+    var shortcutGuideEnabled: Bool
     var terminalPanelVisible: Bool
     var terminalPanelHeight: Double
 
@@ -159,6 +160,7 @@ struct AppConfig: Codable, Sendable {
         rightPaneVisible: Bool = true,
         starEffectsEnabled: Bool = true,
         animationEffectSettings: AnimationEffectSettings = .allEnabled,
+        shortcutGuideEnabled: Bool = false,
         terminalPanelVisible: Bool = false,
         terminalPanelHeight: Double = 300
     ) {
@@ -189,6 +191,7 @@ struct AppConfig: Codable, Sendable {
         self.rightPaneVisible = rightPaneVisible
         self.starEffectsEnabled = starEffectsEnabled
         self.animationEffectSettings = animationEffectSettings
+        self.shortcutGuideEnabled = shortcutGuideEnabled
         self.terminalPanelVisible = terminalPanelVisible
         self.terminalPanelHeight = min(max(terminalPanelHeight, 200), 800)
     }
@@ -221,6 +224,7 @@ struct AppConfig: Codable, Sendable {
         case rightPaneVisible
         case starEffectsEnabled
         case animationEffectSettings
+        case shortcutGuideEnabled
         case terminalPanelVisible
         case terminalPanelHeight
     }
@@ -260,6 +264,7 @@ struct AppConfig: Codable, Sendable {
         rightPaneVisible = try container.decodeIfPresent(Bool.self, forKey: .rightPaneVisible) ?? true
         starEffectsEnabled = try container.decodeIfPresent(Bool.self, forKey: .starEffectsEnabled) ?? true
         animationEffectSettings = try container.decodeIfPresent(AnimationEffectSettings.self, forKey: .animationEffectSettings) ?? .allEnabled
+        shortcutGuideEnabled = try container.decodeIfPresent(Bool.self, forKey: .shortcutGuideEnabled) ?? false
         terminalPanelVisible = try container.decodeIfPresent(Bool.self, forKey: .terminalPanelVisible) ?? false
         let terminalHeight = try container.decodeIfPresent(Double.self, forKey: .terminalPanelHeight) ?? 300
         terminalPanelHeight = min(max(terminalHeight, 200), 800)

@@ -25,10 +25,14 @@ final class TerminalPanelViewController: NSViewController {
     override func loadView() {
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 800, height: 300))
         root.wantsLayer = true
+        root.setAccessibilityIdentifier("terminalPanel.container")
 
         sessionListView.translatesAutoresizingMaskIntoConstraints = false
         contentContainerView.translatesAutoresizingMaskIntoConstraints = false
         dividerView.translatesAutoresizingMaskIntoConstraints = false
+        sessionListView.setAccessibilityIdentifier("terminalPanel.sessionList")
+        contentContainerView.setAccessibilityIdentifier("terminalPanel.content")
+        dividerView.setAccessibilityIdentifier("terminalPanel.divider")
 
         dividerView.wantsLayer = true
         dividerView.layer?.backgroundColor = NSColor.separatorColor.withAlphaComponent(0.72).cgColor

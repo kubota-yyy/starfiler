@@ -46,6 +46,21 @@ struct AnimationEffectSettings: Codable, Sendable, Equatable {
     }
 
     static let allEnabled = AnimationEffectSettings()
+    static let allDisabled = AnimationEffectSettings(
+        directoryTransitionSlide: false,
+        markSparkle: false,
+        bookmarkJumpAnimation: false,
+        activePanePulse: false,
+        statusBarCountAnimation: false,
+        windowIntroAnimation: false,
+        previewCrossfade: false,
+        cursorRipple: false,
+        filterBarGlow: false,
+        markCascade: false,
+        dropZonePulse: false,
+        visualModeWave: false,
+        sortRowAnimation: false
+    )
 
     enum EffectKind: String, CaseIterable, Sendable {
         case directoryTransitionSlide

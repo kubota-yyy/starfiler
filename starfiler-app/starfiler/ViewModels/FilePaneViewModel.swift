@@ -9,6 +9,21 @@ final class FilePaneViewModel {
         let visualAnchorURL: URL?
     }
 
+    struct LoadingContext: Equatable, Sendable {
+        let directory: URL
+        let mode: PaneDisplayMode
+        let isRecursive: Bool
+
+        var statusText: String {
+            switch mode {
+            case .browser:
+                return isRecursive ? "Loading files recursively..." : "Loading files..."
+            case .media:
+                return isRecursive ? "Loading media recursively..." : "Loading media..."
+            }
+        }
+    }
+
     private(set) var directoryContents: DirectoryContents {
         didSet {
             onItemsChanged?(directoryContents.displayedItems)
@@ -33,6 +48,7 @@ final class FilePaneViewModel {
     var onMarkedIndicesChanged: ((IndexSet) -> Void)?
     var onDirectoryChanged: ((URL) -> Void)?
     var onDirectoryLoadFailed: ((URL, Error) -> Void)?
+    var onLoadingStateChanged: ((LoadingContext?) -> Void)?
     var onDisplayModeChanged: ((PaneDisplayMode) -> Void)?
     var onFilesRecursiveChanged: ((Bool) -> Void)?
     var onMediaRecursiveChanged: ((Bool) -> Void)?
@@ -51,6 +67,7 @@ final class FilePaneViewModel {
     private(set) var mediaRecursiveEnabled: Bool
     private var pendingRevealURL: URL?
     private var activeNavigationTaskID: UUID?
+    private var activeLoadingTaskID: UUID?
     private var lastRefreshFailureSignature: String?
     private var hasActiveFilter: Bool {
         !directoryContents.filterText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -680,11 +697,17 @@ final class FilePaneViewModel {
 
         let currentDirectory = paneState.currentDirectory
         let selectionSnapshot = preservingSelectionByURL ? captureSelectionSnapshot() : nil
+        let refreshTaskID = UUID()
+        beginLoading(taskID: refreshTaskID, directory: currentDirectory)
 
         loadTask?.cancel()
         loadTask = Task { [weak self] in
             guard let self else {
                 return
+            }
+
+            defer {
+                self.endLoading(taskID: refreshTaskID)
             }
 
             do {
@@ -758,6 +781,7 @@ final class FilePaneViewModel {
 
         let navigationTaskID = UUID()
         activeNavigationTaskID = navigationTaskID
+        beginLoading(taskID: navigationTaskID, directory: directory)
         loadTask?.cancel()
 
         loadTask = Task { [weak self] in
@@ -769,6 +793,7 @@ final class FilePaneViewModel {
                 if self.activeNavigationTaskID == navigationTaskID {
                     self.activeNavigationTaskID = nil
                 }
+                self.endLoading(taskID: navigationTaskID)
             }
 
             var didAcquireDestinationScope = false
@@ -847,6 +872,28 @@ final class FilePaneViewModel {
                 includeHiddenFiles: directoryContents.showHiddenFiles
             )
         }
+    }
+
+    private func beginLoading(taskID: UUID, directory: URL) {
+        activeLoadingTaskID = taskID
+        onLoadingStateChanged?(currentLoadingContext(for: directory))
+    }
+
+    private func endLoading(taskID: UUID) {
+        guard activeLoadingTaskID == taskID else {
+            return
+        }
+        activeLoadingTaskID = nil
+        onLoadingStateChanged?(nil)
+    }
+
+    private func currentLoadingContext(for directory: URL) -> LoadingContext {
+        let recursive = displayMode == .media ? mediaRecursiveEnabled : filesRecursiveEnabled
+        return LoadingContext(
+            directory: directory.standardizedFileURL,
+            mode: displayMode,
+            isRecursive: recursive
+        )
     }
 
     private func applySortDescriptor(_ sortDescriptor: DirectoryContents.SortDescriptor) {

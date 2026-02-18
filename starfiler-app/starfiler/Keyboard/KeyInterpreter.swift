@@ -15,6 +15,10 @@ struct KeyInterpreter: Sendable {
     private var pendingSequence: [KeyEvent]
     private var lastInputDate: Date?
 
+    var currentPendingSequence: [KeyEvent] {
+        pendingSequence
+    }
+
     init(
         keybindingManager: KeybindingManager = KeybindingManager(),
         mode: VimMode = .normal,
@@ -78,6 +82,14 @@ struct KeyInterpreter: Sendable {
 
     func hasExactBinding(for event: KeyEvent) -> Bool {
         keybindingManager.lookup(sequence: [event], mode: mode) != nil
+    }
+
+    func candidatesForInitialModifiers(_ modifiers: KeyModifiers) -> [KeybindingHintCandidate] {
+        keybindingManager.candidates(requiringInitialModifiers: modifiers, mode: mode)
+    }
+
+    func candidatesForPendingSequence() -> [KeybindingHintCandidate] {
+        keybindingManager.candidates(startingWith: pendingSequence, mode: mode)
     }
 
     private mutating func evaluatePendingSequence(now: Date) -> KeyInterpreterResult {

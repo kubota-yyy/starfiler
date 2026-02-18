@@ -1,8 +1,162 @@
 import AppKit
 
+private final class PreviewPopupPanelController {
+    private let previewViewController: PreviewPaneViewController
+    private var panel: NSPanel?
+    private var escapeEventMonitor: Any?
+
+    var onDismiss: (() -> Void)?
+
+    var isVisible: Bool {
+        panel != nil
+    }
+
+    init(previewViewController: PreviewPaneViewController) {
+        self.previewViewController = previewViewController
+    }
+
+    deinit {
+        stopEscapeMonitor()
+    }
+
+    func show(relativeTo window: NSWindow, preferredAnchorFrame: NSRect?) {
+        let panel = panel ?? makePanel()
+        updateFrame(of: panel, relativeTo: window, preferredAnchorFrame: preferredAnchorFrame)
+
+        if panel.parent !== window {
+            if let parent = panel.parent {
+                parent.removeChildWindow(panel)
+            }
+            window.addChildWindow(panel, ordered: .above)
+        }
+
+        panel.orderFront(nil)
+        startEscapeMonitor()
+    }
+
+    func dismiss() {
+        guard let panel else {
+            return
+        }
+
+        stopEscapeMonitor()
+        panel.orderOut(nil)
+        if let parent = panel.parent {
+            parent.removeChildWindow(panel)
+        }
+        self.panel = nil
+        onDismiss?()
+    }
+
+    private func makePanel() -> NSPanel {
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 920, height: 620),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.isFloatingPanel = true
+        panel.level = .floating
+        panel.hidesOnDeactivate = false
+        panel.isMovableByWindowBackground = true
+        panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
+
+        let containerView = NSVisualEffectView()
+        containerView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.material = .hudWindow
+        containerView.blendingMode = .behindWindow
+        containerView.state = .active
+        containerView.wantsLayer = true
+        containerView.layer?.cornerRadius = 14
+        containerView.layer?.masksToBounds = true
+        containerView.layer?.borderWidth = 1
+        containerView.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.35).cgColor
+
+        let rootView = NSView()
+        rootView.addSubview(containerView)
+
+        let previewView = previewViewController.view
+        previewView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(previewView)
+
+        NSLayoutConstraint.activate([
+            containerView.leadingAnchor.constraint(equalTo: rootView.leadingAnchor),
+            containerView.trailingAnchor.constraint(equalTo: rootView.trailingAnchor),
+            containerView.topAnchor.constraint(equalTo: rootView.topAnchor),
+            containerView.bottomAnchor.constraint(equalTo: rootView.bottomAnchor),
+
+            previewView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            previewView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            previewView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            previewView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
+        ])
+
+        panel.contentView = rootView
+        self.panel = panel
+        return panel
+    }
+
+    private func updateFrame(of panel: NSPanel, relativeTo window: NSWindow, preferredAnchorFrame: NSRect?) {
+        let displayFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? window.frame
+        let anchorFrame = preferredAnchorFrame ?? window.frame
+        let width = min(max(anchorFrame.width * 0.9, 600), min(displayFrame.width * 0.78, 1400))
+        let height = min(max(displayFrame.height * 0.72, 420), 1000)
+        let margin = CGFloat(24)
+
+        let proposedX = anchorFrame.midX - (width / 2)
+        let proposedY = anchorFrame.midY - (height / 2)
+        let minX = displayFrame.minX + margin
+        let maxX = displayFrame.maxX - width - margin
+        let minY = displayFrame.minY + margin
+        let maxY = displayFrame.maxY - height - margin
+
+        let frame = NSRect(
+            x: min(max(proposedX, minX), maxX),
+            y: min(max(proposedY, minY), maxY),
+            width: width,
+            height: height
+        )
+
+        panel.setFrame(frame, display: true)
+        previewViewController.setPreferredFitViewportWidth(width)
+    }
+
+    private func startEscapeMonitor() {
+        guard escapeEventMonitor == nil else {
+            return
+        }
+
+        escapeEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, self.panel != nil else {
+                return event
+            }
+
+            guard let keyEvent = event.keyEvent,
+                  keyEvent.key == "Escape",
+                  keyEvent.modifiers.isEmpty else {
+                return event
+            }
+
+            self.dismiss()
+            return nil
+        }
+    }
+
+    private func stopEscapeMonitor() {
+        guard let escapeEventMonitor else {
+            return
+        }
+
+        NSEvent.removeMonitor(escapeEventMonitor)
+        self.escapeEventMonitor = nil
+    }
+}
+
 final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     private static let defaultSidebarWidth = CGFloat(AppConfig.defaultSidebarWidth)
-    private static let defaultPreviewWidth = CGFloat(320)
     private static let sidebarWidthRange: ClosedRange<CGFloat> = CGFloat(AppConfig.sidebarWidthRange.lowerBound) ... CGFloat(AppConfig.sidebarWidthRange.upperBound)
     private static var lastSelectedBookmarkGroupIndex: Int = 0
 
@@ -28,8 +182,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     private let rightPaneViewController: FilePaneViewController
     private let leftSplitItem: NSSplitViewItem
     private let rightSplitItem: NSSplitViewItem
-    private let previewPaneViewController: PreviewPaneViewController
-    private let previewSplitItem: NSSplitViewItem
+    private let previewPopupPaneViewController: PreviewPaneViewController
 
     private var bookmarksConfig: BookmarksConfig
     private var bookmarkSearchPanelController: BookmarkSearchPanelController?
@@ -50,12 +203,23 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     private let initialSidebarWidth: CGFloat
     private var hasAppliedInitialSidebarWidth = false
     private var lastReportedSidebarWidth: CGFloat
-    private var lastReportedPreviewWidth: CGFloat
     private let toastPresenter = ActionToastPresenter()
+    private let globalActionRouter = GlobalActionRouter()
     private let applicationRelatedItemLocator: any ApplicationRelatedItemLocating = ApplicationRelatedItemLocatorService()
     private var goToPathPopover: NSPopover?
     private weak var goToPathHighlightView: NSView?
     private var shouldRefocusAfterGoToPathDismiss = true
+    private lazy var previewPopupPanelController: PreviewPopupPanelController = {
+        let controller = PreviewPopupPanelController(previewViewController: previewPopupPaneViewController)
+        controller.onDismiss = { [weak self] in
+            guard let self else {
+                return
+            }
+            self.viewModel.previewVisible = false
+            self.focusActivePane()
+        }
+        return controller
+    }()
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
     var onStatusContextTextChanged: ((String?) -> Void)?
@@ -83,7 +247,6 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         self.rightPaneFileIconSize = min(max(rightPaneFileIconSize, 12), 40)
         self.initialSidebarWidth = clampedSidebarWidth
         self.lastReportedSidebarWidth = clampedSidebarWidth
-        self.lastReportedPreviewWidth = Self.defaultPreviewWidth
 
         self.sidebarViewModel = SidebarViewModel(
             configManager: configManager,
@@ -97,8 +260,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         self.rightPaneViewController = FilePaneViewController(viewModel: viewModel.rightPane)
         self.leftSplitItem = NSSplitViewItem(viewController: leftPaneViewController)
         self.rightSplitItem = NSSplitViewItem(viewController: rightPaneViewController)
-        self.previewPaneViewController = PreviewPaneViewController(viewModel: viewModel.previewPane)
-        self.previewSplitItem = NSSplitViewItem(viewController: previewPaneViewController)
+        self.previewPopupPaneViewController = PreviewPaneViewController(viewModel: viewModel.previewPane)
         self.bookmarksConfig = configManager.loadBookmarksConfig()
 
         self.leftPaneStatus = PaneStatus(
@@ -137,8 +299,6 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         applySidebarVisibility(animated: false)
         applyPaneVisibility(leftVisible: initialLeftPaneVisible, rightVisible: initialRightPaneVisible, animated: false)
         applyPreviewPaneVisibility(animated: false)
-        previewPaneViewController.setPreferredFitViewportWidth(lastReportedPreviewWidth)
-        reportPreviewWidthIfNeeded(force: true)
 
         propagateBookmarksConfig()
         setSpotlightSearchScope(viewModel.leftPane.spotlightSearchScope)
@@ -150,6 +310,15 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.setAccessibilityIdentifier("mainSplit.container")
+        splitView.setAccessibilityIdentifier("mainSplit.splitView")
+        sidebarViewController.view.setAccessibilityIdentifier("mainSplit.sidebar")
+        leftPaneViewController.view.setAccessibilityIdentifier("mainSplit.leftPane")
+        rightPaneViewController.view.setAccessibilityIdentifier("mainSplit.rightPane")
+    }
+
     override func viewDidLayout() {
         super.viewDidLayout()
         applyInitialSidebarWidthIfNeeded()
@@ -158,7 +327,6 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     override func splitViewDidResizeSubviews(_ notification: Notification) {
         super.splitViewDidResizeSubviews(notification)
         reportSidebarWidthIfNeeded(force: false)
-        reportPreviewWidthIfNeeded(force: false)
     }
 
     func focusActivePane() {
@@ -170,7 +338,17 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     }
 
     func togglePreviewPane() {
-        viewModel.togglePreviewPane()
+        if previewPopupPanelController.isVisible {
+            previewPopupPanelController.dismiss()
+            return
+        }
+
+        guard isPreviewableSelectionAvailableForActivePane() else {
+            NSSound.beep()
+            return
+        }
+
+        viewModel.previewVisible = true
         applyPreviewPaneVisibility(animated: false)
     }
 
@@ -244,7 +422,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         leftPaneViewController.applyTheme(theme, backgroundOpacity: backgroundOpacity)
         rightPaneViewController.applyTheme(theme, backgroundOpacity: backgroundOpacity)
         sidebarViewController.applyTheme(theme, backgroundOpacity: backgroundOpacity)
-        previewPaneViewController.applyTheme(theme, backgroundOpacity: backgroundOpacity)
+        previewPopupPaneViewController.applyTheme(theme, backgroundOpacity: backgroundOpacity)
     }
 
     func reloadBookmarksConfig() {
@@ -401,14 +579,19 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         toastPresenter.starEffectsEnabled = enabled
         leftPaneViewController.setStarEffectsEnabled(enabled)
         rightPaneViewController.setStarEffectsEnabled(enabled)
-        previewPaneViewController.setStarEffectsEnabled(enabled)
+        previewPopupPaneViewController.setStarEffectsEnabled(enabled)
     }
 
     func setAnimationEffectSettings(_ settings: AnimationEffectSettings) {
         animationEffectSettings = settings
         leftPaneViewController.setAnimationEffectSettings(settings)
         rightPaneViewController.setAnimationEffectSettings(settings)
-        previewPaneViewController.setAnimationEffectSettings(settings)
+        previewPopupPaneViewController.setAnimationEffectSettings(settings)
+    }
+
+    func setShortcutGuideEnabled(_ enabled: Bool) {
+        leftPaneViewController.setShortcutGuideEnabled(enabled)
+        rightPaneViewController.setShortcutGuideEnabled(enabled)
     }
 
     func setSpotlightSearchScope(_ scope: SpotlightSearchScope) {
@@ -466,18 +649,15 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         rightSplitItem.canCollapse = true
         rightSplitItem.titlebarSeparatorStyle = .none
         addSplitViewItem(rightSplitItem)
-
-        previewSplitItem.minimumThickness = 260
-        previewSplitItem.canCollapse = true
-        previewSplitItem.titlebarSeparatorStyle = .none
-        addSplitViewItem(previewSplitItem)
-        lastReportedPreviewWidth = max(lastReportedPreviewWidth, previewSplitItem.minimumThickness)
     }
 
     private func bindPaneControllers() {
         bindPaneCallbacks(for: leftPaneViewController, side: .left)
         bindPaneCallbacks(for: rightPaneViewController, side: .right)
+        bindPreviewPaneCallbacks(for: previewPopupPaneViewController)
+    }
 
+    private func bindPreviewPaneCallbacks(for previewPaneViewController: PreviewPaneViewController) {
         previewPaneViewController.onImageSelectionChanged = { [weak self] selectedURL in
             self?.viewModel.previewPane.setSelectedFileURL(selectedURL)
         }
@@ -570,88 +750,44 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     }
 
     private func handleGlobalAction(_ action: KeyAction) -> Bool {
-        switch action {
-        case .copy:
-            viewModel.copyMarked()
+        let handlers = GlobalActionRouter.Handlers(
+            copy: { self.viewModel.copyMarked() },
+            paste: { self.viewModel.paste() },
+            move: { self.viewModel.cutMarked() },
+            delete: { self.requestDeleteFromActivePane() },
+            rename: { self.viewModel.rename() },
+            createDirectory: { self.viewModel.createDirectory() },
+            undo: { self.viewModel.undo() },
+            togglePreview: { self.togglePreviewPane() },
+            toggleSidebar: { self.toggleSidebarPane() },
+            toggleLeftPane: { self.toggleLeftPane() },
+            toggleRightPane: { self.toggleRightPane() },
+            toggleSinglePane: { self.toggleSinglePane() },
+            equalizePaneWidths: { self.equalizePaneWidths() },
+            matchOtherPaneDirectory: { self.viewModel.matchOtherPaneDirectoryToActivePane() },
+            goToOtherPaneDirectory: { self.viewModel.moveActivePaneToOtherPaneDirectory() },
+            openBookmarkSearch: { self.presentBookmarkSearchPanel() },
+            openHistory: { self.presentBookmarkSearchPanel() },
+            addBookmark: { self.presentAddBookmarkAlert() },
+            batchRename: { self.presentBatchRenameWindow() },
+            syncPanesLeftToRight: { self.viewModel.syncPanesLeftToRight() },
+            syncPanesRightToLeft: { self.viewModel.syncPanesRightToLeft() },
+            togglePin: {
+                let wasPinned = self.viewModel.isPinnedActiveItem()
+                self.viewModel.togglePinForActivePane()
+                self.sidebarViewModel.reloadSections()
+                return wasPinned ? "Unpinned" : "Pinned"
+            },
+            terminalAction: { self.onTerminalAction?($0) }
+        )
+
+        switch globalActionRouter.route(action, handlers: handlers) {
+        case .handled:
             return true
-        case .paste:
-            viewModel.paste()
+        case .handledWithToast(let message):
+            showActionToast(message)
             return true
-        case .move:
-            viewModel.cutMarked()
-            return true
-        case .delete:
-            requestDeleteFromActivePane()
-            return true
-        case .rename:
-            viewModel.rename()
-            return true
-        case .createDirectory:
-            viewModel.createDirectory()
-            return true
-        case .undo:
-            viewModel.undo()
-            return true
-        case .togglePreview:
-            togglePreviewPane()
-            return true
-        case .toggleSidebar:
-            toggleSidebarPane()
-            return true
-        case .toggleLeftPane:
-            toggleLeftPane()
-            return true
-        case .toggleRightPane:
-            toggleRightPane()
-            return true
-        case .toggleSinglePane:
-            toggleSinglePane()
-            return true
-        case .equalizePaneWidths:
-            equalizePaneWidths()
-            return true
-        case .matchOtherPaneDirectory:
-            let changed = viewModel.matchOtherPaneDirectoryToActivePane()
-            if changed {
-                showActionToast("Other pane set to current folder")
-            }
-            return true
-        case .goToOtherPaneDirectory:
-            let changed = viewModel.moveActivePaneToOtherPaneDirectory()
-            if changed {
-                showActionToast("Moved to other pane folder")
-            }
-            return true
-        case .openBookmarkSearch:
-            presentBookmarkSearchPanel()
-            return true
-        case .openHistory:
-            presentBookmarkSearchPanel()
-            return true
-        case .addBookmark:
-            presentAddBookmarkAlert()
-            return true
-        case .batchRename:
-            presentBatchRenameWindow()
-            return true
-        case .syncPanesLeftToRight:
-            let changed = viewModel.syncPanesLeftToRight()
-            if changed { showActionToast("Synced: Left → Right") }
-            return true
-        case .syncPanesRightToLeft:
-            let changed = viewModel.syncPanesRightToLeft()
-            if changed { showActionToast("Synced: Right → Left") }
-            return true
-        case .togglePin:
-            let wasPinned = viewModel.isPinnedActiveItem()
-            viewModel.togglePinForActivePane()
-            sidebarViewModel.reloadSections()
-            showActionToast(wasPinned ? "Unpinned" : "Pinned")
-            return true
-        case .launchClaude, .launchCodex, .toggleTerminalPanel:
-            onTerminalAction?(action)
-            return true
-        default:
+        case .unhandled:
             return false
         }
     }
@@ -893,28 +1029,74 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     }
 
     private func applyPreviewPaneVisibility(animated: Bool) {
-        let shouldCollapse = !viewModel.previewVisible
-        guard previewSplitItem.isCollapsed != shouldCollapse else {
+        _ = animated
+
+        guard viewModel.previewVisible else {
+            if previewPopupPanelController.isVisible {
+                previewPopupPanelController.dismiss()
+            }
             return
         }
 
-        if shouldCollapse {
-            captureCurrentPreviewWidthIfNeeded()
-        } else {
-            previewPaneViewController.setPreferredFitViewportWidth(lastReportedPreviewWidth)
+        guard let window = view.window else {
+            return
         }
 
-        if animated {
-            NSAnimationContext.runAnimationGroup({ context in
-                context.duration = 0.18
-                previewSplitItem.animator().isCollapsed = shouldCollapse
-            }, completionHandler: { [weak self] in
-                self?.reportPreviewWidthIfNeeded(force: true)
-            })
-        } else {
-            previewSplitItem.isCollapsed = shouldCollapse
-            reportPreviewWidthIfNeeded(force: true)
+        previewPopupPanelController.show(
+            relativeTo: window,
+            preferredAnchorFrame: previewAnchorFrameInScreen(for: viewModel.activePaneSide)
+        )
+    }
+
+    private func isPreviewableSelectionAvailableForActivePane() -> Bool {
+        guard let selectedItem = viewModel.activePane.selectedItem else {
+            return false
         }
+
+        if selectedItem.isDirectory && !selectedItem.isPackage {
+            return false
+        }
+
+        return selectedItem.url.isImageFile
+    }
+
+    private func previewAnchorFrameInScreen(for activePaneSide: PaneSide) -> NSRect? {
+        guard let window = view.window else {
+            return nil
+        }
+
+        let oppositeSide: PaneSide = activePaneSide == .left ? .right : .left
+        if let frame = paneFrameInScreen(for: oppositeSide, in: window) {
+            return frame
+        }
+        return paneFrameInScreen(for: activePaneSide, in: window)
+    }
+
+    private func paneFrameInScreen(for side: PaneSide, in window: NSWindow) -> NSRect? {
+        let isVisible: Bool
+        switch side {
+        case .left:
+            isVisible = !leftSplitItem.isCollapsed
+        case .right:
+            isVisible = !rightSplitItem.isCollapsed
+        }
+
+        guard isVisible else {
+            return nil
+        }
+
+        let paneView = paneViewController(for: side).view
+        guard paneView.window === window else {
+            return nil
+        }
+
+        let paneRectInWindow = paneView.convert(paneView.bounds, to: nil)
+        let paneRectInScreen = window.convertToScreen(paneRectInWindow)
+        guard paneRectInScreen.width > 1, paneRectInScreen.height > 1 else {
+            return nil
+        }
+
+        return paneRectInScreen
     }
 
     private func updatePaneStatus(side: PaneSide, path: String, itemCount: Int, markedCount: Int) {
@@ -1071,40 +1253,6 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         onSidebarWidthChanged?(width)
     }
 
-    private func captureCurrentPreviewWidthIfNeeded() {
-        guard !previewSplitItem.isCollapsed else {
-            return
-        }
-
-        let width = max(previewPaneViewController.view.frame.width, previewSplitItem.minimumThickness)
-        guard width > 0 else {
-            return
-        }
-
-        lastReportedPreviewWidth = width
-        previewPaneViewController.setPreferredFitViewportWidth(width)
-    }
-
-    private func reportPreviewWidthIfNeeded(force: Bool) {
-        if previewSplitItem.isCollapsed {
-            previewPaneViewController.setPreferredFitViewportWidth(lastReportedPreviewWidth)
-            return
-        }
-
-        let width = max(previewPaneViewController.view.frame.width, previewSplitItem.minimumThickness)
-        guard width > 0 else {
-            return
-        }
-
-        guard force || abs(width - lastReportedPreviewWidth) >= 1 else {
-            previewPaneViewController.setPreferredFitViewportWidth(lastReportedPreviewWidth)
-            return
-        }
-
-        lastReportedPreviewWidth = width
-        previewPaneViewController.setPreferredFitViewportWidth(width)
-    }
-
     private static func clampedSidebarWidth(_ width: CGFloat) -> CGFloat {
         min(max(width, sidebarWidthRange.lowerBound), sidebarWidthRange.upperBound)
     }
@@ -1195,6 +1343,10 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         let destination = isDirectory.boolValue
             ? url
             : url.deletingLastPathComponent().standardizedFileURL
+
+        if viewModel.activePane.displayMode == .media {
+            viewModel.activePane.setDisplayMode(.browser)
+        }
 
         navigateActivePane(to: destination)
     }
@@ -1395,21 +1547,16 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         alert.addButton(withTitle: "Save")
         alert.addButton(withTitle: "Cancel")
 
-        let accessoryContainer = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 134))
+        let groupNames = bookmarksConfig.groups.map(\.name)
+        let accessoryContainer = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 108))
 
-        let groupPopup = NSPopUpButton(frame: NSRect(x: 0, y: 104, width: 340, height: 26), pullsDown: false)
-        groupPopup.addItems(withTitles: bookmarksConfig.groups.map(\.name))
-        groupPopup.addItem(withTitle: "New Group")
+        let groupPopup = NSPopUpButton(frame: NSRect(x: 0, y: 82, width: 340, height: 26), pullsDown: false)
+        groupPopup.addItems(withTitles: groupNames)
+        groupPopup.addItem(withTitle: "New…")
         let lastIndex = Self.lastSelectedBookmarkGroupIndex
         if lastIndex >= 0, lastIndex < groupPopup.numberOfItems {
             groupPopup.selectItem(at: lastIndex)
         }
-
-        let newGroupField = NSTextField(frame: NSRect(x: 0, y: 78, width: 210, height: 24))
-        newGroupField.placeholderString = "New group name"
-
-        let groupShortcutField = NSTextField(frame: NSRect(x: 220, y: 78, width: 120, height: 24))
-        groupShortcutField.placeholderString = "Group key"
 
         let displayNameField = NSTextField(frame: NSRect(x: 0, y: 52, width: 340, height: 24))
         displayNameField.stringValue = defaultDisplayName
@@ -1423,8 +1570,6 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         shortcutField.placeholderString = "e.g. d or d u"
 
         accessoryContainer.addSubview(groupPopup)
-        accessoryContainer.addSubview(newGroupField)
-        accessoryContainer.addSubview(groupShortcutField)
         accessoryContainer.addSubview(displayNameField)
         accessoryContainer.addSubview(shortcutLabel)
         accessoryContainer.addSubview(shortcutField)
@@ -1441,11 +1586,14 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
 
         let selectedGroupName: String
         var groupShortcutKey: String?
-        if selectedGroupIndex >= 0, selectedGroupIndex < bookmarksConfig.groups.count {
-            selectedGroupName = bookmarksConfig.groups[selectedGroupIndex].name
+        if selectedGroupIndex >= 0, selectedGroupIndex < groupNames.count {
+            selectedGroupName = groupNames[selectedGroupIndex]
         } else {
-            selectedGroupName = newGroupField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            groupShortcutKey = BookmarkShortcut.canonical(from: groupShortcutField.stringValue)
+            guard let newGroup = presentNewBookmarkGroupAlert() else {
+                return
+            }
+            selectedGroupName = newGroup.name
+            groupShortcutKey = newGroup.shortcutKey
         }
 
         guard !selectedGroupName.isEmpty else {
@@ -1468,20 +1616,68 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         )
     }
 
+    private func presentNewBookmarkGroupAlert() -> (name: String, shortcutKey: String?)? {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Create New Bookmark Group"
+        alert.addButton(withTitle: "Create")
+        alert.addButton(withTitle: "Cancel")
+
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 50))
+
+        let groupNameField = NSTextField(frame: NSRect(x: 0, y: 26, width: 210, height: 24))
+        groupNameField.placeholderString = "Group name"
+
+        let groupShortcutField = NSTextField(frame: NSRect(x: 220, y: 26, width: 120, height: 24))
+        groupShortcutField.placeholderString = "Group key"
+
+        let shortcutHintLabel = NSTextField(labelWithString: "Shortcut sequence (optional)")
+        shortcutHintLabel.frame = NSRect(x: 0, y: 2, width: 250, height: 20)
+        shortcutHintLabel.font = .systemFont(ofSize: 11)
+        shortcutHintLabel.textColor = .secondaryLabelColor
+
+        container.addSubview(groupNameField)
+        container.addSubview(groupShortcutField)
+        container.addSubview(shortcutHintLabel)
+        alert.accessoryView = container
+        alert.window.initialFirstResponder = groupNameField
+
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            return nil
+        }
+
+        let groupName = groupNameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !groupName.isEmpty else {
+            presentErrorAlert(
+                title: "Missing Group Name",
+                informativeText: "Group name is required when creating a new group."
+            )
+            return nil
+        }
+
+        return (
+            name: groupName,
+            shortcutKey: BookmarkShortcut.canonical(from: groupShortcutField.stringValue)
+        )
+    }
+
     private func saveBookmark(entry: BookmarkEntry, groupName: String, groupShortcutKey: String? = nil) {
         var latestConfig = configManager.loadBookmarksConfig()
         var groups = latestConfig.groups
+        let normalizedEntry = normalizeBookmarkEntry(entry)
 
         if let groupIndex = groups.firstIndex(where: { $0.name == groupName }) {
-            if let entryIndex = groups[groupIndex].entries.firstIndex(where: { $0.path == entry.path }) {
-                groups[groupIndex].entries[entryIndex] = entry
+            if let entryIndex = groups[groupIndex].entries.firstIndex(where: {
+                isSameBookmarkPath($0.path, normalizedEntry.path)
+            }) {
+                groups[groupIndex].entries[entryIndex] = normalizedEntry
             } else {
-                groups[groupIndex].entries.append(entry)
+                groups[groupIndex].entries.append(normalizedEntry)
             }
         } else {
             groups.append(BookmarkGroup(
                 name: groupName,
-                entries: [entry],
+                entries: [normalizedEntry],
                 shortcutKey: groupShortcutKey
             ))
         }
@@ -1491,10 +1687,10 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         do {
             try configManager.saveBookmarksConfig(latestConfig)
             bookmarksConfig = latestConfig
-            persistSecurityScopedBookmark(for: entry.path)
+            persistSecurityScopedBookmark(for: normalizedEntry.path)
             sidebarViewModel.reloadSections()
             propagateBookmarksConfig()
-            showActionToast("Saved bookmark \"\(entry.displayName)\"")
+            showActionToast("Saved bookmark \"\(normalizedEntry.displayName)\"")
         } catch {
             let alert = NSAlert()
             alert.alertStyle = .critical
@@ -1520,6 +1716,22 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
                 }
             }
         }
+    }
+
+    private func normalizeBookmarkEntry(_ entry: BookmarkEntry) -> BookmarkEntry {
+        BookmarkEntry(
+            displayName: entry.displayName,
+            path: normalizedBookmarkPath(entry.path),
+            shortcutKey: entry.shortcutKey
+        )
+    }
+
+    private func normalizedBookmarkPath(_ rawPath: String) -> String {
+        UserPaths.portableBookmarkPath(rawPath)
+    }
+
+    private func isSameBookmarkPath(_ lhs: String, _ rhs: String) -> Bool {
+        normalizedBookmarkPath(lhs) == normalizedBookmarkPath(rhs)
     }
 
     private func presentSidebarBookmarkEditor(
@@ -1565,7 +1777,9 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         }
 
         let previousCount = latestConfig.groups[groupIndex].entries.count
-        latestConfig.groups[groupIndex].entries.removeAll { $0.path == entry.path }
+        latestConfig.groups[groupIndex].entries.removeAll {
+            isSameBookmarkPath($0.path, entry.path)
+        }
         guard latestConfig.groups[groupIndex].entries.count != previousCount else {
             NSSound.beep()
             return
@@ -1604,7 +1818,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         let initialShortcut = groups
             .first(where: { $0.name == initialGroupName })?
             .entries
-            .first(where: { $0.path == initialEntry.path })?
+            .first(where: { isSameBookmarkPath($0.path, initialEntry.path) })?
             .shortcutKey
 
         let alert = NSAlert()
@@ -1705,14 +1919,18 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
             return
         }
 
-        latestConfig.groups[originalGroupIndex].entries.removeAll { $0.path == originalEntry.path }
+        latestConfig.groups[originalGroupIndex].entries.removeAll {
+            isSameBookmarkPath($0.path, originalEntry.path)
+        }
         let updatedEntry = BookmarkEntry(
             displayName: result.displayName,
-            path: result.path,
+            path: normalizedBookmarkPath(result.path),
             shortcutKey: result.shortcutKey
         )
 
-        if let existingIndex = latestConfig.groups[targetGroupIndex].entries.firstIndex(where: { $0.path == result.path }) {
+        if let existingIndex = latestConfig.groups[targetGroupIndex].entries.firstIndex(where: {
+            isSameBookmarkPath($0.path, updatedEntry.path)
+        }) {
             latestConfig.groups[targetGroupIndex].entries[existingIndex] = updatedEntry
         } else {
             latestConfig.groups[targetGroupIndex].entries.append(updatedEntry)

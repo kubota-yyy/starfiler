@@ -20,6 +20,20 @@
                ReferencedContainer = "container:starfiler.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "269A1525926C09595CACEC02"
+               BuildableName = "starfilerUITests.xctest"
+               BlueprintName = "starfilerUITests"
+               ReferencedContainer = "container:starfiler.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -35,6 +49,16 @@
                BlueprintIdentifier = "AA00000000000000000000F0"
                BuildableName = "StarfilerTests.xctest"
                BlueprintName = "starfilerTests"
+               ReferencedContainer = "container:starfiler.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "269A1525926C09595CACEC02"
+               BuildableName = "starfilerUITests.xctest"
+               BlueprintName = "starfilerUITests"
                ReferencedContainer = "container:starfiler.xcodeproj">
             </BuildableReference>
          </TestableReference>

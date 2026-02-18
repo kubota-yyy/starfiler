@@ -27,6 +27,7 @@ NORMALIZED_LEGACY_APP_DEST="$(printf '%s' "$LEGACY_APP_DEST" | /usr/bin/tr '[:up
 
 LAUNCH_AFTER_INSTALL=true
 QUIET=false
+STOP_RUNNING_PROCESS=false
 
 usage() {
   cat <<'EOF'
@@ -35,6 +36,7 @@ Usage: scripts/build_and_install.sh [options]
 Options:
   --launch       Launch app after install (default)
   --no-launch    Install only
+  --stop-running Stop running app process before install (legacy behavior)
   --quiet        Quiet xcodebuild output
   -h, --help     Show this help
 EOF
@@ -47,6 +49,9 @@ while (($#)); do
       ;;
     --no-launch)
       LAUNCH_AFTER_INSTALL=false
+      ;;
+    --stop-running)
+      STOP_RUNNING_PROCESS=true
       ;;
     --quiet)
       QUIET=true
@@ -153,30 +158,61 @@ if [[ ! -d "$APP_SOURCE" ]]; then
   exit 1
 fi
 
+PROCESS_IS_RUNNING=false
+LEGACY_PROCESS_IS_RUNNING=false
+
 if /usr/bin/pgrep -x "$PROCESS_NAME" >/dev/null 2>&1; then
-  echo "[install] stopping running process: $PROCESS_NAME"
-  /usr/bin/pkill -x "$PROCESS_NAME" || true
-  /bin/sleep 0.3
+  PROCESS_IS_RUNNING=true
 fi
 
 if [[ "$APP_DEST" == "/Applications/Starfiler.app" ]] && /usr/bin/pgrep -x "$LEGACY_PROCESS_NAME" >/dev/null 2>&1; then
-  echo "[install] stopping legacy process: $LEGACY_PROCESS_NAME"
-  /usr/bin/pkill -x "$LEGACY_PROCESS_NAME" || true
-  /bin/sleep 0.3
+  LEGACY_PROCESS_IS_RUNNING=true
+fi
+
+if [[ "$STOP_RUNNING_PROCESS" == true ]]; then
+  if [[ "$PROCESS_IS_RUNNING" == true ]]; then
+    echo "[install] stopping running process: $PROCESS_NAME"
+    /usr/bin/pkill -x "$PROCESS_NAME" || true
+    /bin/sleep 0.3
+    PROCESS_IS_RUNNING=false
+  fi
+
+  if [[ "$LEGACY_PROCESS_IS_RUNNING" == true ]]; then
+    echo "[install] stopping legacy process: $LEGACY_PROCESS_NAME"
+    /usr/bin/pkill -x "$LEGACY_PROCESS_NAME" || true
+    /bin/sleep 0.3
+    LEGACY_PROCESS_IS_RUNNING=false
+  fi
+else
+  if [[ "$PROCESS_IS_RUNNING" == true ]]; then
+    echo "[install] detected running process: $PROCESS_NAME (kept alive; update applies fully after relaunch)"
+  fi
+  if [[ "$LEGACY_PROCESS_IS_RUNNING" == true ]]; then
+    echo "[install] detected running legacy process: $LEGACY_PROCESS_NAME (legacy cleanup skipped)"
+  fi
 fi
 
 echo "[install] $APP_DEST"
 if [[ -d "$APP_DEST" ]]; then
-  echo "[install] updating existing app bundle in-place"
-  /bin/rm -rf "$APP_DEST/Contents"
-  /usr/bin/ditto "$APP_SOURCE/Contents" "$APP_DEST/Contents"
+  if [[ "$PROCESS_IS_RUNNING" == true ]]; then
+    echo "[install] syncing app bundle contents without deleting existing bundle"
+    /usr/bin/ditto "$APP_SOURCE/Contents" "$APP_DEST/Contents"
+  else
+    echo "[install] updating existing app bundle in-place"
+    /bin/rm -rf "$APP_DEST/Contents"
+    /usr/bin/ditto "$APP_SOURCE/Contents" "$APP_DEST/Contents"
+  fi
 else
   /bin/cp -R "$APP_SOURCE" "$APP_DEST"
 fi
 
 if [[ "$APP_DEST" == "/Applications/Starfiler.app" ]] && [[ "$NORMALIZED_APP_DEST" != "$NORMALIZED_LEGACY_APP_DEST" ]] && [[ -d "$LEGACY_APP_DEST" ]]; then
-  echo "[install] removing legacy app: $LEGACY_APP_DEST"
-  /bin/rm -rf "$LEGACY_APP_DEST"
+  if [[ "$LEGACY_PROCESS_IS_RUNNING" == true ]]; then
+    echo "[install] skipping legacy app removal while running: $LEGACY_APP_DEST"
+  else
+    echo "[install] removing legacy app: $LEGACY_APP_DEST"
+    /bin/rm -rf "$LEGACY_APP_DEST"
+  fi
 fi
 
 /usr/bin/xattr -dr com.apple.quarantine "$APP_DEST" >/dev/null 2>&1 || true

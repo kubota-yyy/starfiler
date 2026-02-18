@@ -1,6 +1,30 @@
 import AppKit
 import Foundation
 
+protocol TrashRecycling: Sendable {
+    func recycle(_ url: URL) async throws -> URL
+}
+
+struct WorkspaceTrashRecycler: TrashRecycling {
+    func recycle(_ url: URL) async throws -> URL {
+        try await withCheckedThrowingContinuation { continuation in
+            NSWorkspace.shared.recycle([url]) { recycledBySource, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+
+                if let recycledURL = recycledBySource[url] ?? recycledBySource.values.first {
+                    continuation.resume(returning: recycledURL)
+                    return
+                }
+
+                continuation.resume(throwing: FileOperationServiceError.recycleDestinationNotFound(url))
+            }
+        }
+    }
+}
+
 protocol FileOperationExecuting: Sendable {
     func execute(
         _ operation: FileOperation,
@@ -30,9 +54,14 @@ enum FileOperationServiceError: LocalizedError, Sendable {
 
 struct FileOperationService: FileOperationExecuting {
     private let fileManager: FileManager
+    private let trashRecycler: any TrashRecycling
 
-    init(fileManager: FileManager = .default) {
+    init(
+        fileManager: FileManager = .default,
+        trashRecycler: any TrashRecycling = WorkspaceTrashRecycler()
+    ) {
         self.fileManager = fileManager
+        self.trashRecycler = trashRecycler
     }
 
     func execute(
@@ -293,21 +322,7 @@ struct FileOperationService: FileOperationExecuting {
     }
 
     private func recycle(url: URL) async throws -> URL {
-        try await withCheckedThrowingContinuation { continuation in
-            NSWorkspace.shared.recycle([url]) { recycledBySource, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                    return
-                }
-
-                if let recycledURL = recycledBySource[url] ?? recycledBySource.values.first {
-                    continuation.resume(returning: recycledURL)
-                    return
-                }
-
-                continuation.resume(throwing: FileOperationServiceError.recycleDestinationNotFound(url))
-            }
-        }
+        try await trashRecycler.recycle(url)
     }
 
     private func uniqueDestinationURL(for source: URL, destinationDirectory: URL) -> URL {

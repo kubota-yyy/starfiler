@@ -181,6 +181,33 @@ final class SidebarViewModelTests: XCTestCase {
         XCTAssertEqual(updatedGroup?.entries.first?.displayName, "Entry2")
     }
 
+    func testRemoveBookmarkEntryMatchesEquivalentPathRepresentations() throws {
+        let absolutePath = UserPaths.homeDirectoryPath + "/Documents/BookmarkTestFolder"
+        let portablePath = UserPaths.portableBookmarkPath(absolutePath)
+        let group = BookmarkGroup(
+            name: "TestGroup",
+            entries: [
+                BookmarkEntry(displayName: "Entry1", path: portablePath),
+            ],
+            shortcutKey: nil,
+            isDefault: false
+        )
+        try configManager.saveBookmarksConfig(BookmarksConfig(groups: [group]))
+
+        let sut = SidebarViewModel(configManager: configManager)
+        let entry = SidebarViewModel.SidebarEntry(
+            displayName: "Entry1",
+            path: absolutePath,
+            iconName: "folder"
+        )
+
+        sut.removeBookmarkEntry(entry, fromGroup: "TestGroup")
+
+        let updatedConfig = configManager.loadBookmarksConfig()
+        let updatedGroup = updatedConfig.groups.first(where: { $0.name == "TestGroup" })
+        XCTAssertTrue(updatedGroup?.entries.isEmpty == true)
+    }
+
     func testReloadSectionsBuildsNestedShortcutHintsForBookmarkGroups() throws {
         let group = BookmarkGroup(
             name: "RWD",

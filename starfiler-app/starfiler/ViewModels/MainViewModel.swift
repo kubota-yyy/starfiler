@@ -45,6 +45,7 @@ final class MainViewModel {
         fileOperationQueue: FileOperationQueue = FileOperationQueue(),
         visitHistoryService: any VisitHistoryProviding,
         pinnedItemsService: any PinnedItemsProviding,
+        terminalSessionService: any TerminalSessionProviding = TerminalSessionService(),
         initialShowHiddenFiles: Bool = false,
         initialSortColumn: AppConfig.SortColumn = .date,
         initialSortAscending: Bool = false,
@@ -86,6 +87,7 @@ final class MainViewModel {
         )
 
         self.terminalSessionListViewModel = TerminalSessionListViewModel(
+            service: terminalSessionService,
             initialPanelVisible: initialTerminalPanelVisible
         )
 
@@ -239,7 +241,31 @@ final class MainViewModel {
     }
 
     func cutMarked() {
-        _ = cutMarkedToClipboard()
+        moveMarked()
+    }
+
+    func moveMarked() {
+        let urls = activePane.markedOrSelectedURLs()
+        guard !urls.isEmpty else {
+            return
+        }
+
+        let destinationDirectory = inactivePane.paneState.currentDirectory.standardizedFileURL
+        let items = urls.map { source in
+            let normalizedSource = source.standardizedFileURL
+            return FileLocationChange(
+                source: normalizedSource,
+                destination: destinationDirectory
+                    .appendingPathComponent(normalizedSource.lastPathComponent, isDirectory: normalizedSource.hasDirectoryPath)
+                    .standardizedFileURL
+            )
+        }
+
+        execute(
+            operation: .move(items: items),
+            registerUndoWithManager: true,
+            clearCutClipboardOnSuccess: false
+        )
     }
 
     func paste() {

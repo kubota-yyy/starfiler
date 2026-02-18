@@ -199,7 +199,9 @@ final class SidebarViewModel {
         guard let groupIndex = bookmarksConfig.groups.firstIndex(where: { $0.name == groupName }) else {
             return
         }
-        bookmarksConfig.groups[groupIndex].entries.removeAll { $0.path == entry.path }
+        bookmarksConfig.groups[groupIndex].entries.removeAll {
+            normalizedBookmarkPath($0.path) == normalizedBookmarkPath(entry.path)
+        }
         try? configManager.saveBookmarksConfig(bookmarksConfig)
         reloadSections()
     }
@@ -219,5 +221,9 @@ final class SidebarViewModel {
         default:
             return "folder"
         }
+    }
+
+    private func normalizedBookmarkPath(_ rawPath: String) -> String {
+        UserPaths.portableBookmarkPath(rawPath)
     }
 }
