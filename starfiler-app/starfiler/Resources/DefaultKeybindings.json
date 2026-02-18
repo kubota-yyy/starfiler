@@ -62,7 +62,7 @@
       "Ctrl-s Ctrl-r": "reverseSortOrder",
       "Ctrl-U": "undo",
       "Ctrl-7": "openBookmarkSearch",
-      "Ctrl-r": "openHistory",
+      "Ctrl-r": "openFileInFinder",
       "Ctrl-b": "addBookmark",
       "Ctrl-R": "refresh",
       "Cmd-o": "openFile",
