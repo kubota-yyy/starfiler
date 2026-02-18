@@ -44,7 +44,7 @@ struct TerminalSession: Identifiable, Sendable {
     let workingDirectory: URL
     let command: TerminalSessionCommand
     var exitCode: Int32?
-    let createdAt: Date
+    var createdAt: Date
     var lastActivityAt: Date
     var isPinned: Bool
     var lastOpenedAt: Date
@@ -69,5 +69,31 @@ struct TerminalSession: Identifiable, Sendable {
         self.isPinned = isPinned
         self.lastOpenedAt = now
         self.updatedAt = now
+    }
+
+    init(
+        id: UUID,
+        title: String,
+        status: TerminalSessionStatus,
+        command: TerminalSessionCommand,
+        workingDirectory: URL,
+        exitCode: Int32?,
+        createdAt: Date,
+        lastActivityAt: Date,
+        isPinned: Bool,
+        lastOpenedAt: Date,
+        updatedAt: Date
+    ) {
+        self.id = id
+        self.title = title
+        self.status = status
+        self.command = command
+        self.workingDirectory = workingDirectory
+        self.exitCode = exitCode
+        self.createdAt = createdAt
+        self.lastActivityAt = lastActivityAt
+        self.isPinned = isPinned
+        self.lastOpenedAt = lastOpenedAt
+        self.updatedAt = updatedAt
     }
 }

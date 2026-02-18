@@ -8,16 +8,13 @@ final class TerminalSessionListViewModel {
 
     private(set) var sessions: [TerminalSession] = []
     var activeSessionId: UUID?
-    var terminalPanelVisible: Bool
 
     var onSessionCreated: ((TerminalSession) -> Void)?
     var onSessionRemoved: ((UUID) -> Void)?
     var onActiveSessionChanged: ((UUID?) -> Void)?
-    var onPanelVisibilityChanged: ((Bool) -> Void)?
 
-    init(service: any TerminalSessionProviding = TerminalSessionService(), initialPanelVisible: Bool = false) {
+    init(service: any TerminalSessionProviding = TerminalSessionService()) {
         self.service = service
-        self.terminalPanelVisible = initialPanelVisible
     }
 
     func createSession(command: TerminalSessionCommand, workingDirectory: URL) {
@@ -25,10 +22,6 @@ final class TerminalSessionListViewModel {
             let session = await service.createSession(command: command, workingDirectory: workingDirectory)
             await reloadSessions()
             activeSessionId = session.id
-            if !terminalPanelVisible {
-                terminalPanelVisible = true
-                onPanelVisibilityChanged?(true)
-            }
             onSessionCreated?(session)
             onActiveSessionChanged?(session.id)
         }
@@ -51,23 +44,6 @@ final class TerminalSessionListViewModel {
         guard sessions.contains(where: { $0.id == id }) else { return }
         activeSessionId = id
         onActiveSessionChanged?(id)
-    }
-
-    func togglePanel() {
-        terminalPanelVisible.toggle()
-        onPanelVisibilityChanged?(terminalPanelVisible)
-    }
-
-    func showPanel() {
-        guard !terminalPanelVisible else { return }
-        terminalPanelVisible = true
-        onPanelVisibilityChanged?(true)
-    }
-
-    func hidePanel() {
-        guard terminalPanelVisible else { return }
-        terminalPanelVisible = false
-        onPanelVisibilityChanged?(false)
     }
 
     func updateSessionStatus(id: UUID, status: TerminalSessionStatus) {

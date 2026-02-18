@@ -31,19 +31,19 @@ struct TerminalSessionsConfig: Codable, Sendable {
         }
 
         func toSession() -> TerminalSession {
-            var session = TerminalSession(
+            TerminalSession(
                 id: id,
                 title: title,
+                status: status.isActive ? .stopped : status,
                 command: command,
                 workingDirectory: URL(fileURLWithPath: workingDirectory, isDirectory: true),
-                isPinned: isPinned
+                exitCode: exitCode,
+                createdAt: createdAt,
+                lastActivityAt: lastActivityAt,
+                isPinned: isPinned,
+                lastOpenedAt: lastOpenedAt,
+                updatedAt: updatedAt
             )
-            session.status = status.isActive ? .stopped : status
-            session.exitCode = exitCode
-            session.lastActivityAt = lastActivityAt
-            session.lastOpenedAt = lastOpenedAt
-            session.updatedAt = updatedAt
-            return session
         }
     }
 

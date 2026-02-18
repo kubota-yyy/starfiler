@@ -51,7 +51,6 @@ final class MainViewModel {
         initialSortAscending: Bool = false,
         initialPreviewVisible: Bool = false,
         initialSidebarVisible: Bool = true,
-        initialTerminalPanelVisible: Bool = false,
         initialSpotlightSearchScope: SpotlightSearchScope = .currentDirectory,
         initialLeftPaneDisplayMode: PaneDisplayMode = .browser,
         initialRightPaneDisplayMode: PaneDisplayMode = .browser,
@@ -87,8 +86,7 @@ final class MainViewModel {
         )
 
         self.terminalSessionListViewModel = TerminalSessionListViewModel(
-            service: terminalSessionService,
-            initialPanelVisible: initialTerminalPanelVisible
+            service: terminalSessionService
         )
 
         self.previewPane = PreviewViewModel()

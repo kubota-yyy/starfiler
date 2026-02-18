@@ -17,11 +17,8 @@ final class TerminalSessionListViewModelTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func makeSUT(initialPanelVisible: Bool = false) -> TerminalSessionListViewModel {
-        TerminalSessionListViewModel(
-            service: mockService,
-            initialPanelVisible: initialPanelVisible
-        )
+    private func makeSUT() -> TerminalSessionListViewModel {
+        TerminalSessionListViewModel(service: mockService)
     }
 
     // MARK: - Initial State
@@ -31,60 +28,6 @@ final class TerminalSessionListViewModelTests: XCTestCase {
 
         XCTAssertTrue(sut.sessions.isEmpty)
         XCTAssertNil(sut.activeSessionId)
-        XCTAssertFalse(sut.terminalPanelVisible)
-    }
-
-    func testInitialPanelVisibleRespected() {
-        let sut = makeSUT(initialPanelVisible: true)
-
-        XCTAssertTrue(sut.terminalPanelVisible)
-    }
-
-    // MARK: - Toggle Panel
-
-    func testTogglePanel() {
-        let sut = makeSUT()
-
-        var capturedVisible: Bool?
-        sut.onPanelVisibilityChanged = { visible in capturedVisible = visible }
-
-        sut.togglePanel()
-
-        XCTAssertTrue(sut.terminalPanelVisible)
-        XCTAssertEqual(capturedVisible, true)
-
-        sut.togglePanel()
-
-        XCTAssertFalse(sut.terminalPanelVisible)
-        XCTAssertEqual(capturedVisible, false)
-    }
-
-    // MARK: - Show/Hide Panel
-
-    func testShowPanel() {
-        let sut = makeSUT()
-
-        sut.showPanel()
-        XCTAssertTrue(sut.terminalPanelVisible)
-
-        // Calling again should be no-op
-        var callbackCount = 0
-        sut.onPanelVisibilityChanged = { _ in callbackCount += 1 }
-        sut.showPanel()
-        XCTAssertEqual(callbackCount, 0) // guard returns early
-    }
-
-    func testHidePanel() {
-        let sut = makeSUT(initialPanelVisible: true)
-
-        sut.hidePanel()
-        XCTAssertFalse(sut.terminalPanelVisible)
-
-        // Calling again should be no-op
-        var callbackCount = 0
-        sut.onPanelVisibilityChanged = { _ in callbackCount += 1 }
-        sut.hidePanel()
-        XCTAssertEqual(callbackCount, 0) // guard returns early
     }
 
     // MARK: - Create Session
@@ -101,8 +44,56 @@ final class TerminalSessionListViewModelTests: XCTestCase {
 
         XCTAssertNotNil(createdSession)
         XCTAssertNotNil(sut.activeSessionId)
-        XCTAssertTrue(sut.terminalPanelVisible)
         XCTAssertEqual(sut.sessions.count, 1)
+    }
+
+    // MARK: - Remove Session
+
+    func testRemoveSession() async {
+        let sut = makeSUT()
+        let workingDir = URL(fileURLWithPath: "/tmp/test")
+
+        sut.createSession(command: .claude, workingDirectory: workingDir)
+        try? await Task.sleep(for: .milliseconds(200))
+
+        guard let sessionId = sut.sessions.first?.id else {
+            XCTFail("No session created")
+            return
+        }
+
+        var removedId: UUID?
+        sut.onSessionRemoved = { id in removedId = id }
+
+        sut.removeSession(id: sessionId)
+        try? await Task.sleep(for: .milliseconds(200))
+
+        XCTAssertEqual(removedId, sessionId)
+        XCTAssertTrue(sut.sessions.isEmpty)
+    }
+
+    func testRemoveActiveSessionSelectsLastSession() async {
+        let sut = makeSUT()
+        let workingDir = URL(fileURLWithPath: "/tmp/test")
+
+        sut.createSession(command: .claude, workingDirectory: workingDir)
+        try? await Task.sleep(for: .milliseconds(200))
+        sut.createSession(command: .codex, workingDirectory: workingDir)
+        try? await Task.sleep(for: .milliseconds(200))
+
+        let firstId = sut.activeSessionId
+
+        // Remove the active session (last created)
+        guard let activeId = sut.activeSessionId else {
+            XCTFail("No active session")
+            return
+        }
+
+        sut.removeSession(id: activeId)
+        try? await Task.sleep(for: .milliseconds(200))
+
+        XCTAssertEqual(sut.sessions.count, 1)
+        // After removing active, the remaining session becomes active
+        XCTAssertNotNil(sut.activeSessionId)
     }
 
     // MARK: - Set Active Session
@@ -135,5 +126,47 @@ final class TerminalSessionListViewModelTests: XCTestCase {
         sut.setActiveSession(id: bogusId)
 
         XCTAssertNil(sut.activeSessionId)
+    }
+
+    // MARK: - Update Session Status
+
+    func testUpdateSessionStatus() async {
+        let sut = makeSUT()
+        let workingDir = URL(fileURLWithPath: "/tmp/test")
+
+        sut.createSession(command: .claude, workingDirectory: workingDir)
+        try? await Task.sleep(for: .milliseconds(200))
+
+        guard let sessionId = sut.sessions.first?.id else {
+            XCTFail("No session created")
+            return
+        }
+
+        sut.updateSessionStatus(id: sessionId, status: .running)
+        try? await Task.sleep(for: .milliseconds(200))
+
+        let updatedSession = sut.sessions.first(where: { $0.id == sessionId })
+        XCTAssertEqual(updatedSession?.status, .running)
+    }
+
+    // MARK: - Update Session Title
+
+    func testUpdateSessionTitle() async {
+        let sut = makeSUT()
+        let workingDir = URL(fileURLWithPath: "/tmp/test")
+
+        sut.createSession(command: .claude, workingDirectory: workingDir)
+        try? await Task.sleep(for: .milliseconds(200))
+
+        guard let sessionId = sut.sessions.first?.id else {
+            XCTFail("No session created")
+            return
+        }
+
+        sut.updateSessionTitle(id: sessionId, title: "My Custom Title")
+        try? await Task.sleep(for: .milliseconds(200))
+
+        let updatedSession = sut.sessions.first(where: { $0.id == sessionId })
+        XCTAssertEqual(updatedSession?.title, "My Custom Title")
     }
 }

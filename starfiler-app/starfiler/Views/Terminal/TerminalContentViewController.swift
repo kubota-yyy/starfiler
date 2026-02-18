@@ -90,6 +90,24 @@ final class TerminalContentViewController: NSViewController {
     var isProcessRunning: Bool {
         sessionViewModel.status == .running || sessionViewModel.status == .waitingForInput || sessionViewModel.status == .launching
     }
+
+    private func extractBufferLines(startY: Int, endY: Int) {
+        guard let tv = terminalView else { return }
+        let terminal = tv.getTerminal()
+        var lines: [String] = []
+        for row in startY...endY {
+            if let bufferLine = terminal.getLine(row: row) {
+                let text = bufferLine.translateToString(trimRight: true)
+                if !text.isEmpty {
+                    lines.append(text)
+                }
+            }
+        }
+        if !lines.isEmpty {
+            let combined = lines.joined(separator: "\n")
+            onOutputReceived?(sessionId, combined)
+        }
+    }
 }
 
 extension TerminalContentViewController: LocalProcessTerminalViewDelegate {
@@ -98,19 +116,20 @@ extension TerminalContentViewController: LocalProcessTerminalViewDelegate {
 
     func setTerminalTitle(source: LocalProcessTerminalView, title: String) {
         sessionViewModel.outputReceived()
-        onOutputReceived?(sessionId, title)
     }
 
     func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {
         sessionViewModel.outputReceived()
-        if let directory {
-            onOutputReceived?(sessionId, directory)
-        }
     }
 
     func processTerminated(source: TerminalView, exitCode: Int32?) {
         let code = exitCode ?? -1
         sessionViewModel.processExited(exitCode: code)
         onProcessExited?(sessionId, code)
+    }
+
+    func rangeChanged(source: TerminalView, startY: Int, endY: Int) {
+        sessionViewModel.outputReceived()
+        extractBufferLines(startY: startY, endY: endY)
     }
 }

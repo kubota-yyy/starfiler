@@ -145,6 +145,8 @@
 		EE0000000000000000000028 /* FileOperationQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000028 /* FileOperationQueueTests.swift */; };
 		EE0000000000000000000029 /* ConfigManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000029 /* ConfigManagerTests.swift */; };
 		EE000000000000000000002A /* PinnedItemsServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000002A /* PinnedItemsServiceTests.swift */; };
+		DD000000000000000000002A /* TerminalSessionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000001A /* TerminalSessionServiceTests.swift */; };
+		DD000000000000000000002B /* TerminalSessionManagerViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000001B /* TerminalSessionManagerViewModelTests.swift */; };
 		EE000000000000000000A001 /* FileItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A001 /* FileItemFactory.swift */; };
 		EE000000000000000000A002 /* TestURLFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A002 /* TestURLFactory.swift */; };
 		EE000000000000000000A003 /* AsyncTestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A003 /* AsyncTestHelpers.swift */; };
@@ -316,6 +318,8 @@
 		FF0000000000000000000028 /* FileOperationQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileOperationQueueTests.swift; sourceTree = "<group>"; };
 		FF0000000000000000000029 /* ConfigManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigManagerTests.swift; sourceTree = "<group>"; };
 		FF000000000000000000002A /* PinnedItemsServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedItemsServiceTests.swift; sourceTree = "<group>"; };
+		DD000000000000000000001A /* TerminalSessionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionServiceTests.swift; sourceTree = "<group>"; };
+		DD000000000000000000001B /* TerminalSessionManagerViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionManagerViewModelTests.swift; sourceTree = "<group>"; };
 		FF000000000000000000A001 /* FileItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileItemFactory.swift; sourceTree = "<group>"; };
 		FF000000000000000000A002 /* TestURLFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestURLFactory.swift; sourceTree = "<group>"; };
 		FF000000000000000000A003 /* AsyncTestHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AsyncTestHelpers.swift; sourceTree = "<group>"; };
@@ -738,6 +742,7 @@
 				876B6E0CED4A9C9FCAB9CF9C /* FileSystemServiceIntegrationTests.swift */,
 				A8744C2A33062020B5AC45A7 /* FileOperationServiceIntegrationTests.swift */,
 				02AAF2688F1616CD1D0FD85C /* SecurityScopedBookmarkServiceIntegrationTests.swift */,
+				DD000000000000000000001A /* TerminalSessionServiceTests.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -792,6 +797,7 @@
 				FF0000000000000000000025 /* SidebarViewModelTests.swift */,
 				FF0000000000000000000026 /* SyncViewModelTests.swift */,
 				FF0000000000000000000027 /* TerminalSessionListViewModelTests.swift */,
+				DD000000000000000000001B /* TerminalSessionManagerViewModelTests.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -1108,6 +1114,8 @@
 				EE000000000000000000A003 /* AsyncTestHelpers.swift in Sources */,
 				EE000000000000000000A004 /* MockPinnedItemsService.swift in Sources */,
 				EE000000000000000000002A /* PinnedItemsServiceTests.swift in Sources */,
+				DD000000000000000000002A /* TerminalSessionServiceTests.swift in Sources */,
+				DD000000000000000000002B /* TerminalSessionManagerViewModelTests.swift in Sources */,
 				893B9717C9949290E99BE6E0 /* DefaultShortcutCoverageTests.swift in Sources */,
 				609C81EFEC2EC739DF00A1A9 /* GlobalActionRouterTests.swift in Sources */,
 				DF99C6034CD13D0468E0FD89 /* FileSystemServiceIntegrationTests.swift in Sources */,

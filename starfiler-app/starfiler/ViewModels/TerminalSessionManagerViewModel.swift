@@ -26,7 +26,7 @@ enum TerminalSessionProviderFilter: String, CaseIterable, Sendable {
 @MainActor
 @Observable
 final class TerminalSessionManagerViewModel {
-    private static let searchDebounceInterval: TimeInterval = 0.15
+    private static let searchDebounceMilliseconds: Int = 150
 
     private let service: any TerminalSessionProviding
 
@@ -116,7 +116,7 @@ final class TerminalSessionManagerViewModel {
     private func scheduleSearch() {
         searchDebounceTask?.cancel()
         searchDebounceTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(150))
+            try? await Task.sleep(for: .milliseconds(Self.searchDebounceMilliseconds))
             guard !Task.isCancelled else { return }
             self?.performSearch()
         }

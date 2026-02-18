@@ -51,9 +51,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         initialLeftPaneVisible: leftPaneVisible,
         initialRightPaneVisible: rightPaneVisible
     )
-    private lazy var terminalPanelViewController = TerminalPanelViewController(
-        listViewModel: mainViewModel.terminalSessionListViewModel
-    )
     private lazy var mainContainerViewController = MainContainerViewController(
         mainSplitViewController: mainSplitViewController
     )
@@ -134,7 +131,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             initialSortAscending: appConfig.defaultSortAscending,
             initialPreviewVisible: false,
             initialSidebarVisible: appConfig.sidebarVisible,
-            initialTerminalPanelVisible: false,
             initialSpotlightSearchScope: appConfig.spotlightSearchScope,
             initialLeftPaneDisplayMode: appConfig.leftPaneDisplayMode,
             initialRightPaneDisplayMode: appConfig.rightPaneDisplayMode,
@@ -216,7 +212,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         persistSessions()
         persistTimer?.invalidate()
         persistTimer = nil
-        terminalPanelViewController.terminateAllSessions()
+        for wc in sessionWindows.values {
+            wc.window?.close()
+        }
+        sessionWindows.removeAll()
     }
 
     func windowDidBecomeMain(_ notification: Notification) {
@@ -486,11 +485,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     func launchTerminalSession(command: TerminalSessionCommand) {
         let workingDirectory = mainViewModel.activePane.paneState.currentDirectory
-        terminalPanelViewController.createSession(command: command, workingDirectory: workingDirectory)
-    }
+        let listVM = mainViewModel.terminalSessionListViewModel
+        listVM.createSession(command: command, workingDirectory: workingDirectory)
 
-    func focusTerminalPanel() {
-        terminalPanelViewController.focusActiveTerminal()
+        listVM.onSessionCreated = { [weak self] session in
+            self?.openSessionWindow(id: session.id)
+            self?.sessionManagerViewModel?.reloadSessions()
+        }
     }
 
     func showSessionManager() {
@@ -519,8 +520,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         self.sessionManagerWindowController = windowController
         windowController.showWindow(self)
 
-        loadPersistedSessions()
-        startSessionPersistTimer()
     }
 
     func openSessionWindow(id: UUID) {
@@ -575,9 +574,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private func loadPersistedSessions() {
         if let config = configManager.loadTerminalSessionsConfig() {
             let data = config.toSessionsAndLogs()
-            Task {
-                await mainViewModel.terminalSessionListViewModel.service.loadPersistedSessions(data.sessions, logs: data.logs)
-                sessionManagerViewModel?.reloadSessions()
+            Task { [weak self] in
+                guard let self else { return }
+                await self.mainViewModel.terminalSessionListViewModel.service.loadPersistedSessions(data.sessions, logs: data.logs)
+                self.sessionManagerViewModel?.reloadSessions()
             }
         }
     }
@@ -671,12 +671,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             self?.handleTerminalAction(action)
         }
 
-        terminalPanelViewController.onOutputReceived = { [weak self] id, text in
-            Task {
-                await self?.mainViewModel.terminalSessionListViewModel.service.appendOutput(id: id, text: text)
-            }
-        }
-
         applyCurrentAppearance()
         let effectiveStarEffects = disableAnimations ? false : starEffectsEnabled
         let effectiveAnimationSettings = disableAnimations ? AnimationEffectSettings.allDisabled : animationEffectSettings
@@ -688,6 +682,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         window.contentViewController = mainContainerViewController
         renderFooterStatus()
         attachWindowControlButtons(to: window)
+
+        loadPersistedSessions()
+        startSessionPersistTimer()
     }
 
     private func attachWindowControlButtons(to window: NSWindow) {

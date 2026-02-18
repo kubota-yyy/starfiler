@@ -142,27 +142,37 @@ final class TerminalSessionManagerViewController: NSViewController {
         }
     }
 
-    private var displayRows: [Any] {
+    private enum DisplayRow {
+        case session(TerminalSession)
+        case searchResult(TerminalSessionSearchResult)
+    }
+
+    private var displayRows: [DisplayRow] {
         if viewModel.isSearching {
-            return viewModel.searchResults
+            return viewModel.searchResults.map { .searchResult($0) }
         } else {
-            return viewModel.displayedSessions()
+            return viewModel.displayedSessions().map { .session($0) }
         }
     }
 
     private func session(at row: Int) -> TerminalSession? {
         let rows = displayRows
         guard row >= 0, row < rows.count else { return nil }
-        if let result = rows[row] as? TerminalSessionSearchResult {
+        switch rows[row] {
+        case .session(let session):
+            return session
+        case .searchResult(let result):
             return result.session
         }
-        return rows[row] as? TerminalSession
     }
 
     private func searchResult(at row: Int) -> TerminalSessionSearchResult? {
         let rows = displayRows
-        guard row >= 0, row < rows.count, viewModel.isSearching else { return nil }
-        return rows[row] as? TerminalSessionSearchResult
+        guard row >= 0, row < rows.count else { return nil }
+        if case .searchResult(let result) = rows[row] {
+            return result
+        }
+        return nil
     }
 
     @objc private func filterChanged() {
@@ -301,7 +311,7 @@ final class SessionManagerCellView: NSTableCellView {
     private let providerLabel = NSTextField(labelWithString: "")
     private let cwdLabel = NSTextField(labelWithString: "")
     private let snippetLabel = NSTextField(labelWithString: "")
-    private let pinIcon = NSTextField(labelWithString: "")
+    private let pinIcon = NSImageView()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -336,9 +346,9 @@ final class SessionManagerCellView: NSTableCellView {
         snippetLabel.lineBreakMode = .byTruncatingTail
 
         pinIcon.translatesAutoresizingMaskIntoConstraints = false
-        pinIcon.font = .systemFont(ofSize: 10)
-        pinIcon.textColor = .tertiaryLabelColor
-        pinIcon.stringValue = "📌"
+        pinIcon.image = NSImage(systemSymbolName: "pin.fill", accessibilityDescription: "Pinned")
+        pinIcon.contentTintColor = .tertiaryLabelColor
+        pinIcon.imageScaling = .scaleProportionallyDown
         pinIcon.isHidden = true
 
         addSubview(statusDot)
@@ -356,6 +366,8 @@ final class SessionManagerCellView: NSTableCellView {
 
             pinIcon.leadingAnchor.constraint(equalTo: statusDot.trailingAnchor, constant: 4),
             pinIcon.centerYAnchor.constraint(equalTo: statusDot.centerYAnchor),
+            pinIcon.widthAnchor.constraint(equalToConstant: 12),
+            pinIcon.heightAnchor.constraint(equalToConstant: 12),
 
             titleLabel.leadingAnchor.constraint(equalTo: pinIcon.trailingAnchor, constant: 4),
             titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 4),
