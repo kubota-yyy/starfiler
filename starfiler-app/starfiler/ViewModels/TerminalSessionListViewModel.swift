@@ -74,7 +74,7 @@ final class TerminalSessionListViewModel {
         }
     }
 
-    private func reloadSessions() async {
+    func reloadSessions() async {
         sessions = await service.sessions()
     }
 }

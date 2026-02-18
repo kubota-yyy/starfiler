@@ -134,11 +134,14 @@ final class TerminalSessionManagerViewController: NSViewController {
     }
 
     private func updateHeaderLabel() {
-        let count = viewModel.runningSessionCount
-        if count > 0 {
-            headerLabel.stringValue = "実行中 \(count)"
-        } else {
+        let totalCount = viewModel.displayedSessions().count
+        let runningCount = viewModel.runningSessionCount
+        if totalCount == 0 {
             headerLabel.stringValue = "セッションなし"
+        } else if runningCount > 0 {
+            headerLabel.stringValue = "\(totalCount) セッション（実行中 \(runningCount)）"
+        } else {
+            headerLabel.stringValue = "\(totalCount) セッション"
         }
     }
 

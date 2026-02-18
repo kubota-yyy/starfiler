@@ -576,7 +576,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             let data = config.toSessionsAndLogs()
             Task { [weak self] in
                 guard let self else { return }
-                await self.mainViewModel.terminalSessionListViewModel.service.loadPersistedSessions(data.sessions, logs: data.logs)
+                let listVM = self.mainViewModel.terminalSessionListViewModel
+                await listVM.service.loadPersistedSessions(data.sessions, logs: data.logs)
+                await listVM.reloadSessions()
                 self.sessionManagerViewModel?.reloadSessions()
             }
         }
