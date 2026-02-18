@@ -228,10 +228,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private var keybindingManager = KeybindingManager()
     private let headerView = NSView()
     private let navigationStackView = NSStackView()
-    private let backPeekButton = NSButton(title: "", target: nil, action: nil)
     private let breadcrumbContainerView = NSView()
     private let breadcrumbStackView = NSStackView()
-    private let forwardPeekButton = NSButton(title: "", target: nil, action: nil)
     private let searchControlsStackView = NSStackView()
     private let filesModeButton = NSButton(title: "Files", target: nil, action: nil)
     private let mediaModeButton = NSButton(title: "Media", target: nil, action: nil)
@@ -845,26 +843,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         navigationStackView.spacing = 3
         navigationStackView.distribution = .fill
 
-        backPeekButton.translatesAutoresizingMaskIntoConstraints = false
-        backPeekButton.isBordered = false
-        backPeekButton.font = .systemFont(ofSize: 10)
-        backPeekButton.contentTintColor = .secondaryLabelColor
-        backPeekButton.target = self
-        backPeekButton.action = #selector(handleBackPeekClick(_:))
-        backPeekButton.isHidden = true
-        backPeekButton.setContentHuggingPriority(.required, for: .horizontal)
-        backPeekButton.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
-
-        forwardPeekButton.translatesAutoresizingMaskIntoConstraints = false
-        forwardPeekButton.isBordered = false
-        forwardPeekButton.font = .systemFont(ofSize: 10)
-        forwardPeekButton.contentTintColor = .secondaryLabelColor
-        forwardPeekButton.target = self
-        forwardPeekButton.action = #selector(handleForwardPeekClick(_:))
-        forwardPeekButton.isHidden = true
-        forwardPeekButton.setContentHuggingPriority(.required, for: .horizontal)
-        forwardPeekButton.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
-
         breadcrumbContainerView.translatesAutoresizingMaskIntoConstraints = false
         breadcrumbContainerView.wantsLayer = false
         breadcrumbContainerView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -1093,9 +1071,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         view.addSubview(loadingOverlayView)
         scrollView.setAccessibilityIdentifier("filePane.scrollView")
 
-        navigationStackView.addArrangedSubview(backPeekButton)
         navigationStackView.addArrangedSubview(breadcrumbContainerView)
-        navigationStackView.addArrangedSubview(forwardPeekButton)
         breadcrumbContainerView.addSubview(breadcrumbStackView)
 
         headerView.addSubview(navigationStackView)
@@ -1403,7 +1379,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         let directoryURL = viewModel.paneState.currentDirectory.standardizedFileURL
         updateBreadcrumbs(for: directoryURL)
         onStatusChanged?(directoryURL.path, viewModel.directoryContents.displayedItems.count, viewModel.markedCount)
-        updateNavigationPeekLabels()
     }
 
     private func updateBreadcrumbs(for directoryURL: URL) {
@@ -1454,25 +1429,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             }
         }
         updateBreadcrumbAppearance()
-    }
-
-    private func updateNavigationPeekLabels() {
-        let history = viewModel.navigationHistory
-        backPeekButton.title = "\u{2190}"
-        backPeekButton.isHidden = history.backStack.isEmpty
-
-        forwardPeekButton.title = "\u{2192}"
-        forwardPeekButton.isHidden = history.forwardStack.isEmpty
-    }
-
-    @objc
-    private func handleBackPeekClick(_ sender: Any?) {
-        viewModel.goBack()
-    }
-
-    @objc
-    private func handleForwardPeekClick(_ sender: Any?) {
-        viewModel.goForward()
     }
 
     private func publishSelection() {
