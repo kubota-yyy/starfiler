@@ -53,7 +53,7 @@
       "Ctrl-e": "goToOtherPaneDirectory",
       "Ctrl-0": "toggleMediaMode",
       "Ctrl-Shift-f": "toggleRecursive",
-      "Ctrl-f": "enterSpotlightSearch",
+      "Ctrl-f": "openBookmarkSearch",
       "Ctrl-.": "toggleHiddenFiles",
       "Ctrl-s Ctrl-n": "sortByName",
       "Ctrl-s Ctrl-s": "sortBySize",
