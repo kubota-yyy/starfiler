@@ -163,6 +163,30 @@ final class SecurityScopedBookmarkServiceIntegrationTests: XCTestCase {
         XCTAssertEqual(resolved, decomposedDirectoryURL.standardizedFileURL)
     }
 
+    func testStartAccessingAcceptsUnicodeVariantInputPath() async throws {
+        let workspace = try SandboxFixtureWorkspace()
+        let fileManager = FileManager.default
+        let storeURL = workspace.url("config/SecurityScopedBookmarks.json")
+        let parentURL = workspace.url("unicode-variant")
+        try fileManager.createDirectory(at: parentURL, withIntermediateDirectories: true)
+
+        let composedName = makeComposedDakutenName()
+        let decomposedName = makeDecomposedDakutenName()
+        let decomposedDirectoryURL = parentURL.appendingPathComponent(decomposedName, isDirectory: true)
+        try fileManager.createDirectory(at: decomposedDirectoryURL, withIntermediateDirectories: true)
+
+        let service = SecurityScopedBookmarkService(
+            bundleIdentifier: "com.nilone.starfiler.tests",
+            bookmarkStoreURL: storeURL
+        )
+        try await service.loadBookmarks()
+        try await service.saveBookmark(for: decomposedDirectoryURL)
+
+        let composedInputURL = parentURL.appendingPathComponent(composedName, isDirectory: true)
+        try await service.startAccessing(composedInputURL)
+        await service.stopAccessing(composedInputURL)
+    }
+
     private func makeComposedDakutenName() -> String {
         String(UnicodeScalar(0x30C0)!) + String(UnicodeScalar(0x30A4)!) + String(UnicodeScalar(0x30E4)!)
     }

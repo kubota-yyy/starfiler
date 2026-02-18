@@ -102,7 +102,7 @@ actor SecurityScopedBookmarkService: SecurityScopedBookmarkProviding {
     func saveBookmark(for url: URL) async throws {
         try loadStoreIfNeeded()
 
-        let standardizedURL = url.standardizedFileURL
+        let standardizedURL = canonicalAccessURL(for: url)
         let selectedPath = normalizedPath(for: standardizedURL)
         let resolvedPath = normalizedPath(for: standardizedURL.resolvingSymlinksInPath())
         let bookmarkData = try standardizedURL.bookmarkData(
@@ -138,7 +138,7 @@ actor SecurityScopedBookmarkService: SecurityScopedBookmarkProviding {
     func resolveBookmark(for url: URL) async throws -> URL? {
         try loadStoreIfNeeded()
 
-        let standardizedURL = url.standardizedFileURL
+        let standardizedURL = canonicalAccessURL(for: url)
         let requestedPath = normalizedPath(for: standardizedURL)
         let requestedResolvedPath = normalizedPath(for: standardizedURL.resolvingSymlinksInPath())
 
@@ -168,7 +168,7 @@ actor SecurityScopedBookmarkService: SecurityScopedBookmarkProviding {
     func startAccessing(_ url: URL) async throws {
         try loadStoreIfNeeded()
 
-        let standardizedURL = url.standardizedFileURL
+        let standardizedURL = canonicalAccessURL(for: url)
         let requestedResolvedPath = normalizedPath(for: standardizedURL.resolvingSymlinksInPath())
 
         if var existingLease = activeLeases[requestedResolvedPath] {
@@ -244,7 +244,7 @@ actor SecurityScopedBookmarkService: SecurityScopedBookmarkProviding {
     }
 
     func stopAccessing(_ url: URL) async {
-        let requestedResolvedPath = normalizedPath(for: url.standardizedFileURL.resolvingSymlinksInPath())
+        let requestedResolvedPath = normalizedPath(for: canonicalAccessURL(for: url).resolvingSymlinksInPath())
         guard var lease = activeLeases[requestedResolvedPath] else {
             return
         }
@@ -403,6 +403,12 @@ actor SecurityScopedBookmarkService: SecurityScopedBookmarkProviding {
 
     private func normalizedPath(for url: URL) -> String {
         normalizePath(url.path)
+    }
+
+    private func canonicalAccessURL(for url: URL) -> URL {
+        let standardizedURL = url.standardizedFileURL
+        let resolvedPath = PathNormalizer.resolveExistingPath(standardizedURL.path, fileManager: fileManager)
+        return URL(fileURLWithPath: resolvedPath).standardizedFileURL
     }
 
     private func normalizePath(_ path: String) -> String {
