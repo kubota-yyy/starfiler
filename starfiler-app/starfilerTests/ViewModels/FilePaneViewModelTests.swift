@@ -963,6 +963,24 @@ final class FilePaneViewModelTests: XCTestCase {
         XCTAssertEqual(sut.paneState.currentDirectory, destination.standardizedFileURL)
     }
 
+    func testDirectoryMonitorRefreshDoesNotEmitLoadingStateCallback() async {
+        let sut = makeSUT()
+        await waitForLoad()
+
+        var capturedStates: [FilePaneViewModel.LoadingContext?] = []
+        sut.onLoadingStateChanged = { context in
+            capturedStates.append(context)
+        }
+
+        let previousCallCount = fileSystem.contentsOfDirectoryCallCount
+        monitor.simulateChange()
+        await waitForCondition(timeout: 2.0, description: "Directory monitor refresh completes") {
+            self.fileSystem.contentsOfDirectoryCallCount > previousCallCount
+        }
+
+        XCTAssertTrue(capturedStates.isEmpty)
+    }
+
     // MARK: - Hidden Files
 
     func testToggleHiddenFilesChangesVisibility() async {

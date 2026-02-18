@@ -3,6 +3,11 @@ import Foundation
 @MainActor
 final class FilePaneViewModel {
     private static let defaultPageStep = 10
+    private enum RefreshTrigger {
+        case explicit
+        case directoryMonitor
+    }
+
     private struct SelectionSnapshot {
         let cursorURL: URL?
         let markedURLs: Set<URL>
@@ -672,14 +677,14 @@ final class FilePaneViewModel {
         guard !isSpotlightSearchActive else {
             return
         }
-        refreshCurrentDirectory(preservingSelectionByURL: true)
+        refreshCurrentDirectory(preservingSelectionByURL: true, trigger: .explicit)
     }
 
     func refreshCurrentDirectory() {
         guard !isSpotlightSearchActive else {
             return
         }
-        refreshCurrentDirectory(preservingSelectionByURL: true)
+        refreshCurrentDirectory(preservingSelectionByURL: true, trigger: .explicit)
     }
 
     func suspendDirectoryMonitoring() {
@@ -690,15 +695,26 @@ final class FilePaneViewModel {
         directoryMonitor.resume()
     }
 
-    private func refreshCurrentDirectory(preservingSelectionByURL: Bool) {
+    private func refreshCurrentDirectory(
+        preservingSelectionByURL: Bool,
+        trigger: RefreshTrigger = .explicit
+    ) {
         guard activeNavigationTaskID == nil else {
+            return
+        }
+
+        // File system notifications may arrive in bursts.
+        // Ignore monitor-triggered reload while another load is active to avoid
+        // cancel/restart loops that keep showing "Loading...".
+        if trigger == .directoryMonitor, activeLoadingTaskID != nil {
             return
         }
 
         let currentDirectory = paneState.currentDirectory
         let selectionSnapshot = preservingSelectionByURL ? captureSelectionSnapshot() : nil
         let refreshTaskID = UUID()
-        beginLoading(taskID: refreshTaskID, directory: currentDirectory)
+        let shouldNotifyLoadingState = trigger == .explicit
+        beginLoading(taskID: refreshTaskID, directory: currentDirectory, notify: shouldNotifyLoadingState)
 
         loadTask?.cancel()
         loadTask = Task { [weak self] in
@@ -707,7 +723,7 @@ final class FilePaneViewModel {
             }
 
             defer {
-                self.endLoading(taskID: refreshTaskID)
+                self.endLoading(taskID: refreshTaskID, notify: shouldNotifyLoadingState)
             }
 
             do {
@@ -875,15 +891,29 @@ final class FilePaneViewModel {
     }
 
     private func beginLoading(taskID: UUID, directory: URL) {
+        beginLoading(taskID: taskID, directory: directory, notify: true)
+    }
+
+    private func beginLoading(taskID: UUID, directory: URL, notify: Bool) {
         activeLoadingTaskID = taskID
+        guard notify else {
+            return
+        }
         onLoadingStateChanged?(currentLoadingContext(for: directory))
     }
 
     private func endLoading(taskID: UUID) {
+        endLoading(taskID: taskID, notify: true)
+    }
+
+    private func endLoading(taskID: UUID, notify: Bool) {
         guard activeLoadingTaskID == taskID else {
             return
         }
         activeLoadingTaskID = nil
+        guard notify else {
+            return
+        }
         onLoadingStateChanged?(nil)
     }
 
@@ -978,7 +1008,10 @@ final class FilePaneViewModel {
         let monitoredDirectory = directory.standardizedFileURL
         directoryMonitor.startMonitoring(url: monitoredDirectory) { [weak self] in
             Task { @MainActor [weak self] in
-                self?.refresh()
+                self?.refreshCurrentDirectory(
+                    preservingSelectionByURL: true,
+                    trigger: .directoryMonitor
+                )
             }
         }
     }
