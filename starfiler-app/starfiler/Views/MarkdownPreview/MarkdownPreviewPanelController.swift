@@ -21,10 +21,37 @@ private final class MarkdownWebViewDelegate: NSObject, WKNavigationDelegate {
     }
 }
 
+private final class MarkdownTextViewDelegate: NSObject, NSTextViewDelegate {
+    var onTextChanged: ((String) -> Void)?
+
+    func textDidChange(_ notification: Notification) {
+        guard let textView = notification.object as? NSTextView else {
+            return
+        }
+        onTextChanged?(textView.string)
+    }
+}
+
+private final class MarkdownPanelWindowDelegate: NSObject, NSWindowDelegate {
+    var onWillClose: (() -> Void)?
+
+    func windowWillClose(_ notification: Notification) {
+        onWillClose?()
+    }
+}
+
 final class MarkdownPreviewPanelController {
+    private static let autosaveDelay: TimeInterval = 0.35
+
     private var panel: NSPanel?
     private var webView: WKWebView?
     private var webViewDelegate: MarkdownWebViewDelegate?
+    private var textViewDelegate: MarkdownTextViewDelegate?
+    private var panelWindowDelegate: MarkdownPanelWindowDelegate?
+    private var currentFileURL: URL?
+    private var markdownText = ""
+    private var lastSavedMarkdownText = ""
+    private var pendingSaveWorkItem: DispatchWorkItem?
     var onDismiss: (() -> Void)?
 
     func focus() {
@@ -34,12 +61,18 @@ final class MarkdownPreviewPanelController {
     func showRelativeTo(window: NSWindow, fileURL: URL, palette: FilerThemePalette) {
         dismiss()
 
-        let markdownText: String
+        let loadedMarkdownText: String
+        let canEdit: Bool
         do {
-            markdownText = try String(contentsOf: fileURL, encoding: .utf8)
+            loadedMarkdownText = try String(contentsOf: fileURL, encoding: .utf8)
+            canEdit = true
         } catch {
-            markdownText = "Failed to read file: \(error.localizedDescription)"
+            loadedMarkdownText = "Failed to read file: \(error.localizedDescription)"
+            canEdit = false
         }
+        currentFileURL = canEdit ? fileURL : nil
+        markdownText = loadedMarkdownText
+        lastSavedMarkdownText = loadedMarkdownText
 
         let windowFrame = window.frame
 
@@ -56,6 +89,14 @@ final class MarkdownPreviewPanelController {
         panel.becomesKeyOnlyIfNeeded = false
         panel.animationBehavior = .utilityWindow
         panel.minSize = NSSize(width: 600, height: 400)
+        panel.isDocumentEdited = false
+
+        let panelWindowDelegate = MarkdownPanelWindowDelegate()
+        panelWindowDelegate.onWillClose = { [weak self] in
+            self?.dismiss()
+        }
+        panel.delegate = panelWindowDelegate
+        self.panelWindowDelegate = panelWindowDelegate
 
         let contentView = MarkdownPreviewContentView()
         contentView.material = .hudWindow
@@ -82,8 +123,10 @@ final class MarkdownPreviewPanelController {
         rawTextScrollView.backgroundColor = palette.previewBackgroundColor
 
         let rawTextView = NSTextView(frame: NSRect(x: 0, y: 0, width: halfWidth, height: contentSize.height))
-        rawTextView.isEditable = false
+        rawTextView.isEditable = canEdit
         rawTextView.isSelectable = true
+        rawTextView.isRichText = false
+        rawTextView.importsGraphics = false
         rawTextView.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         rawTextView.textColor = palette.primaryTextColor
         rawTextView.backgroundColor = palette.previewBackgroundColor
@@ -92,7 +135,14 @@ final class MarkdownPreviewPanelController {
         rawTextView.isHorizontallyResizable = false
         rawTextView.autoresizingMask = [.width]
         rawTextView.textContainer?.widthTracksTextView = true
-        rawTextView.string = markdownText
+        rawTextView.string = loadedMarkdownText
+
+        let textViewDelegate = MarkdownTextViewDelegate()
+        textViewDelegate.onTextChanged = { [weak self] updatedText in
+            self?.handleTextChanged(updatedText)
+        }
+        rawTextView.delegate = textViewDelegate
+        self.textViewDelegate = textViewDelegate
         rawTextScrollView.documentView = rawTextView
 
         let webView = WKWebView(frame: NSRect(x: halfWidth, y: 0, width: halfWidth, height: contentSize.height))
@@ -100,7 +150,10 @@ final class MarkdownPreviewPanelController {
 
         let delegate = MarkdownWebViewDelegate()
         delegate.onPageLoaded = { [weak self] in
-            self?.injectMarkdown(markdownText)
+            guard let self else {
+                return
+            }
+            self.injectMarkdown(self.markdownText)
         }
         webView.navigationDelegate = delegate
         self.webViewDelegate = delegate
@@ -115,18 +168,31 @@ final class MarkdownPreviewPanelController {
 
         window.addChildWindow(panel, ordered: .above)
         panel.makeKeyAndOrderFront(nil)
-        contentView.window?.makeFirstResponder(contentView)
+        contentView.window?.makeFirstResponder(rawTextView)
         self.panel = panel
     }
 
     func dismiss() {
+        guard panel != nil || webView != nil else {
+            return
+        }
+
+        persistMarkdownChanges()
         panel?.orderOut(nil)
         if let panel, let parent = panel.parent {
             parent.removeChildWindow(panel)
         }
+        pendingSaveWorkItem?.cancel()
+        pendingSaveWorkItem = nil
+        panel?.delegate = nil
         webView?.navigationDelegate = nil
+        textViewDelegate = nil
+        panelWindowDelegate = nil
         webViewDelegate = nil
         webView = nil
+        currentFileURL = nil
+        markdownText = ""
+        lastSavedMarkdownText = ""
         panel = nil
         onDismiss?()
     }
@@ -156,6 +222,42 @@ final class MarkdownPreviewPanelController {
             if let error {
                 print("Markdown render error: \(error.localizedDescription)")
             }
+        }
+    }
+
+    private func handleTextChanged(_ updatedText: String) {
+        markdownText = updatedText
+        panel?.isDocumentEdited = markdownText != lastSavedMarkdownText
+        injectMarkdown(updatedText)
+        scheduleAutosave()
+    }
+
+    private func scheduleAutosave() {
+        pendingSaveWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.persistMarkdownChanges()
+        }
+        pendingSaveWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.autosaveDelay, execute: workItem)
+    }
+
+    private func persistMarkdownChanges() {
+        pendingSaveWorkItem?.cancel()
+        pendingSaveWorkItem = nil
+
+        guard
+            let currentFileURL,
+            markdownText != lastSavedMarkdownText
+        else {
+            return
+        }
+
+        do {
+            try markdownText.write(to: currentFileURL, atomically: true, encoding: .utf8)
+            lastSavedMarkdownText = markdownText
+            panel?.isDocumentEdited = false
+        } catch {
+            print("Markdown autosave error: \(error.localizedDescription)")
         }
     }
 }
