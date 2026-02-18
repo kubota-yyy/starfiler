@@ -122,13 +122,17 @@ struct KeybindingManager: Sendable {
         return try? JSONDecoder().decode(KeybindingsConfig.self, from: data)
     }
 
-    private static func merge(defaultConfig: KeybindingsConfig?, userConfig: KeybindingsConfig?) -> KeybindingsConfig {
+    static func merge(defaultConfig: KeybindingsConfig?, userConfig: KeybindingsConfig?) -> KeybindingsConfig {
         var mergedBindings = defaultConfig?.bindings ?? [:]
 
         for (modeName, userModeBindings) in userConfig?.bindings ?? [:] {
             var modeBindings = mergedBindings[modeName] ?? [:]
             for (sequence, actionName) in userModeBindings {
-                modeBindings[sequence] = actionName
+                if KeybindingsConfig.isUnboundActionName(actionName) {
+                    modeBindings.removeValue(forKey: sequence)
+                } else {
+                    modeBindings[sequence] = actionName
+                }
             }
             mergedBindings[modeName] = modeBindings
         }

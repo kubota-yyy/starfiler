@@ -68,6 +68,47 @@ final class KeyInterpreterTests: XCTestCase {
         XCTAssertEqual(result, .action(.cursorDown))
     }
 
+    // MARK: - Merge / Unbind
+
+    func testMergeRemovesBindingWhenMarkedUnbound() {
+        let defaults = KeybindingsConfig(bindings: [
+            "normal": [
+                "j": "cursorDown",
+                "k": "cursorUp",
+            ],
+        ])
+        let user = KeybindingsConfig(bindings: [
+            "normal": [
+                "j": KeybindingsConfig.unboundActionName,
+            ],
+        ])
+
+        let merged = KeybindingManager.merge(defaultConfig: defaults, userConfig: user)
+
+        XCTAssertNil(merged.bindings["normal"]?["j"])
+        XCTAssertEqual(merged.bindings["normal"]?["k"], "cursorUp")
+    }
+
+    func testMergeCanOverrideOneBindingAndUnbindAnother() {
+        let defaults = KeybindingsConfig(bindings: [
+            "normal": [
+                "j": "cursorDown",
+                "k": "cursorUp",
+            ],
+        ])
+        let user = KeybindingsConfig(bindings: [
+            "normal": [
+                "j": "goToTop",
+                "k": KeybindingsConfig.unboundActionName,
+            ],
+        ])
+
+        let merged = KeybindingManager.merge(defaultConfig: defaults, userConfig: user)
+
+        XCTAssertEqual(merged.bindings["normal"]?["j"], "goToTop")
+        XCTAssertNil(merged.bindings["normal"]?["k"])
+    }
+
     func testUnmappedKeyReturnsUnhandled() {
         var interpreter = makeInterpreter(bindings: baseBindings)
         let event = KeyEvent(key: "z")

@@ -32,14 +32,14 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
     }
 
     private func loadBindings() {
-        let defaultBindings = loadDefaultBindings()
-        let userBindings = loadUserBindings()
-        let merged = mergeBindings(defaultBindings: defaultBindings, userBindings: userBindings)
+        let defaultConfig = loadDefaultConfig()
+        let userConfig = loadUserConfig()
+        let merged = KeybindingManager.merge(defaultConfig: defaultConfig, userConfig: userConfig)
 
         for key in allBindings.keys where key != "menu" {
             allBindings.removeValue(forKey: key)
         }
-        for (modeName, bindings) in merged {
+        for (modeName, bindings) in merged.bindings {
             var entries: [(String, String, Bool)] = []
             for (sequence, action) in bindings.sorted(by: { $0.value < $1.value }) {
                 entries.append((sequence, action, false))
@@ -88,38 +88,23 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
         allBindings["menu"] = menuShortcuts.map { ($0.0, $0.1, true) }
     }
 
-    private func loadDefaultBindings() -> [String: [String: String]] {
+    private func loadDefaultConfig() -> KeybindingsConfig? {
         guard let url = Bundle.main.url(forResource: "DefaultKeybindings", withExtension: "json"),
               let data = try? Data(contentsOf: url),
               let config = try? JSONDecoder().decode(KeybindingsConfig.self, from: data) else {
-            return [:]
+            return nil
         }
-        return config.bindings
+        return config
     }
 
-    private func loadUserBindings() -> [String: [String: String]] {
+    private func loadUserConfig() -> KeybindingsConfig? {
         guard let url = KeybindingManager.defaultUserConfigURL(),
               FileManager.default.fileExists(atPath: url.path),
               let data = try? Data(contentsOf: url),
               let config = try? JSONDecoder().decode(KeybindingsConfig.self, from: data) else {
-            return [:]
+            return nil
         }
-        return config.bindings
-    }
-
-    private func mergeBindings(
-        defaultBindings: [String: [String: String]],
-        userBindings: [String: [String: String]]
-    ) -> [String: [String: String]] {
-        var merged = defaultBindings
-        for (modeName, modeBindings) in userBindings {
-            var existing = merged[modeName] ?? [:]
-            for (sequence, action) in modeBindings {
-                existing[sequence] = action
-            }
-            merged[modeName] = existing
-        }
-        return merged
+        return config
     }
 
     private func configureUI() {
@@ -304,7 +289,9 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
         let alert = NSAlert()
         alert.alertStyle = .informational
         alert.messageText = "Edit Keybinding"
-        alert.informativeText = "Action: \(formatAction(binding.action))\nCurrent: \(formatSequence(binding.sequence))\n\nPress a new key combination:"
+        alert.informativeText = "Action: \(formatAction(binding.action))\nCurrent: \(formatSequence(binding.sequence))\n\nPress a new key combination, then choose Save.\nUse Clear Shortcut to remove this shortcut only."
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Clear Shortcut")
         alert.addButton(withTitle: "Cancel")
 
         let recorder = KeyRecorderView(frame: NSRect(x: 0, y: 0, width: 280, height: 60))
@@ -321,22 +308,72 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
         }
 
         let response = alert.runModal()
-
-        if response == .alertFirstButtonReturn, let newSequence = recordedNewSequence {
-            if let conflict = findConflict(sequence: newSequence, mode: bindingMode, excludingSequence: binding.sequence) {
-                let conflictAlert = NSAlert()
-                conflictAlert.alertStyle = .warning
-                conflictAlert.messageText = "Key Conflict"
-                conflictAlert.informativeText = "\"\(formatSequence(newSequence))\" is already bound to \"\(formatAction(conflict))\" in \(bindingMode) mode."
-                conflictAlert.addButton(withTitle: "OK")
-                conflictAlert.runModal()
+        switch response {
+        case .alertFirstButtonReturn:
+            guard let newSequence = recordedNewSequence else {
+                presentWarning(
+                    title: "No Shortcut Recorded",
+                    informativeText: "Record a key combination before saving, or use Clear Shortcut."
+                )
                 return
             }
 
-            saveKeybinding(oldSequence: binding.sequence, newSequence: newSequence, action: binding.action, mode: bindingMode)
-            loadBindings()
-            loadMenuBindings()
-            reloadTable()
+            if let conflict = findConflict(sequence: newSequence, mode: bindingMode, excludingSequence: binding.sequence) {
+                let resolution = presentConflictResolutionAlert(
+                    newSequence: newSequence,
+                    conflictAction: conflict,
+                    currentAction: binding.action,
+                    mode: bindingMode
+                )
+                switch resolution {
+                case .replaceExisting:
+                    saveKeybinding(oldSequence: binding.sequence, newSequence: newSequence, action: binding.action, mode: bindingMode)
+                case .clearCurrent:
+                    clearKeybinding(sequence: binding.sequence, mode: bindingMode)
+                case .cancel:
+                    return
+                }
+            } else {
+                saveKeybinding(oldSequence: binding.sequence, newSequence: newSequence, action: binding.action, mode: bindingMode)
+            }
+            refreshBindingsTable()
+        case .alertSecondButtonReturn:
+            clearKeybinding(sequence: binding.sequence, mode: bindingMode)
+            refreshBindingsTable()
+        default:
+            return
+        }
+    }
+
+    private enum ConflictResolution {
+        case replaceExisting
+        case clearCurrent
+        case cancel
+    }
+
+    private func presentConflictResolutionAlert(
+        newSequence: String,
+        conflictAction: String,
+        currentAction: String,
+        mode: String
+    ) -> ConflictResolution {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Key Conflict"
+        alert.informativeText =
+            "\"\(formatSequence(newSequence))\" is already bound to \"\(formatAction(conflictAction))\" in \(mode) mode.\n\n" +
+            "Choose which shortcut to clear."
+        alert.addButton(withTitle: "Clear Existing and Assign")
+        alert.addButton(withTitle: "Clear \(formatAction(currentAction)) Shortcut")
+        alert.addButton(withTitle: "Cancel")
+
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            return .replaceExisting
+        case .alertSecondButtonReturn:
+            return .clearCurrent
+        default:
+            return .cancel
         }
     }
 
@@ -351,32 +388,74 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
     }
 
     private func saveKeybinding(oldSequence: String, newSequence: String, action: String, mode: String) {
-        guard let url = KeybindingManager.defaultUserConfigURL() else { return }
+        guard let (url, userConfig) = loadUserConfigForWrite() else { return }
 
-        var userConfig: KeybindingsConfig
+        var updatedConfig = userConfig
+        var modeBindings = userConfig.bindings[mode] ?? [:]
+        if oldSequence != newSequence {
+            clearSequence(oldSequence, in: &modeBindings)
+        }
+        modeBindings[newSequence] = action
+        updatedConfig.bindings[mode] = modeBindings
+
+        persistUserConfig(updatedConfig, to: url)
+    }
+
+    private func clearKeybinding(sequence: String, mode: String) {
+        guard let (url, userConfig) = loadUserConfigForWrite() else { return }
+
+        var updatedConfig = userConfig
+        var modeBindings = userConfig.bindings[mode] ?? [:]
+        clearSequence(sequence, in: &modeBindings)
+        updatedConfig.bindings[mode] = modeBindings
+
+        persistUserConfig(updatedConfig, to: url)
+    }
+
+    private func clearSequence(_ sequence: String, in modeBindings: inout [String: String]) {
+        modeBindings[sequence] = KeybindingsConfig.unboundActionName
+    }
+
+    private func loadUserConfigForWrite() -> (URL, KeybindingsConfig)? {
+        guard let url = KeybindingManager.defaultUserConfigURL() else {
+            return nil
+        }
+
         if FileManager.default.fileExists(atPath: url.path),
            let data = try? Data(contentsOf: url),
            let existing = try? JSONDecoder().decode(KeybindingsConfig.self, from: data) {
-            userConfig = existing
-        } else {
-            userConfig = KeybindingsConfig(bindings: [:])
+            return (url, existing)
         }
 
-        var modeBindings = userConfig.bindings[mode] ?? [:]
-        if oldSequence != newSequence {
-            modeBindings.removeValue(forKey: oldSequence)
-        }
-        modeBindings[newSequence] = action
-        userConfig.bindings[mode] = modeBindings
+        return (url, KeybindingsConfig(bindings: [:]))
+    }
 
+    private func persistUserConfig(_ config: KeybindingsConfig, to url: URL) {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        if let data = try? encoder.encode(userConfig) {
-            let parentDir = url.deletingLastPathComponent()
-            try? FileManager.default.createDirectory(at: parentDir, withIntermediateDirectories: true)
-            try? data.write(to: url, options: [.atomic])
-            onKeybindingsChanged?()
+        guard let data = try? encoder.encode(config) else {
+            return
         }
+
+        let parentDir = url.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: parentDir, withIntermediateDirectories: true)
+        try? data.write(to: url, options: [.atomic])
+        onKeybindingsChanged?()
+    }
+
+    private func refreshBindingsTable() {
+        loadBindings()
+        loadMenuBindings()
+        reloadTable()
+    }
+
+    private func presentWarning(title: String, informativeText: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = title
+        alert.informativeText = informativeText
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     @objc
@@ -410,8 +489,7 @@ final class KeybindingsViewController: NSViewController, NSTableViewDataSource, 
         }
 
         if !FileManager.default.fileExists(atPath: url.path) {
-            let defaultBindings = loadDefaultBindings()
-            let config = KeybindingsConfig(bindings: defaultBindings)
+            let config = loadDefaultConfig() ?? KeybindingsConfig(bindings: [:])
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             if let data = try? encoder.encode(config) {
