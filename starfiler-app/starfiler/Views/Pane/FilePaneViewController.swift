@@ -1412,21 +1412,11 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     private func updateNavigationPeekLabels() {
         let history = viewModel.navigationHistory
-        if let backURL = history.backStack.last {
-            let name = backURL.lastPathComponent.isEmpty ? backURL.path : backURL.lastPathComponent
-            backPeekButton.title = "\u{2190} \(name)"
-            backPeekButton.isHidden = false
-        } else {
-            backPeekButton.isHidden = true
-        }
+        backPeekButton.title = "\u{2190}"
+        backPeekButton.isHidden = history.backStack.isEmpty
 
-        if let forwardURL = history.forwardStack.last {
-            let name = forwardURL.lastPathComponent.isEmpty ? forwardURL.path : forwardURL.lastPathComponent
-            forwardPeekButton.title = "\(name) \u{2192}"
-            forwardPeekButton.isHidden = false
-        } else {
-            forwardPeekButton.isHidden = true
-        }
+        forwardPeekButton.title = "\u{2192}"
+        forwardPeekButton.isHidden = history.forwardStack.isEmpty
     }
 
     @objc
