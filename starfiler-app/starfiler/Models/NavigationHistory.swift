@@ -1,12 +1,21 @@
 import Foundation
 
 struct NavigationHistory: Hashable, Sendable {
+    static let entryLimit = 100
+
     private(set) var backStack: [URL] = []
     private(set) var forwardStack: [URL] = []
 
+    init(backStack: [URL] = [], forwardStack: [URL] = []) {
+        self.backStack = Self.normalizedURLs(backStack)
+        self.forwardStack = Self.normalizedURLs(forwardStack)
+    }
+
     mutating func push(_ current: URL) {
-        if backStack.last != current {
-            backStack.append(current)
+        let normalizedCurrent = current.standardizedFileURL
+        if backStack.last != normalizedCurrent {
+            backStack.append(normalizedCurrent)
+            trimBackStackIfNeeded()
         }
         forwardStack.removeAll()
     }
@@ -15,8 +24,10 @@ struct NavigationHistory: Hashable, Sendable {
         guard let destination = backStack.popLast() else {
             return nil
         }
-        if forwardStack.last != current {
-            forwardStack.append(current)
+        let normalizedCurrent = current.standardizedFileURL
+        if forwardStack.last != normalizedCurrent {
+            forwardStack.append(normalizedCurrent)
+            trimForwardStackIfNeeded()
         }
         return destination
     }
@@ -25,8 +36,10 @@ struct NavigationHistory: Hashable, Sendable {
         guard let destination = forwardStack.popLast() else {
             return nil
         }
-        if backStack.last != current {
-            backStack.append(current)
+        let normalizedCurrent = current.standardizedFileURL
+        if backStack.last != normalizedCurrent {
+            backStack.append(normalizedCurrent)
+            trimBackStackIfNeeded()
         }
         return destination
     }
@@ -48,7 +61,8 @@ struct NavigationHistory: Hashable, Sendable {
 
     mutating func jumpToTimelinePosition(_ position: Int, from current: URL) -> URL? {
         let reversedForward = Array(forwardStack.reversed())
-        let timeline = backStack + [current] + reversedForward
+        let normalizedCurrent = current.standardizedFileURL
+        let timeline = backStack + [normalizedCurrent] + reversedForward
         let currentIndex = backStack.count
         guard position >= 0, position < timeline.count, position != currentIndex else {
             return nil
@@ -56,6 +70,35 @@ struct NavigationHistory: Hashable, Sendable {
         let destination = timeline[position]
         backStack = Array(timeline[0..<position])
         forwardStack = Array(timeline[(position + 1)...].reversed())
+        trimBackStackIfNeeded()
+        trimForwardStackIfNeeded()
         return destination
+    }
+
+    private mutating func trimBackStackIfNeeded() {
+        guard backStack.count > Self.entryLimit else {
+            return
+        }
+        backStack.removeFirst(backStack.count - Self.entryLimit)
+    }
+
+    private mutating func trimForwardStackIfNeeded() {
+        guard forwardStack.count > Self.entryLimit else {
+            return
+        }
+        forwardStack.removeFirst(forwardStack.count - Self.entryLimit)
+    }
+
+    private static func normalizedURLs(_ urls: [URL]) -> [URL] {
+        guard !urls.isEmpty else {
+            return []
+        }
+
+        let normalized = urls.map(\.standardizedFileURL)
+        if normalized.count <= entryLimit {
+            return normalized
+        }
+
+        return Array(normalized.suffix(entryLimit))
     }
 }

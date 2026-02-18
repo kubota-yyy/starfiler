@@ -85,6 +85,7 @@ enum SpotlightSearchScope: String, Codable, CaseIterable, Sendable {
 
 struct AppConfig: Codable, Sendable {
     static let sidebarRecentItemsLimitRange: ClosedRange<Int> = 0 ... 20
+    static let paneNavigationHistoryLimit = NavigationHistory.entryLimit
     static let defaultSidebarWidth: Double = 260
     static let sidebarWidthRange: ClosedRange<Double> = 180 ... 720
 
@@ -108,6 +109,10 @@ struct AppConfig: Codable, Sendable {
     var sidebarVisible: Bool
     var lastLeftPanePath: String
     var lastRightPanePath: String
+    var leftPaneBackHistoryPaths: [String]
+    var leftPaneForwardHistoryPaths: [String]
+    var rightPaneBackHistoryPaths: [String]
+    var rightPaneForwardHistoryPaths: [String]
     var lastActivePane: String
     var filerTheme: FilerTheme
     var transparentBackground: Bool
@@ -140,6 +145,10 @@ struct AppConfig: Codable, Sendable {
         sidebarVisible: Bool = true,
         lastLeftPanePath: String = UserPaths.homeDirectoryPath,
         lastRightPanePath: String = UserPaths.homeDirectoryPath,
+        leftPaneBackHistoryPaths: [String] = [],
+        leftPaneForwardHistoryPaths: [String] = [],
+        rightPaneBackHistoryPaths: [String] = [],
+        rightPaneForwardHistoryPaths: [String] = [],
         lastActivePane: String = "left",
         filerTheme: FilerTheme = .starfield,
         transparentBackground: Bool = false,
@@ -171,6 +180,10 @@ struct AppConfig: Codable, Sendable {
         self.sidebarVisible = sidebarVisible
         self.lastLeftPanePath = lastLeftPanePath
         self.lastRightPanePath = lastRightPanePath
+        self.leftPaneBackHistoryPaths = Self.normalizedHistoryPaths(leftPaneBackHistoryPaths)
+        self.leftPaneForwardHistoryPaths = Self.normalizedHistoryPaths(leftPaneForwardHistoryPaths)
+        self.rightPaneBackHistoryPaths = Self.normalizedHistoryPaths(rightPaneBackHistoryPaths)
+        self.rightPaneForwardHistoryPaths = Self.normalizedHistoryPaths(rightPaneForwardHistoryPaths)
         self.lastActivePane = lastActivePane
         self.filerTheme = filerTheme
         self.transparentBackground = transparentBackground
@@ -204,6 +217,10 @@ struct AppConfig: Codable, Sendable {
         case sidebarVisible
         case lastLeftPanePath
         case lastRightPanePath
+        case leftPaneBackHistoryPaths
+        case leftPaneForwardHistoryPaths
+        case rightPaneBackHistoryPaths
+        case rightPaneForwardHistoryPaths
         case lastActivePane
         case filerTheme
         case transparentBackground
@@ -238,6 +255,14 @@ struct AppConfig: Codable, Sendable {
         sidebarVisible = try container.decodeIfPresent(Bool.self, forKey: .sidebarVisible) ?? true
         lastLeftPanePath = try container.decodeIfPresent(String.self, forKey: .lastLeftPanePath) ?? UserPaths.homeDirectoryPath
         lastRightPanePath = try container.decodeIfPresent(String.self, forKey: .lastRightPanePath) ?? UserPaths.homeDirectoryPath
+        let leftBackPaths = try container.decodeIfPresent([String].self, forKey: .leftPaneBackHistoryPaths) ?? []
+        leftPaneBackHistoryPaths = Self.normalizedHistoryPaths(leftBackPaths)
+        let leftForwardPaths = try container.decodeIfPresent([String].self, forKey: .leftPaneForwardHistoryPaths) ?? []
+        leftPaneForwardHistoryPaths = Self.normalizedHistoryPaths(leftForwardPaths)
+        let rightBackPaths = try container.decodeIfPresent([String].self, forKey: .rightPaneBackHistoryPaths) ?? []
+        rightPaneBackHistoryPaths = Self.normalizedHistoryPaths(rightBackPaths)
+        let rightForwardPaths = try container.decodeIfPresent([String].self, forKey: .rightPaneForwardHistoryPaths) ?? []
+        rightPaneForwardHistoryPaths = Self.normalizedHistoryPaths(rightForwardPaths)
         lastActivePane = try container.decodeIfPresent(String.self, forKey: .lastActivePane) ?? "left"
         filerTheme = try container.decodeIfPresent(FilerTheme.self, forKey: .filerTheme) ?? .system
         transparentBackground = try container.decodeIfPresent(Bool.self, forKey: .transparentBackground) ?? false
@@ -276,6 +301,23 @@ struct AppConfig: Codable, Sendable {
 
     private static func clampedIconSize(_ value: Double) -> Double {
         min(max(value, 12), 40)
+    }
+
+    private static func normalizedHistoryPaths(_ paths: [String]) -> [String] {
+        guard !paths.isEmpty else {
+            return []
+        }
+
+        let normalized = paths
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .map { URL(fileURLWithPath: $0, isDirectory: true).standardizedFileURL.path }
+
+        if normalized.count <= paneNavigationHistoryLimit {
+            return normalized
+        }
+
+        return Array(normalized.suffix(paneNavigationHistoryLimit))
     }
 
     private static func clampedSidebarWidth(_ value: Double) -> Double {

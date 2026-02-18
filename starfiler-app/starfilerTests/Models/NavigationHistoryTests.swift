@@ -162,4 +162,26 @@ final class NavigationHistoryTests: XCTestCase {
         let destination = history.jumpToTimelinePosition(5, from: urlB)
         XCTAssertNil(destination)
     }
+
+    func testPushTrimsBackStackToEntryLimit() {
+        var history = NavigationHistory()
+        for index in 0..<(NavigationHistory.entryLimit + 5) {
+            history.push(URL(fileURLWithPath: "/\(index)"))
+        }
+
+        XCTAssertEqual(history.backStack.count, NavigationHistory.entryLimit)
+        XCTAssertEqual(history.backStack.first?.path, "/5")
+        XCTAssertEqual(history.backStack.last?.path, "/\(NavigationHistory.entryLimit + 4)")
+    }
+
+    func testInitTrimsStacksToEntryLimit() {
+        let backStack = (0..<(NavigationHistory.entryLimit + 3)).map { URL(fileURLWithPath: "/b\($0)") }
+        let forwardStack = (0..<(NavigationHistory.entryLimit + 2)).map { URL(fileURLWithPath: "/f\($0)") }
+        let history = NavigationHistory(backStack: backStack, forwardStack: forwardStack)
+
+        XCTAssertEqual(history.backStack.count, NavigationHistory.entryLimit)
+        XCTAssertEqual(history.forwardStack.count, NavigationHistory.entryLimit)
+        XCTAssertEqual(history.backStack.first?.path, "/b3")
+        XCTAssertEqual(history.forwardStack.first?.path, "/f2")
+    }
 }

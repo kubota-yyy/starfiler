@@ -61,7 +61,8 @@ final class FilePaneViewModelTests: XCTestCase {
     private func makeSUT(
         items: [FileItem]? = nil,
         showHiddenFiles: Bool = true,
-        initialDirectory: URL? = nil
+        initialDirectory: URL? = nil,
+        initialNavigationHistory: NavigationHistory = NavigationHistory()
     ) -> FilePaneViewModel {
         let resolvedItems = items ?? sampleItems
         fileSystem.contentsOfDirectoryResult = .success(resolvedItems)
@@ -71,7 +72,8 @@ final class FilePaneViewModelTests: XCTestCase {
             securityScopedBookmarkService: bookmarkService,
             directoryMonitor: monitor,
             spotlightSearchService: spotlight,
-            initialDirectory: initialDirectory ?? testDir
+            initialDirectory: initialDirectory ?? testDir,
+            initialNavigationHistory: initialNavigationHistory
         )
     }
 
@@ -153,6 +155,17 @@ final class FilePaneViewModelTests: XCTestCase {
 
         XCTAssertTrue(sut.canGoBack)
         XCTAssertFalse(sut.canGoForward)
+    }
+
+    func testInitialNavigationHistoryIsRestored() async {
+        let previous = URL(fileURLWithPath: "/tmp/previous")
+        let next = URL(fileURLWithPath: "/tmp/next")
+        let history = NavigationHistory(backStack: [previous], forwardStack: [next])
+        let sut = makeSUT(initialNavigationHistory: history)
+        await waitForLoad()
+
+        XCTAssertEqual(sut.navigationHistory.backStack, [previous.standardizedFileURL])
+        XCTAssertEqual(sut.navigationHistory.forwardStack, [next.standardizedFileURL])
     }
 
     func testGoBackReturnsToPreviousDirectory() async {

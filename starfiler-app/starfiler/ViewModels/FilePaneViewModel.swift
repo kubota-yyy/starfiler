@@ -91,7 +91,8 @@ final class FilePaneViewModel {
         initialDisplayMode: PaneDisplayMode = .browser,
         initialFilesRecursiveEnabled: Bool = false,
         initialMediaRecursiveEnabled: Bool = false,
-        initialDirectory: URL = UserPaths.homeDirectoryURL
+        initialDirectory: URL = UserPaths.homeDirectoryURL,
+        initialNavigationHistory: NavigationHistory = NavigationHistory()
     ) {
         self.fileSystemService = fileSystemService
         self.securityScopedBookmarkService = securityScopedBookmarkService
@@ -101,6 +102,7 @@ final class FilePaneViewModel {
         self.displayMode = initialDisplayMode
         self.filesRecursiveEnabled = initialFilesRecursiveEnabled
         self.mediaRecursiveEnabled = initialMediaRecursiveEnabled
+        self.navigationHistory = initialNavigationHistory
         let normalizedDirectory = initialDirectory.standardizedFileURL
         self.paneState = PaneState(currentDirectory: normalizedDirectory)
         self.directoryContents = DirectoryContents(contentFilter: initialDisplayMode == .media ? .mediaOnly : .allFiles)

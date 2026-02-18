@@ -50,6 +50,22 @@ final class ConfigManagerTests: XCTestCase {
         XCTAssertTrue(loaded.shortcutGuideEnabled)
     }
 
+    func testSaveAndLoadAppConfigPersistsPaneHistoryPaths() throws {
+        var config = AppConfig()
+        config.leftPaneBackHistoryPaths = ["/tmp/left-back-1", "/tmp/left-back-2"]
+        config.leftPaneForwardHistoryPaths = ["/tmp/left-forward-1"]
+        config.rightPaneBackHistoryPaths = ["/tmp/right-back-1"]
+        config.rightPaneForwardHistoryPaths = ["/tmp/right-forward-1", "/tmp/right-forward-2"]
+
+        try sut.saveAppConfig(config)
+        let loaded = sut.loadAppConfig()
+
+        XCTAssertEqual(loaded.leftPaneBackHistoryPaths, ["/tmp/left-back-1", "/tmp/left-back-2"])
+        XCTAssertEqual(loaded.leftPaneForwardHistoryPaths, ["/tmp/left-forward-1"])
+        XCTAssertEqual(loaded.rightPaneBackHistoryPaths, ["/tmp/right-back-1"])
+        XCTAssertEqual(loaded.rightPaneForwardHistoryPaths, ["/tmp/right-forward-1", "/tmp/right-forward-2"])
+    }
+
     // MARK: - BookmarksConfig
 
     func testLoadBookmarksConfigReturnsDefaultWhenNoFile() {

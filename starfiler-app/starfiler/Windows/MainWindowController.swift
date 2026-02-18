@@ -123,6 +123,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         let fallbackDirectory = initialDirectory.standardizedFileURL
         let leftDirectory = Self.resolveDirectory(path: appConfig.lastLeftPanePath, fallback: fallbackDirectory)
         let rightDirectory = Self.resolveDirectory(path: appConfig.lastRightPanePath, fallback: leftDirectory)
+        let leftNavigationHistory = Self.resolveNavigationHistory(
+            backPaths: appConfig.leftPaneBackHistoryPaths,
+            forwardPaths: appConfig.leftPaneForwardHistoryPaths
+        )
+        let rightNavigationHistory = Self.resolveNavigationHistory(
+            backPaths: appConfig.rightPaneBackHistoryPaths,
+            forwardPaths: appConfig.rightPaneForwardHistoryPaths
+        )
 
         let resolvedVisitHistoryService = visitHistoryService ?? VisitHistoryService(configManager: resolvedConfigManager)
         let resolvedPinnedItemsService = pinnedItemsService ?? PinnedItemsService(configManager: resolvedConfigManager)
@@ -145,7 +153,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             initialLeftPaneMediaRecursiveEnabled: appConfig.leftPaneMediaRecursiveEnabled,
             initialRightPaneMediaRecursiveEnabled: appConfig.rightPaneMediaRecursiveEnabled,
             initialLeftDirectory: leftDirectory,
-            initialRightDirectory: rightDirectory
+            initialRightDirectory: rightDirectory,
+            initialLeftNavigationHistory: leftNavigationHistory,
+            initialRightNavigationHistory: rightNavigationHistory
         )
 
         if appConfig.lastActivePane == "right" {
@@ -1013,6 +1023,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             sidebarVisible: mainViewModel.sidebarVisible,
             lastLeftPanePath: mainViewModel.leftPane.paneState.currentDirectory.path,
             lastRightPanePath: mainViewModel.rightPane.paneState.currentDirectory.path,
+            leftPaneBackHistoryPaths: mainViewModel.leftPane.navigationHistory.backStack.map(\.path),
+            leftPaneForwardHistoryPaths: mainViewModel.leftPane.navigationHistory.forwardStack.map(\.path),
+            rightPaneBackHistoryPaths: mainViewModel.rightPane.navigationHistory.backStack.map(\.path),
+            rightPaneForwardHistoryPaths: mainViewModel.rightPane.navigationHistory.forwardStack.map(\.path),
             lastActivePane: mainViewModel.activePaneSide == .left ? "left" : "right",
             filerTheme: filerTheme,
             transparentBackground: transparentBackground,
@@ -1050,6 +1064,27 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
 
         return fallback
+    }
+
+    private static func resolveNavigationHistory(
+        backPaths: [String],
+        forwardPaths: [String]
+    ) -> NavigationHistory {
+        NavigationHistory(
+            backStack: resolveExistingDirectoryURLs(from: backPaths),
+            forwardStack: resolveExistingDirectoryURLs(from: forwardPaths)
+        )
+    }
+
+    private static func resolveExistingDirectoryURLs(from paths: [String]) -> [URL] {
+        paths.compactMap { path in
+            let resolvedURL = URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: resolvedURL.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+                return nil
+            }
+            return resolvedURL
+        }
     }
 
     private static func initializeDefaultBookmarksIfNeeded(configManager: ConfigManager) {

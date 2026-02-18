@@ -57,7 +57,9 @@ final class MainViewModel {
         initialLeftPaneMediaRecursiveEnabled: Bool = false,
         initialRightPaneMediaRecursiveEnabled: Bool = false,
         initialLeftDirectory: URL = UserPaths.homeDirectoryURL,
-        initialRightDirectory: URL? = nil
+        initialRightDirectory: URL? = nil,
+        initialLeftNavigationHistory: NavigationHistory = NavigationHistory(),
+        initialRightNavigationHistory: NavigationHistory = NavigationHistory()
     ) {
         self.securityScopedBookmarkService = securityScopedBookmarkService
         self.fileOperationQueue = fileOperationQueue
@@ -73,7 +75,8 @@ final class MainViewModel {
             initialSpotlightSearchScope: initialSpotlightSearchScope,
             initialDisplayMode: initialLeftPaneDisplayMode,
             initialMediaRecursiveEnabled: initialLeftPaneMediaRecursiveEnabled,
-            initialDirectory: normalizedLeftDirectory
+            initialDirectory: normalizedLeftDirectory,
+            initialNavigationHistory: initialLeftNavigationHistory
         )
 
         self.rightPane = FilePaneViewModel(
@@ -82,7 +85,8 @@ final class MainViewModel {
             initialSpotlightSearchScope: initialSpotlightSearchScope,
             initialDisplayMode: initialRightPaneDisplayMode,
             initialMediaRecursiveEnabled: initialRightPaneMediaRecursiveEnabled,
-            initialDirectory: normalizedRightDirectory
+            initialDirectory: normalizedRightDirectory,
+            initialNavigationHistory: initialRightNavigationHistory
         )
 
         self.terminalSessionListViewModel = TerminalSessionListViewModel(
