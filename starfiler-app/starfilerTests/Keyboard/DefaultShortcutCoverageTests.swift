@@ -2,6 +2,14 @@ import XCTest
 @testable import Starfiler
 
 final class DefaultShortcutCoverageTests: XCTestCase {
+    func testDefaultBindingsKeepSpaceMarkingWorkflow() throws {
+        let bindings = try loadDefaultBindings()
+        let normalBindings = try XCTUnwrap(bindings["normal"])
+
+        XCTAssertEqual(normalBindings["Space"], "toggleMark")
+        XCTAssertEqual(normalBindings["Ctrl-p"], "togglePreview")
+    }
+
     func testDefaultBindingsCoverAllKeyActions() throws {
         let bindings = try loadDefaultBindings()
         let configuredActions = Set(bindings.values.flatMap { $0.values }.compactMap(KeyAction.fromConfigName))
