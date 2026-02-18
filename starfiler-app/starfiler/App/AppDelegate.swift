@@ -332,6 +332,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowMenuItem.submenu = windowMenu
         NSApp.windowsMenu = windowMenu
 
+        // Help menu (enables menu item search via AppKit spotlight for help)
+        let helpMenuItem = NSMenuItem()
+        mainMenu.addItem(helpMenuItem)
+        let helpMenu = NSMenu(title: "Help")
+        helpMenuItem.submenu = helpMenu
+        NSApp.helpMenu = helpMenu
+
         NSApp.mainMenu = mainMenu
     }
 
