@@ -403,15 +403,14 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     }
 
     private func normalizePath(_ rawPath: String) -> String {
-        URL(fileURLWithPath: UserPaths.resolveBookmarkPath(rawPath), isDirectory: true).standardizedFileURL.path
+        PathNormalizer.normalizeForComparison(UserPaths.resolveBookmarkPath(rawPath))
     }
 
     private func isDescendantPath(_ childPath: String, of parentPath: String) -> Bool {
-        guard childPath != parentPath else {
+        guard PathNormalizer.normalizeForComparison(childPath) != PathNormalizer.normalizeForComparison(parentPath) else {
             return false
         }
-        let normalizedParent = parentPath == "/" ? "/" : parentPath + "/"
-        return childPath.hasPrefix(normalizedParent)
+        return PathNormalizer.isSameOrDescendant(childPath, of: parentPath)
     }
 
     private func updateRecentSectionLayout() {

@@ -1393,7 +1393,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     }
 
     private func navigateToSearchResult(_ result: BookmarkSearchViewModel.SearchResult) {
-        let path = UserPaths.resolveBookmarkPath(result.path)
+        let path = PathNormalizer.resolveExistingPath(UserPaths.resolveBookmarkPath(result.path))
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) else {
             presentPathNotFoundAlert(path: path)
@@ -1429,16 +1429,18 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         }
 
         let normalizedURL = rawURL.standardizedFileURL
+        let resolvedPath = PathNormalizer.resolveExistingPath(normalizedURL.path)
+        let resolvedURL = URL(fileURLWithPath: resolvedPath, isDirectory: true).standardizedFileURL
         var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: normalizedURL.path, isDirectory: &isDirectory) else {
+        guard FileManager.default.fileExists(atPath: resolvedURL.path, isDirectory: &isDirectory) else {
             return nil
         }
 
         if isDirectory.boolValue {
-            return normalizedURL
+            return resolvedURL
         }
 
-        return normalizedURL.deletingLastPathComponent().standardizedFileURL
+        return resolvedURL.deletingLastPathComponent().standardizedFileURL
     }
 
     private func normalizedHomeAliasPath(from path: String) -> String {
@@ -1581,13 +1583,7 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     private func isSameOrDescendant(_ child: URL, of parent: URL) -> Bool {
         let childPath = child.standardizedFileURL.resolvingSymlinksInPath().path
         let parentPath = parent.standardizedFileURL.resolvingSymlinksInPath().path
-
-        if childPath == parentPath {
-            return true
-        }
-
-        let normalizedParent = parentPath == "/" ? "/" : parentPath + "/"
-        return childPath.hasPrefix(normalizedParent)
+        return PathNormalizer.isSameOrDescendant(childPath, of: parentPath)
     }
 
     private func presentAddBookmarkAlert() {

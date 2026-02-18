@@ -360,6 +360,9 @@ actor SecurityScopedBookmarkService: SecurityScopedBookmarkProviding {
         decoder.dateDecodingStrategy = .iso8601
 
         store = try decoder.decode(BookmarkStore.self, from: data)
+        if normalizeStoredPathsIfNeeded() {
+            try persistStore()
+        }
         isStoreLoaded = true
     }
 
@@ -403,23 +406,36 @@ actor SecurityScopedBookmarkService: SecurityScopedBookmarkProviding {
     }
 
     private func normalizePath(_ path: String) -> String {
-        guard path != "/" else {
-            return "/"
-        }
-        return path.hasSuffix("/") ? String(path.dropLast()) : path
+        PathNormalizer.normalizeForComparison(path)
     }
 
     private func isSameOrDescendant(_ child: String, of parent: String) -> Bool {
-        if child == parent {
-            return true
-        }
-
-        let parentWithSeparator = parent == "/" ? "/" : "\(parent)/"
-        return child.hasPrefix(parentWithSeparator)
+        PathNormalizer.isSameOrDescendant(child, of: parent)
     }
 
     private func pathDepth(_ path: String) -> Int {
         path.split(separator: "/", omittingEmptySubsequences: true).count
+    }
+
+    private func normalizeStoredPathsIfNeeded() -> Bool {
+        var didChange = false
+
+        for index in store.bookmarks.indices {
+            let normalizedSelectedPath = normalizePath(store.bookmarks[index].selectedPath)
+            let normalizedResolvedPath = normalizePath(store.bookmarks[index].resolvedPath)
+
+            if normalizedSelectedPath != store.bookmarks[index].selectedPath {
+                store.bookmarks[index].selectedPath = normalizedSelectedPath
+                didChange = true
+            }
+
+            if normalizedResolvedPath != store.bookmarks[index].resolvedPath {
+                store.bookmarks[index].resolvedPath = normalizedResolvedPath
+                didChange = true
+            }
+        }
+
+        return didChange
     }
 
     private func canAccessWithoutBookmark(_ url: URL) -> Bool {

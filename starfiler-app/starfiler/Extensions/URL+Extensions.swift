@@ -65,29 +65,31 @@ enum UserPaths {
     }
 
     static func portableBookmarkPath(_ rawPath: String, fileManager: FileManager = .default) -> String {
-        let resolvedPath = resolveBookmarkPath(rawPath, fileManager: fileManager)
-        if resolvedPath == homeDirectoryPath {
+        let resolvedPath = PathNormalizer.normalizeForComparison(resolveBookmarkPath(rawPath, fileManager: fileManager))
+        let normalizedHomePath = PathNormalizer.normalizeForComparison(homeDirectoryPath)
+
+        if resolvedPath == normalizedHomePath {
             return "~"
         }
-        if resolvedPath.hasPrefix(homeDirectoryPath + "/") {
-            return "~" + String(resolvedPath.dropFirst(homeDirectoryPath.count))
+        if resolvedPath.hasPrefix(normalizedHomePath + "/") {
+            return "~" + String(resolvedPath.dropFirst(normalizedHomePath.count))
         }
         return resolvedPath
     }
 
     static func resolveBookmarkPath(_ rawPath: String, fileManager: FileManager = .default) -> String {
         let expandedPath = expandedPathByResolvingHomeVariables(rawPath)
-        var standardizedPath = URL(fileURLWithPath: expandedPath).standardizedFileURL.path
+        var standardizedPath = PathNormalizer.normalizeForComparison(expandedPath)
 
         if let relocatedPath = relocatedPathToCurrentHome(from: standardizedPath, fileManager: fileManager) {
             standardizedPath = relocatedPath
         }
 
         if let migratedDropboxPath = resolveDropboxPath(from: standardizedPath, fileManager: fileManager) {
-            return migratedDropboxPath
+            return PathNormalizer.resolveExistingPath(migratedDropboxPath, fileManager: fileManager)
         }
 
-        return standardizedPath
+        return PathNormalizer.resolveExistingPath(standardizedPath, fileManager: fileManager)
     }
 
     private static func expandedPathByResolvingHomeVariables(_ rawPath: String) -> String {
@@ -150,8 +152,10 @@ enum UserPaths {
     }
 
     private static func relocatedPathToCurrentHome(from path: String, fileManager: FileManager) -> String? {
-        let standardizedPath = URL(fileURLWithPath: path).standardizedFileURL.path
-        if standardizedPath == homeDirectoryPath || standardizedPath.hasPrefix(homeDirectoryPath + "/") {
+        let standardizedPath = PathNormalizer.normalizeForComparison(path)
+        let normalizedHomePath = PathNormalizer.normalizeForComparison(homeDirectoryPath)
+
+        if standardizedPath == normalizedHomePath || standardizedPath.hasPrefix(normalizedHomePath + "/") {
             return standardizedPath
         }
 
@@ -163,7 +167,7 @@ enum UserPaths {
             return nil
         }
 
-        var relocatedPath = homeDirectoryPath
+        var relocatedPath = normalizedHomePath
         let suffixComponents = pathComponents.dropFirst(3)
         if !suffixComponents.isEmpty {
             relocatedPath += "/" + suffixComponents.joined(separator: "/")
@@ -174,7 +178,7 @@ enum UserPaths {
             return nil
         }
 
-        return URL(fileURLWithPath: relocatedPath).standardizedFileURL.path
+        return PathNormalizer.normalizeForComparison(relocatedPath)
     }
 
     private static func homeDirectoryFromPasswordDB() -> String? {
@@ -234,7 +238,7 @@ enum UserPaths {
         for root in discoverDropboxRoots(fileManager: fileManager) {
             let candidatePath = suffix.isEmpty ? root : root + suffix
             if fileManager.fileExists(atPath: candidatePath) {
-                return URL(fileURLWithPath: candidatePath).standardizedFileURL.path
+                return PathNormalizer.normalizeForComparison(candidatePath)
             }
         }
 
@@ -310,6 +314,117 @@ enum UserPaths {
             }
             return lhsName < rhsName
         }
+    }
+}
+
+enum PathNormalizer {
+    static func normalizeForComparison(_ rawPath: String) -> String {
+        let standardizedPath = URL(fileURLWithPath: rawPath).standardizedFileURL.path
+        let normalizedUnicodePath = standardizedPath.precomposedStringWithCanonicalMapping
+        guard normalizedUnicodePath != "/", normalizedUnicodePath.hasSuffix("/") else {
+            return normalizedUnicodePath
+        }
+        return String(normalizedUnicodePath.dropLast())
+    }
+
+    static func resolveExistingPath(_ rawPath: String, fileManager: FileManager = .default) -> String {
+        let normalizedPath = normalizeForComparison(rawPath)
+        if fileManager.fileExists(atPath: normalizedPath) {
+            return normalizedPath
+        }
+
+        for variant in unicodeVariants(of: normalizedPath) where fileManager.fileExists(atPath: variant) {
+            return normalizeForComparison(variant)
+        }
+
+        guard normalizedPath.hasPrefix("/") else {
+            return normalizedPath
+        }
+
+        if let matchedPath = resolveByScanningPathComponents(normalizedPath, fileManager: fileManager) {
+            return normalizeForComparison(matchedPath)
+        }
+
+        return normalizedPath
+    }
+
+    static func isSameOrDescendant(_ childPath: String, of parentPath: String) -> Bool {
+        let normalizedChildPath = normalizeForComparison(childPath)
+        let normalizedParentPath = normalizeForComparison(parentPath)
+
+        if normalizedChildPath == normalizedParentPath {
+            return true
+        }
+
+        let parentPrefix = normalizedParentPath == "/" ? "/" : normalizedParentPath + "/"
+        return normalizedChildPath.hasPrefix(parentPrefix)
+    }
+
+    private static func unicodeVariants(of path: String) -> [String] {
+        var variants: [String] = []
+        for candidate in [
+            path.precomposedStringWithCanonicalMapping,
+            path.decomposedStringWithCanonicalMapping,
+            path.precomposedStringWithCompatibilityMapping,
+            path.decomposedStringWithCompatibilityMapping,
+        ] where !variants.contains(candidate) {
+            variants.append(candidate)
+        }
+        return variants
+    }
+
+    private static func resolveByScanningPathComponents(_ path: String, fileManager: FileManager) -> String? {
+        let components = URL(fileURLWithPath: path).pathComponents
+        guard components.first == "/", components.count >= 2 else {
+            return nil
+        }
+
+        var resolvedPath = "/"
+        for component in components.dropFirst() where !component.isEmpty {
+            let expectedPath = resolvedPath == "/"
+                ? "/" + component
+                : resolvedPath + "/" + component
+
+            if fileManager.fileExists(atPath: expectedPath) {
+                resolvedPath = expectedPath
+                continue
+            }
+
+            guard let matchedName = bestMatchingChildName(
+                under: resolvedPath,
+                targetName: component,
+                fileManager: fileManager
+            ) else {
+                return nil
+            }
+
+            resolvedPath = resolvedPath == "/"
+                ? "/" + matchedName
+                : resolvedPath + "/" + matchedName
+        }
+
+        return resolvedPath
+    }
+
+    private static func bestMatchingChildName(
+        under parentPath: String,
+        targetName: String,
+        fileManager: FileManager
+    ) -> String? {
+        guard let names = try? fileManager.contentsOfDirectory(atPath: parentPath) else {
+            return nil
+        }
+
+        if names.contains(targetName) {
+            return targetName
+        }
+
+        let normalizedTarget = targetName.precomposedStringWithCanonicalMapping
+        let matches = names.filter { $0.precomposedStringWithCanonicalMapping == normalizedTarget }
+        guard matches.count == 1 else {
+            return nil
+        }
+        return matches[0]
     }
 }
 

@@ -2,6 +2,20 @@ import XCTest
 @testable import Starfiler
 
 final class SecurityScopedBookmarkServiceIntegrationTests: XCTestCase {
+    private struct BookmarkStorePayload: Codable {
+        var version: Int
+        var bookmarks: [BookmarkRecordPayload]
+    }
+
+    private struct BookmarkRecordPayload: Codable {
+        var id: UUID
+        var selectedPath: String
+        var resolvedPath: String
+        var bookmarkData: Data
+        var createdAt: Date
+        var updatedAt: Date
+    }
+
     func testSaveLoadAndResolveBookmarkWithCustomStoreURL() async throws {
         let workspace = try SandboxFixtureWorkspace()
         let storeURL = workspace.url("config/SecurityScopedBookmarks.json")
@@ -98,5 +112,62 @@ final class SecurityScopedBookmarkServiceIntegrationTests: XCTestCase {
                 return XCTFail("Unexpected error: \(error)")
             }
         }
+    }
+
+    func testResolveBookmarkSupportsLegacyUnicodeNormalizedStorePaths() async throws {
+        let workspace = try SandboxFixtureWorkspace()
+        let fileManager = FileManager.default
+        let storeURL = workspace.url("config/SecurityScopedBookmarks.json")
+
+        let parentURL = workspace.url("unicode")
+        try fileManager.createDirectory(at: parentURL, withIntermediateDirectories: true)
+
+        let composedName = makeComposedDakutenName()
+        let decomposedName = makeDecomposedDakutenName()
+        XCTAssertNotEqual(Array(composedName.unicodeScalars), Array(decomposedName.unicodeScalars))
+
+        let decomposedDirectoryURL = parentURL.appendingPathComponent(decomposedName, isDirectory: true)
+        try fileManager.createDirectory(at: decomposedDirectoryURL, withIntermediateDirectories: true)
+        let childURL = decomposedDirectoryURL.appendingPathComponent("child.txt")
+        try Data("ok".utf8).write(to: childURL, options: .atomic)
+
+        let initialService = SecurityScopedBookmarkService(
+            bundleIdentifier: "com.nilone.starfiler.tests",
+            bookmarkStoreURL: storeURL
+        )
+        try await initialService.loadBookmarks()
+        try await initialService.saveBookmark(for: decomposedDirectoryURL)
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        var payload = try decoder.decode(BookmarkStorePayload.self, from: Data(contentsOf: storeURL))
+        XCTAssertEqual(payload.bookmarks.count, 1)
+
+        payload.bookmarks[0].selectedPath = payload.bookmarks[0].selectedPath
+            .replacingOccurrences(of: decomposedName, with: composedName)
+        payload.bookmarks[0].resolvedPath = payload.bookmarks[0].resolvedPath
+            .replacingOccurrences(of: decomposedName, with: composedName)
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        try encoder.encode(payload).write(to: storeURL, options: .atomic)
+
+        let reloadedService = SecurityScopedBookmarkService(
+            bundleIdentifier: "com.nilone.starfiler.tests",
+            bookmarkStoreURL: storeURL
+        )
+        try await reloadedService.loadBookmarks()
+
+        let resolved = try await reloadedService.resolveBookmark(for: childURL)
+        XCTAssertEqual(resolved, decomposedDirectoryURL.standardizedFileURL)
+    }
+
+    private func makeComposedDakutenName() -> String {
+        String(UnicodeScalar(0x30C0)!) + String(UnicodeScalar(0x30A4)!) + String(UnicodeScalar(0x30E4)!)
+    }
+
+    private func makeDecomposedDakutenName() -> String {
+        String(UnicodeScalar(0x30BF)!) + String(UnicodeScalar(0x3099)!) + String(UnicodeScalar(0x30A4)!) + String(UnicodeScalar(0x30E4)!)
     }
 }
