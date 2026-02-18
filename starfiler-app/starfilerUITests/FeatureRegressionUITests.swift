@@ -15,8 +15,8 @@ final class FeatureRegressionUITests: BaseUITestCase {
         app.typeKey(XCUIKeyboardKey.escape.rawValue, modifierFlags: [])
 
         // Media/files mode toggle
-        app.typeKey("m", modifierFlags: [.control])
-        app.typeKey("m", modifierFlags: [.control])
+        app.typeKey("0", modifierFlags: [.control])
+        app.typeKey("0", modifierFlags: [.control])
 
         // Sync and pin toggles
         app.typeKey("l", modifierFlags: [.control, .shift])

@@ -272,7 +272,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         toggleSinglePaneItem.keyEquivalentModifierMask = [.control]
         let equalizePaneWidthsItem = viewMenu.addItem(withTitle: "Equalize Pane Widths", action: #selector(menuEqualizePaneWidths(_:)), keyEquivalent: "4")
         equalizePaneWidthsItem.keyEquivalentModifierMask = [.control]
-        let toggleMediaModeItem = viewMenu.addItem(withTitle: "Toggle Media Mode", action: #selector(menuToggleMediaMode(_:)), keyEquivalent: "m")
+        let toggleMediaModeItem = viewMenu.addItem(withTitle: "Toggle Media Mode", action: #selector(menuToggleMediaMode(_:)), keyEquivalent: "0")
         toggleMediaModeItem.keyEquivalentModifierMask = [.control]
         let toggleFilesRecursiveItem = viewMenu.addItem(withTitle: "Toggle Files Recursive", action: #selector(menuToggleFilesRecursive(_:)), keyEquivalent: "f")
         toggleFilesRecursiveItem.keyEquivalentModifierMask = [.control, .shift]
