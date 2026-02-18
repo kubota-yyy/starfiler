@@ -56,8 +56,7 @@ enum KeyAction: String, Codable, CaseIterable, Sendable {
     case matchOtherPaneDirectory
     case goToOtherPaneDirectory
     case toggleMediaMode
-    case toggleFilesRecursive
-    case toggleMediaRecursive
+    case toggleRecursive
     case batchRename
     case syncPanesLeftToRight
     case syncPanesRightToLeft
@@ -91,12 +90,21 @@ extension KeyAction {
             return exact
         }
 
-        return normalizedLookup[normalizedConfigKey(rawName)]
+        let normalized = normalizedConfigKey(rawName)
+        if let alias = legacyAliases[normalized] {
+            return alias
+        }
+        return normalizedLookup[normalized]
     }
 
     private static let normalizedLookup: [String: KeyAction] = {
         Dictionary(uniqueKeysWithValues: allCases.map { (normalizedConfigKey($0.rawValue), $0) })
     }()
+
+    private static let legacyAliases: [String: KeyAction] = [
+        normalizedConfigKey("toggleFilesRecursive"): .toggleRecursive,
+        normalizedConfigKey("toggleMediaRecursive"): .toggleRecursive
+    ]
 
     private static func normalizedConfigKey(_ value: String) -> String {
         value

@@ -385,12 +385,13 @@ final class FilePaneViewModel {
         refreshCurrentDirectory(preservingSelectionByURL: false)
     }
 
-    func toggleMediaRecursive() {
-        setMediaRecursiveEnabled(!mediaRecursiveEnabled)
-    }
-
-    func toggleFilesRecursive() {
-        setFilesRecursiveEnabled(!filesRecursiveEnabled)
+    func toggleRecursive() {
+        switch displayMode {
+        case .browser:
+            setFilesRecursiveEnabled(!filesRecursiveEnabled)
+        case .media:
+            setMediaRecursiveEnabled(!mediaRecursiveEnabled)
+        }
     }
 
     func updateSpotlightSearchQuery(_ query: String) {

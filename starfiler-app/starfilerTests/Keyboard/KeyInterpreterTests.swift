@@ -109,6 +109,11 @@ final class KeyInterpreterTests: XCTestCase {
         XCTAssertNil(merged.bindings["normal"]?["k"])
     }
 
+    func testLegacyRecursiveActionNamesResolveToToggleRecursive() {
+        XCTAssertEqual(KeyAction.fromConfigName("toggleFilesRecursive"), .toggleRecursive)
+        XCTAssertEqual(KeyAction.fromConfigName("toggleMediaRecursive"), .toggleRecursive)
+    }
+
     func testUnmappedKeyReturnsUnhandled() {
         var interpreter = makeInterpreter(bindings: baseBindings)
         let event = KeyEvent(key: "z")
