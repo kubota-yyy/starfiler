@@ -67,6 +67,11 @@ final class TerminalSessionManagerViewController: NSViewController {
         viewModel.reloadSessions()
     }
 
+    override func viewWillAppear() {
+        super.viewWillAppear()
+        viewModel.reloadSessions()
+    }
+
     private func setupSearchField() {
         searchField.translatesAutoresizingMaskIntoConstraints = false
         searchField.placeholderString = "Search sessions..."

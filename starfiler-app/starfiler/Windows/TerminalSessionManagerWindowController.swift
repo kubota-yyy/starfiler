@@ -14,6 +14,7 @@ final class TerminalSessionManagerWindowController: NSWindowController {
         )
         window.title = "Session Manager"
         window.minSize = NSSize(width: 400, height: 300)
+        window.isReleasedWhenClosed = false
         window.contentViewController = managerVC
         window.setFrameAutosaveName("TerminalSessionManager")
         if !window.setFrameUsingName("TerminalSessionManager") {
