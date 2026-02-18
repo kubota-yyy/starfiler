@@ -7,6 +7,7 @@ final class DefaultShortcutCoverageTests: XCTestCase {
         let normalBindings = try XCTUnwrap(bindings["normal"])
 
         XCTAssertEqual(normalBindings["Space"], "toggleMark")
+        XCTAssertEqual(normalBindings["Shift-Space"], "togglePreview")
         XCTAssertEqual(normalBindings["Ctrl-p"], "togglePreview")
     }
 

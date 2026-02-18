@@ -109,6 +109,17 @@ final class MediaCollectionView: NSCollectionView {
             return
         }
 
+        if keyEvent.key == "Space", keyInterpreter.action(for: keyEvent) == .togglePreview {
+            endShortcutGuideIfNeeded()
+            if keyEvent.modifiers == [.shift],
+               keyActionDelegate?.mediaCollectionView(self, didTrigger: .togglePreview) == true {
+                return
+            }
+            if keyEvent.modifiers.isEmpty {
+                return
+            }
+        }
+
         switch keyInterpreter.interpret(keyEvent) {
         case .action(let action):
             endShortcutGuideIfNeeded()

@@ -42,6 +42,7 @@
       "Tab": "switchPane",
       "Ctrl-Tab": "switchPane",
       "Space": "toggleMark",
+      "Shift-Space": "togglePreview",
       "Ctrl-p": "togglePreview",
       "Ctrl-8": "toggleSidebar",
       "Ctrl-1": "toggleLeftPane",

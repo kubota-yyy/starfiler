@@ -80,6 +80,10 @@ struct KeyInterpreter: Sendable {
         return .unhandled
     }
 
+    func action(for event: KeyEvent) -> KeyAction? {
+        keybindingManager.lookup(sequence: [event], mode: mode)
+    }
+
     func hasExactBinding(for event: KeyEvent) -> Bool {
         keybindingManager.lookup(sequence: [event], mode: mode) != nil
     }
