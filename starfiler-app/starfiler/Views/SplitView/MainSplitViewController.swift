@@ -1,11 +1,17 @@
 import AppKit
 
+private enum PreviewSelectionStep {
+    case previous
+    case next
+}
+
 private final class PreviewPopupPanelController {
     private let previewViewController: PreviewPaneViewController
     private var panel: NSPanel?
-    private var escapeEventMonitor: Any?
+    private var keyEventMonitor: Any?
 
     var onDismiss: (() -> Void)?
+    var onSelectionStepRequested: ((PreviewSelectionStep) -> Bool)?
 
     var isVisible: Bool {
         panel != nil
@@ -16,7 +22,7 @@ private final class PreviewPopupPanelController {
     }
 
     deinit {
-        stopEscapeMonitor()
+        stopKeyMonitor()
     }
 
     func show(relativeTo window: NSWindow, preferredAnchorFrame: NSRect?) {
@@ -31,7 +37,8 @@ private final class PreviewPopupPanelController {
         }
 
         panel.orderFront(nil)
-        startEscapeMonitor()
+        previewViewController.refreshFitIfNeeded()
+        startKeyMonitor()
     }
 
     func dismiss() {
@@ -39,7 +46,7 @@ private final class PreviewPopupPanelController {
             return
         }
 
-        stopEscapeMonitor()
+        stopKeyMonitor()
         panel.orderOut(nil)
         if let parent = panel.parent {
             parent.removeChildWindow(panel)
@@ -121,37 +128,63 @@ private final class PreviewPopupPanelController {
         )
 
         panel.setFrame(frame, display: true)
-        previewViewController.setPreferredFitViewportWidth(width)
+        previewViewController.setPreferredFitViewportSize(
+            width: width,
+            height: max(height - 68, 1)
+        )
     }
 
-    private func startEscapeMonitor() {
-        guard escapeEventMonitor == nil else {
+    private func startKeyMonitor() {
+        guard keyEventMonitor == nil else {
             return
         }
 
-        escapeEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+        keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, self.panel != nil else {
                 return event
             }
 
-            guard let keyEvent = event.keyEvent,
-                  keyEvent.key == "Escape",
-                  keyEvent.modifiers.isEmpty else {
+            guard let keyEvent = event.keyEvent else {
                 return event
             }
 
-            self.dismiss()
-            return nil
+            guard keyEvent.modifiers.isEmpty else {
+                return event
+            }
+
+            if keyEvent.key == "Escape" {
+                self.dismiss()
+                return nil
+            }
+
+            let step: PreviewSelectionStep?
+            switch keyEvent.key {
+            case "ArrowUp", "ArrowLeft":
+                step = .previous
+            case "ArrowDown", "ArrowRight":
+                step = .next
+            default:
+                step = nil
+            }
+
+            guard let step else {
+                return event
+            }
+
+            if self.onSelectionStepRequested?(step) == true {
+                return nil
+            }
+            return event
         }
     }
 
-    private func stopEscapeMonitor() {
-        guard let escapeEventMonitor else {
+    private func stopKeyMonitor() {
+        guard let keyEventMonitor else {
             return
         }
 
-        NSEvent.removeMonitor(escapeEventMonitor)
-        self.escapeEventMonitor = nil
+        NSEvent.removeMonitor(keyEventMonitor)
+        self.keyEventMonitor = nil
     }
 }
 
@@ -217,6 +250,9 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
             }
             self.viewModel.previewVisible = false
             self.focusActivePane()
+        }
+        controller.onSelectionStepRequested = { [weak self] step in
+            self?.handlePreviewSelectionStep(step) ?? false
         }
         return controller
     }()
@@ -677,6 +713,12 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         pane.onSelectionChanged = { [weak self] _ in
             self?.viewModel.updatePreviewSelection(for: side)
         }
+        pane.onDisplayedItemsChanged = { [weak self] in
+            guard let self, self.viewModel.activePaneSide == side else {
+                return
+            }
+            self.viewModel.refreshPreviewForActivePane()
+        }
         pane.onStatusContextTextChanged = { [weak self] text in
             self?.updatePaneStatusContext(side: side, text: text)
         }
@@ -1058,6 +1100,21 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         }
 
         return selectedItem.url.isImageFile
+    }
+
+    private func handlePreviewSelectionStep(_ step: PreviewSelectionStep) -> Bool {
+        let pane = viewModel.activePane
+        guard !pane.directoryContents.displayedItems.isEmpty else {
+            return true
+        }
+
+        switch step {
+        case .previous:
+            pane.moveCursorUp()
+        case .next:
+            pane.moveCursorDown()
+        }
+        return true
     }
 
     private func previewAnchorFrameInScreen(for activePaneSide: PaneSide) -> NSRect? {

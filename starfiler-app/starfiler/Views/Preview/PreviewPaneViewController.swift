@@ -35,9 +35,11 @@ final class PreviewPaneViewController: NSViewController {
     private var currentMediaURL: URL?
     private var isFitModeActive = true
     private var preferredFitViewportWidth: CGFloat = 320
+    private var preferredFitViewportHeight: CGFloat = 240
     private var imageLoadTask: Task<Void, Never>?
     private var currentPlayer: AVPlayer?
     private let imageCache = NSCache<NSURL, NSImage>()
+    private var prefetchTasks: [URL: Task<Void, Never>] = [:]
 
     var onImageSelectionChanged: ((URL?) -> Void)?
     var onNavigateRequested: ((URL) -> Void)?
@@ -54,6 +56,8 @@ final class PreviewPaneViewController: NSViewController {
     deinit {
         imageLoadTask?.cancel()
         currentPlayer?.pause()
+        prefetchTasks.values.forEach { $0.cancel() }
+        prefetchTasks.removeAll()
     }
 
     override func loadView() {
@@ -82,14 +86,35 @@ final class PreviewPaneViewController: NSViewController {
         animationEffectSettings = settings
     }
 
-    func setPreferredFitViewportWidth(_ width: CGFloat) {
-        guard width > 0 else {
+    func setPreferredFitViewportSize(width: CGFloat, height: CGFloat) {
+        guard width > 0 || height > 0 else {
             return
         }
 
-        preferredFitViewportWidth = width
+        if width > 0 {
+            preferredFitViewportWidth = width
+        }
+        if height > 0 {
+            preferredFitViewportHeight = height
+        }
+
         if isFitModeActive {
             fitImageToView()
+        }
+    }
+
+    func refreshFitIfNeeded() {
+        guard isFitModeActive else {
+            return
+        }
+
+        fitImageToView()
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.isFitModeActive else {
+                return
+            }
+            self.fitImageToView()
         }
     }
 
@@ -287,6 +312,8 @@ final class PreviewPaneViewController: NSViewController {
 
     private func applyMediaURLs(_ urls: [URL], selectedFileURL: URL?) {
         currentMediaURLs = urls.map(\.standardizedFileURL)
+        let cachedImageURLs = Set(currentMediaURLs.filter(\.isImageFile))
+        prunePrefetchTasks(keeping: cachedImageURLs)
 
         let selectedMediaURL = selectedFileURL?.standardizedFileURL
         let selectedIsMedia = selectedMediaURL?.isMediaFile ?? false
@@ -428,6 +455,7 @@ final class PreviewPaneViewController: NSViewController {
         emptyStateLabel.isHidden = true
         playerView.isHidden = true
         applyDefaultFitForLoadedImage()
+        prefetchAroundCurrentImage()
     }
 
     private func displayVideo(from url: URL) {
@@ -514,7 +542,8 @@ final class PreviewPaneViewController: NSViewController {
         guard let effectiveHeight = firstUsableDimension(from: [
             clipBounds.height,
             scrollBounds.height,
-            containerBounds.height
+            containerBounds.height,
+            preferredFitViewportHeight
         ]) else {
             return nil
         }
@@ -554,6 +583,51 @@ final class PreviewPaneViewController: NSViewController {
                 self.fitImageToView()
             }
             self.scrollView.alphaValue = 1
+        }
+    }
+
+    private func prefetchAroundCurrentImage() {
+        guard let currentMediaURL,
+              let currentIndex = currentMediaURLs.firstIndex(of: currentMediaURL) else {
+            return
+        }
+
+        let candidateIndices = [currentIndex - 1, currentIndex + 1, currentIndex - 2, currentIndex + 2]
+        for index in candidateIndices where currentMediaURLs.indices.contains(index) {
+            let url = currentMediaURLs[index]
+            guard url.isImageFile else {
+                continue
+            }
+            prefetchImage(at: url)
+        }
+    }
+
+    private func prefetchImage(at url: URL) {
+        let normalizedURL = url.standardizedFileURL
+        guard imageCache.object(forKey: normalizedURL as NSURL) == nil else {
+            return
+        }
+        guard prefetchTasks[normalizedURL] == nil else {
+            return
+        }
+
+        prefetchTasks[normalizedURL] = Task(priority: .utility) { [weak self] in
+            let loadedImage = await Self.decodeImage(from: normalizedURL)
+            guard let self else {
+                return
+            }
+            if let loadedImage {
+                self.imageCache.setObject(loadedImage, forKey: normalizedURL as NSURL)
+            }
+            self.prefetchTasks.removeValue(forKey: normalizedURL)
+        }
+    }
+
+    private func prunePrefetchTasks(keeping allowedURLs: Set<URL>) {
+        let staleURLs = prefetchTasks.keys.filter { !allowedURLs.contains($0) }
+        for url in staleURLs {
+            prefetchTasks[url]?.cancel()
+            prefetchTasks.removeValue(forKey: url)
         }
     }
 

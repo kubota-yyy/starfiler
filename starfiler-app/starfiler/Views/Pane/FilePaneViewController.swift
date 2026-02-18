@@ -281,6 +281,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
     var onSelectionChanged: ((FileItem?) -> Void)?
+    var onDisplayedItemsChanged: (() -> Void)?
     var onStatusContextTextChanged: ((String?) -> Void)?
     var onTabPressed: (() -> Bool)?
     var onDidRequestActivate: (() -> Void)?
@@ -1267,6 +1268,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             self.syncSelectionFromViewModel()
             self.publishStatus()
             self.publishSelection()
+            self.onDisplayedItemsChanged?()
         }
 
         viewModel.onCursorChanged = { [weak self] _ in

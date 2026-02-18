@@ -221,7 +221,17 @@ final class MainViewModel {
         guard activePaneSide == side else {
             return
         }
-        refreshPreviewForActivePane()
+
+        let pane = activePane
+        let currentDirectory = pane.paneState.currentDirectory.standardizedFileURL
+        let previewDirectory = previewPane.state.currentDirectoryURL?.standardizedFileURL
+
+        guard previewDirectory == currentDirectory else {
+            refreshPreviewForActivePane()
+            return
+        }
+
+        previewPane.updateSelection(selectedItem: pane.selectedItem)
     }
 
     func copyMarked() {
