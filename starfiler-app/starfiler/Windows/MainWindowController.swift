@@ -486,12 +486,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     func launchTerminalSession(command: TerminalSessionCommand) {
         let workingDirectory = mainViewModel.activePane.paneState.currentDirectory
         let listVM = mainViewModel.terminalSessionListViewModel
-        listVM.createSession(command: command, workingDirectory: workingDirectory)
 
         listVM.onSessionCreated = { [weak self] session in
             self?.openSessionWindow(id: session.id)
             self?.sessionManagerViewModel?.reloadSessions()
         }
+
+        listVM.createSession(command: command, workingDirectory: workingDirectory)
     }
 
     func showSessionManager() {
@@ -519,7 +520,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         let windowController = TerminalSessionManagerWindowController(managerVC: managerVC)
         self.sessionManagerWindowController = windowController
         windowController.showWindow(self)
-
+        managerVM.reloadSessions()
     }
 
     func openSessionWindow(id: UUID) {
