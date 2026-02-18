@@ -726,7 +726,11 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
             self?.updatePaneStatus(side: side, path: path, itemCount: itemCount, markedCount: markedCount)
         }
         pane.onFileOperationRequested = { [weak self] action in
-            self?.handleGlobalAction(action) ?? false
+            guard let self else {
+                return false
+            }
+            self.setActivePane(side)
+            return self.handleGlobalAction(action)
         }
         pane.onBookmarkJump = { [weak self] path in
             self?.navigateToSearchResult(BookmarkSearchViewModel.SearchResult(
