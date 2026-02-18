@@ -317,11 +317,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let terminalMenuItem = NSMenuItem()
         mainMenu.addItem(terminalMenuItem)
         let terminalMenu = NSMenu(title: "Terminal")
+        let sessionManagerItem = terminalMenu.addItem(withTitle: "Session Manager", action: #selector(menuToggleSessionManager(_:)), keyEquivalent: "`")
+        sessionManagerItem.keyEquivalentModifierMask = [.control]
+        terminalMenu.addItem(NSMenuItem.separator())
         let launchClaudeItem = terminalMenu.addItem(withTitle: "Launch Claude Code", action: #selector(menuLaunchClaude(_:)), keyEquivalent: "")
         let launchCodexItem = terminalMenu.addItem(withTitle: "Launch Codex CLI", action: #selector(menuLaunchCodex(_:)), keyEquivalent: "")
-        terminalMenu.addItem(NSMenuItem.separator())
-        let toggleTerminalItem = terminalMenu.addItem(withTitle: "Toggle Terminal Panel", action: #selector(menuToggleTerminalPanel(_:)), keyEquivalent: "`")
-        toggleTerminalItem.keyEquivalentModifierMask = [.control]
         terminalMenuItem.submenu = terminalMenu
 
         // Window menu
@@ -588,8 +588,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainWindowController?.launchTerminalSession(command: .codex)
     }
 
-    @objc private func menuToggleTerminalPanel(_ sender: Any?) {
-        mainWindowController?.toggleTerminalPanel()
+    @objc private func menuToggleSessionManager(_ sender: Any?) {
+        mainWindowController?.toggleSessionManager()
     }
 
     @objc private func menuShowSettings(_ sender: Any?) {

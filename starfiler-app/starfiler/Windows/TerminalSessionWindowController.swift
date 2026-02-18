@@ -1,7 +1,7 @@
 import AppKit
 
 final class TerminalSessionWindowController: NSWindowController {
-    private let sessionId: UUID
+    let sessionId: UUID
     private let terminalContentVC: TerminalContentViewController
 
     var onWindowClosed: ((UUID) -> Void)?
@@ -29,8 +29,13 @@ final class TerminalSessionWindowController: NSWindowController {
         fatalError("init(coder:) has not been implemented")
     }
 
+    func updateTitle(_ title: String) {
+        window?.title = title
+    }
+
     override func showWindow(_ sender: Any?) {
         super.showWindow(sender)
+        window?.makeKeyAndOrderFront(sender)
         terminalContentVC.focusTerminal()
     }
 }

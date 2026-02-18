@@ -4,7 +4,7 @@ import Observation
 @MainActor
 @Observable
 final class TerminalSessionListViewModel {
-    private let service: any TerminalSessionProviding
+    let service: any TerminalSessionProviding
 
     private(set) var sessions: [TerminalSession] = []
     var activeSessionId: UUID?

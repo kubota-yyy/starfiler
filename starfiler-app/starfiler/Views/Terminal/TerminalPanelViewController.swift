@@ -12,6 +12,7 @@ final class TerminalPanelViewController: NSViewController {
     private var currentContentVC: TerminalContentViewController?
 
     var onTerminalSessionCreated: ((TerminalSession) -> Void)?
+    var onOutputReceived: ((UUID, String) -> Void)?
 
     init(listViewModel: TerminalSessionListViewModel) {
         self.listViewModel = listViewModel
@@ -143,6 +144,9 @@ final class TerminalPanelViewController: NSViewController {
         let contentVC = TerminalContentViewController(sessionId: session.id, sessionViewModel: sessionVM)
         contentVC.onProcessExited = { [weak self] id, exitCode in
             self?.listViewModel.updateSessionExitCode(id: id, exitCode: exitCode)
+        }
+        contentVC.onOutputReceived = { [weak self] id, text in
+            self?.onOutputReceived?(id, text)
         }
         sessionViewControllers[session.id] = contentVC
 

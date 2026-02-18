@@ -39,7 +39,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var leftPaneVisible: Bool
     private var rightPaneVisible: Bool
     private var starEffectsEnabled: Bool
-    private var terminalPanelVisible: Bool
     private var animationEffectSettings: AnimationEffectSettings
     private var shortcutGuideEnabled: Bool
     private lazy var mainSplitViewController = MainSplitViewController(
@@ -56,10 +55,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         listViewModel: mainViewModel.terminalSessionListViewModel
     )
     private lazy var mainContainerViewController = MainContainerViewController(
-        mainSplitViewController: mainSplitViewController,
-        terminalPanelViewController: terminalPanelViewController,
-        terminalPanelVisible: terminalPanelVisible
+        mainSplitViewController: mainSplitViewController
     )
+    private var sessionManagerWindowController: TerminalSessionManagerWindowController?
+    private var sessionManagerViewModel: TerminalSessionManagerViewModel?
+    private var sessionWindows: [UUID: TerminalSessionWindowController] = [:]
+    private var persistTimer: Timer?
     private let appUndoManager = UndoManager()
     private var footerBaseStatusText: String
     private var footerItemCount: Int
@@ -114,7 +115,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         self.starEffectsEnabled = appConfig.starEffectsEnabled
         self.animationEffectSettings = appConfig.animationEffectSettings
         self.shortcutGuideEnabled = appConfig.shortcutGuideEnabled
-        self.terminalPanelVisible = appConfig.terminalPanelVisible
         let fallbackDirectory = initialDirectory.standardizedFileURL
         let leftDirectory = Self.resolveDirectory(path: appConfig.lastLeftPanePath, fallback: fallbackDirectory)
         let rightDirectory = Self.resolveDirectory(path: appConfig.lastRightPanePath, fallback: leftDirectory)
@@ -134,7 +134,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             initialSortAscending: appConfig.defaultSortAscending,
             initialPreviewVisible: false,
             initialSidebarVisible: appConfig.sidebarVisible,
-            initialTerminalPanelVisible: appConfig.terminalPanelVisible,
+            initialTerminalPanelVisible: false,
             initialSpotlightSearchScope: appConfig.spotlightSearchScope,
             initialLeftPaneDisplayMode: appConfig.leftPaneDisplayMode,
             initialRightPaneDisplayMode: appConfig.rightPaneDisplayMode,
@@ -213,6 +213,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         persistAppConfig()
+        persistSessions()
+        persistTimer?.invalidate()
+        persistTimer = nil
+        terminalPanelViewController.terminateAllSessions()
     }
 
     func windowDidBecomeMain(_ notification: Notification) {
@@ -468,10 +472,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         mainSplitViewController.equalizePaneWidths()
     }
 
-    func toggleTerminalPanel() {
-        mainContainerViewController.toggleTerminalPanel()
-        terminalPanelVisible = mainContainerViewController.isTerminalPanelVisible
-        persistAppConfig()
+    func toggleSessionManager() {
+        if let existing = sessionManagerWindowController, existing.window?.isVisible == true {
+            existing.window?.close()
+        } else {
+            showSessionManager()
+        }
     }
 
     func openSelectedItemInActivePane() {
@@ -485,6 +491,112 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     func focusTerminalPanel() {
         terminalPanelViewController.focusActiveTerminal()
+    }
+
+    func showSessionManager() {
+        if let existing = sessionManagerWindowController {
+            existing.showWindow(self)
+            sessionManagerViewModel?.reloadSessions()
+            return
+        }
+
+        let service = mainViewModel.terminalSessionListViewModel
+        let managerVM = TerminalSessionManagerViewModel(service: service.service)
+        self.sessionManagerViewModel = managerVM
+
+        let managerVC = TerminalSessionManagerViewController(viewModel: managerVM, listViewModel: mainViewModel.terminalSessionListViewModel)
+        managerVC.onOpenSession = { [weak self] id in
+            self?.openSessionWindow(id: id)
+        }
+        managerVC.onCreateSession = { [weak self] command in
+            self?.launchTerminalSession(command: command)
+        }
+        managerVC.onCloseSession = { [weak self] id in
+            self?.closeSessionWindow(id: id)
+        }
+
+        let windowController = TerminalSessionManagerWindowController(managerVC: managerVC)
+        self.sessionManagerWindowController = windowController
+        windowController.showWindow(self)
+
+        loadPersistedSessions()
+        startSessionPersistTimer()
+    }
+
+    func openSessionWindow(id: UUID) {
+        if let existing = sessionWindows[id] {
+            existing.showWindow(self)
+            return
+        }
+
+        guard let session = mainViewModel.terminalSessionListViewModel.sessions.first(where: { $0.id == id }) else { return }
+
+        let sessionVM = TerminalSessionViewModel(sessionId: session.id)
+        sessionVM.onStatusChanged = { [weak self] status in
+            self?.mainViewModel.terminalSessionListViewModel.updateSessionStatus(id: session.id, status: status)
+            self?.sessionManagerViewModel?.reloadSessions()
+        }
+
+        let contentVC = TerminalContentViewController(sessionId: session.id, sessionViewModel: sessionVM)
+        contentVC.onProcessExited = { [weak self] id, exitCode in
+            self?.mainViewModel.terminalSessionListViewModel.updateSessionExitCode(id: id, exitCode: exitCode)
+            self?.sessionManagerViewModel?.reloadSessions()
+        }
+        contentVC.onOutputReceived = { [weak self] id, text in
+            Task {
+                await self?.mainViewModel.terminalSessionListViewModel.service.appendOutput(id: id, text: text)
+            }
+        }
+
+        let windowController = TerminalSessionWindowController(sessionId: session.id, terminalContentVC: contentVC)
+        windowController.updateTitle(session.title)
+        windowController.onWindowClosed = { [weak self] id in
+            self?.sessionWindows.removeValue(forKey: id)
+        }
+        sessionWindows[session.id] = windowController
+        windowController.showWindow(self)
+
+        if session.status == .stopped || session.status == .completed || session.status == .error {
+            contentVC.launchProcess(command: session.command, workingDirectory: session.workingDirectory)
+        } else {
+            contentVC.launchProcess(command: session.command, workingDirectory: session.workingDirectory)
+        }
+    }
+
+    private func closeSessionWindow(id: UUID) {
+        if let wc = sessionWindows[id] {
+            wc.window?.close()
+            sessionWindows.removeValue(forKey: id)
+        }
+        mainViewModel.terminalSessionListViewModel.removeSession(id: id)
+        sessionManagerViewModel?.reloadSessions()
+    }
+
+    private func loadPersistedSessions() {
+        if let config = configManager.loadTerminalSessionsConfig() {
+            let data = config.toSessionsAndLogs()
+            Task {
+                await mainViewModel.terminalSessionListViewModel.service.loadPersistedSessions(data.sessions, logs: data.logs)
+                sessionManagerViewModel?.reloadSessions()
+            }
+        }
+    }
+
+    private func startSessionPersistTimer() {
+        persistTimer?.invalidate()
+        persistTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.persistSessions()
+            }
+        }
+    }
+
+    private func persistSessions() {
+        Task {
+            let data = await mainViewModel.terminalSessionListViewModel.service.allSessionsWithLogs()
+            let config = TerminalSessionsConfig(sessions: data.sessions, logs: data.logs)
+            try? configManager.saveTerminalSessionsConfig(config)
+        }
     }
 
     func reloadBookmarksConfig() {
@@ -510,7 +622,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         case .launchCodex:
             launchTerminalSession(command: .codex)
         case .toggleTerminalPanel:
-            toggleTerminalPanel()
+            toggleSessionManager()
         default:
             break
         }
@@ -559,15 +671,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             self?.handleTerminalAction(action)
         }
 
-        mainViewModel.terminalSessionListViewModel.onPanelVisibilityChanged = { [weak self] visible in
-            guard let self else { return }
-            if visible {
-                self.mainContainerViewController.showTerminalPanel()
-            } else {
-                self.mainContainerViewController.hideTerminalPanel()
+        terminalPanelViewController.onOutputReceived = { [weak self] id, text in
+            Task {
+                await self?.mainViewModel.terminalSessionListViewModel.service.appendOutput(id: id, text: text)
             }
-            self.terminalPanelVisible = visible
-            self.persistAppConfig()
         }
 
         applyCurrentAppearance()
@@ -904,8 +1011,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             starEffectsEnabled: starEffectsEnabled,
             animationEffectSettings: animationEffectSettings,
             shortcutGuideEnabled: shortcutGuideEnabled,
-            terminalPanelVisible: terminalPanelVisible,
-            terminalPanelHeight: Double(mainContainerViewController.terminalPanelHeight)
+            terminalPanelVisible: false,
+            terminalPanelHeight: 300
         )
 
         try? configManager.saveAppConfig(appConfig)

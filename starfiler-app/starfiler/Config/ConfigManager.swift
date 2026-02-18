@@ -23,6 +23,7 @@ final class ConfigManager {
         static let syncletsConfig = "Synclets.json"
         static let visitHistoryConfig = "VisitHistory.json"
         static let pinnedItemsConfig = "PinnedItems.json"
+        static let terminalSessionsConfig = "TerminalSessions.json"
     }
 
     let configDirectory: URL
@@ -141,6 +142,18 @@ final class ConfigManager {
 
     var pinnedItemsConfigURL: URL {
         configDirectory.appendingPathComponent(FileName.pinnedItemsConfig, isDirectory: false)
+    }
+
+    func loadTerminalSessionsConfig() -> TerminalSessionsConfig? {
+        load(TerminalSessionsConfig.self, from: terminalSessionsConfigURL)
+    }
+
+    func saveTerminalSessionsConfig(_ config: TerminalSessionsConfig) throws {
+        try save(config, to: terminalSessionsConfigURL)
+    }
+
+    var terminalSessionsConfigURL: URL {
+        configDirectory.appendingPathComponent(FileName.terminalSessionsConfig, isDirectory: false)
     }
 
     // MARK: - Custom Config Directory

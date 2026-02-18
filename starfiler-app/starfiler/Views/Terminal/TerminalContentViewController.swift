@@ -4,11 +4,12 @@ import SwiftTerm
 final class TerminalContentViewController: NSViewController {
     private let sessionId: UUID
     private let sessionViewModel: TerminalSessionViewModel
-    private var terminalView: LocalProcessTerminalView?
+    private var terminalView: LoggingLocalProcessTerminalView?
     private var hasLaunched = false
     private let isUITestLaunch = ProcessInfo.processInfo.arguments.contains("--uitest")
 
     var onProcessExited: ((UUID, Int32) -> Void)?
+    var onOutputReceived: ((UUID, String) -> Void)?
 
     init(sessionId: UUID, sessionViewModel: TerminalSessionViewModel) {
         self.sessionId = sessionId
@@ -21,7 +22,7 @@ final class TerminalContentViewController: NSViewController {
     }
 
     override func loadView() {
-        let tv = LocalProcessTerminalView(frame: NSRect(x: 0, y: 0, width: 600, height: 300))
+        let tv = LoggingLocalProcessTerminalView(frame: NSRect(x: 0, y: 0, width: 600, height: 300))
         tv.translatesAutoresizingMaskIntoConstraints = false
         tv.processDelegate = self
         self.terminalView = tv
@@ -97,10 +98,14 @@ extension TerminalContentViewController: LocalProcessTerminalViewDelegate {
 
     func setTerminalTitle(source: LocalProcessTerminalView, title: String) {
         sessionViewModel.outputReceived()
+        onOutputReceived?(sessionId, title)
     }
 
     func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {
         sessionViewModel.outputReceived()
+        if let directory {
+            onOutputReceived?(sessionId, directory)
+        }
     }
 
     func processTerminated(source: TerminalView, exitCode: Int32?) {

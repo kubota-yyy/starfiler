@@ -1,14 +1,24 @@
 import Foundation
 
-enum TerminalSessionStatus: String, Sendable {
+enum TerminalSessionStatus: String, Sendable, Codable {
     case launching
     case running
     case waitingForInput
     case completed
     case error
+    case stopped
+
+    var isActive: Bool {
+        switch self {
+        case .launching, .running, .waitingForInput:
+            return true
+        case .completed, .error, .stopped:
+            return false
+        }
+    }
 }
 
-enum TerminalSessionCommand: String, Sendable {
+enum TerminalSessionCommand: String, Sendable, Codable {
     case claude
     case codex
 
@@ -36,12 +46,16 @@ struct TerminalSession: Identifiable, Sendable {
     var exitCode: Int32?
     let createdAt: Date
     var lastActivityAt: Date
+    var isPinned: Bool
+    var lastOpenedAt: Date
+    var updatedAt: Date
 
     init(
         id: UUID = UUID(),
         title: String? = nil,
         command: TerminalSessionCommand,
-        workingDirectory: URL
+        workingDirectory: URL,
+        isPinned: Bool = false
     ) {
         self.id = id
         self.title = title ?? command.displayName
@@ -49,7 +63,11 @@ struct TerminalSession: Identifiable, Sendable {
         self.command = command
         self.workingDirectory = workingDirectory
         self.exitCode = nil
-        self.createdAt = Date()
-        self.lastActivityAt = Date()
+        let now = Date()
+        self.createdAt = now
+        self.lastActivityAt = now
+        self.isPinned = isPinned
+        self.lastOpenedAt = now
+        self.updatedAt = now
     }
 }

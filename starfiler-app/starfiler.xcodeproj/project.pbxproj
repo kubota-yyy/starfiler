@@ -149,6 +149,11 @@
 		EE000000000000000000A002 /* TestURLFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A002 /* TestURLFactory.swift */; };
 		EE000000000000000000A003 /* AsyncTestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A003 /* AsyncTestHelpers.swift */; };
 		EE000000000000000000A004 /* MockPinnedItemsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A004 /* MockPinnedItemsService.swift */; };
+		CC0000000000000000000075 /* TerminalSessionsConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000075 /* TerminalSessionsConfig.swift */; };
+		CC0000000000000000000076 /* TerminalSessionManagerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000076 /* TerminalSessionManagerViewModel.swift */; };
+		CC0000000000000000000077 /* TerminalSessionManagerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000077 /* TerminalSessionManagerViewController.swift */; };
+		CC0000000000000000000078 /* LoggingLocalProcessTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000078 /* LoggingLocalProcessTerminalView.swift */; };
+		CC0000000000000000000079 /* TerminalSessionManagerWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000079 /* TerminalSessionManagerWindowController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -315,6 +320,11 @@
 		FF000000000000000000A002 /* TestURLFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestURLFactory.swift; sourceTree = "<group>"; };
 		FF000000000000000000A003 /* AsyncTestHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AsyncTestHelpers.swift; sourceTree = "<group>"; };
 		FF000000000000000000A004 /* MockPinnedItemsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockPinnedItemsService.swift; sourceTree = "<group>"; };
+		BB0000000000000000000075 /* TerminalSessionsConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionsConfig.swift; sourceTree = "<group>"; };
+		BB0000000000000000000076 /* TerminalSessionManagerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionManagerViewModel.swift; sourceTree = "<group>"; };
+		BB0000000000000000000077 /* TerminalSessionManagerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionManagerViewController.swift; sourceTree = "<group>"; };
+		BB0000000000000000000078 /* LoggingLocalProcessTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingLocalProcessTerminalView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000079 /* TerminalSessionManagerWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionManagerWindowController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -418,6 +428,7 @@
 			children = (
 				BB0000000000000000000002 /* MainWindowController.swift */,
 				BB0000000000000000000056 /* TerminalSessionWindowController.swift */,
+				BB0000000000000000000079 /* TerminalSessionManagerWindowController.swift */,
 			);
 			path = Windows;
 			sourceTree = "<group>";
@@ -477,6 +488,7 @@
 				BB0000000000000000000040 /* BookmarkSearchViewModel.swift */,
 				BB000000000000000000004F /* TerminalSessionListViewModel.swift */,
 				BB0000000000000000000050 /* TerminalSessionViewModel.swift */,
+				BB0000000000000000000076 /* TerminalSessionManagerViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -571,6 +583,7 @@
 				BB0000000000000000000034 /* SyncletsConfig.swift */,
 				BB000000000000000000003D /* VisitHistoryConfig.swift */,
 				BB0000000000000000000072 /* PinnedItemsConfig.swift */,
+				BB0000000000000000000075 /* TerminalSessionsConfig.swift */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -685,6 +698,8 @@
 				BB0000000000000000000052 /* TerminalSessionCellView.swift */,
 				BB0000000000000000000053 /* TerminalSessionListView.swift */,
 				BB0000000000000000000054 /* TerminalPanelViewController.swift */,
+				BB0000000000000000000077 /* TerminalSessionManagerViewController.swift */,
+				BB0000000000000000000078 /* LoggingLocalProcessTerminalView.swift */,
 			);
 			path = Terminal;
 			sourceTree = "<group>";
@@ -1049,6 +1064,11 @@
 				CC0000000000000000000073 /* PinnedItem.swift in Sources */,
 				CC0000000000000000000074 /* PinnedItemsService.swift in Sources */,
 				26291D95CC1DE84D46C97B18 /* GlobalActionRouter.swift in Sources */,
+				CC0000000000000000000075 /* TerminalSessionsConfig.swift in Sources */,
+				CC0000000000000000000076 /* TerminalSessionManagerViewModel.swift in Sources */,
+				CC0000000000000000000077 /* TerminalSessionManagerViewController.swift in Sources */,
+				CC0000000000000000000078 /* LoggingLocalProcessTerminalView.swift in Sources */,
+				CC0000000000000000000079 /* TerminalSessionManagerWindowController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

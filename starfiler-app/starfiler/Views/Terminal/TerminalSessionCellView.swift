@@ -71,6 +71,7 @@ final class TerminalSessionCellView: NSTableCellView {
         case .waitingForInput: return .systemYellow
         case .completed: return .systemGray
         case .error: return .systemRed
+        case .stopped: return .systemGray
         }
     }
 
