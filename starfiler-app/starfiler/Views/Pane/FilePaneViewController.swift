@@ -2031,26 +2031,40 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
                 color: palette.starGlowColor, size: 4, duration: 0.25)
         }
 
-        guard shouldAdvanceCursorAfterSpaceMark(
+        guard let destinationCursorIndex = destinationCursorIndexAfterSpaceMark(
             itemCount: itemCount,
             cursorIndexBeforeToggle: cursorIndexBeforeToggle
         ) else {
             return
         }
 
-        viewModel.setCursor(index: cursorIndexBeforeToggle + 1)
+        viewModel.setCursor(index: destinationCursorIndex)
     }
 
-    private func shouldAdvanceCursorAfterSpaceMark(itemCount: Int, cursorIndexBeforeToggle: Int) -> Bool {
-        guard itemCount > 0, cursorIndexBeforeToggle + 1 < itemCount else {
-            return false
+    private func destinationCursorIndexAfterSpaceMark(itemCount: Int, cursorIndexBeforeToggle: Int) -> Int? {
+        guard itemCount > 0 else {
+            return nil
         }
 
         guard let keyEvent = NSApp.currentEvent?.keyEvent else {
-            return false
+            return nil
         }
 
-        return keyEvent.key == "Space" && keyEvent.modifiers.isEmpty
+        guard keyEvent.key == "Space" else {
+            return nil
+        }
+
+        if keyEvent.modifiers.isEmpty {
+            let nextIndex = cursorIndexBeforeToggle + 1
+            return nextIndex < itemCount ? nextIndex : nil
+        }
+
+        if keyEvent.modifiers == [.shift] {
+            let previousIndex = cursorIndexBeforeToggle - 1
+            return previousIndex >= 0 ? previousIndex : nil
+        }
+
+        return nil
     }
 
     @objc
