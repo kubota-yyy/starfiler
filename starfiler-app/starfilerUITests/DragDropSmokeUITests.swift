@@ -28,4 +28,20 @@ final class DragDropSmokeUITests: BaseUITestCase {
         XCTAssertTrue(targetTable.exists)
         XCTAssertTrue(app.windows.firstMatch.exists)
     }
+
+    func testSamePaneFileToFolderDragDropSmoke() {
+        let table = focusFileTable()
+        XCTAssertTrue(table.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(table.cells.count, 2, "Expected at least 2 cells for same-pane drag test")
+
+        let sourceCell = table.cells.element(boundBy: 0)
+        let targetCell = table.cells.element(boundBy: 1)
+        XCTAssertTrue(sourceCell.waitForExistence(timeout: 5))
+        XCTAssertTrue(targetCell.waitForExistence(timeout: 5))
+
+        sourceCell.press(forDuration: 1.0, thenDragTo: targetCell)
+
+        XCTAssertTrue(table.exists)
+        XCTAssertTrue(app.windows.firstMatch.exists)
+    }
 }
