@@ -1254,7 +1254,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     private func dropDestinationDirectory(for draggingInfo: NSDraggingInfo) -> URL? {
         let dropPoint = tableView.convert(draggingInfo.draggingLocation, from: nil)
-        let row = tableView.row(at: dropPoint)
+        let row = dropDestinationRow(at: dropPoint)
         guard viewModel.directoryContents.displayedItems.indices.contains(row) else {
             return nil
         }
@@ -1265,6 +1265,22 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         return item.url.standardizedFileURL
+    }
+
+    private func dropDestinationRow(at point: NSPoint) -> Int {
+        let directRow = tableView.row(at: point)
+        if directRow >= 0 {
+            return directRow
+        }
+
+        let probeRect = NSRect(
+            x: tableView.bounds.minX,
+            y: point.y,
+            width: max(tableView.bounds.width, 1),
+            height: 1
+        )
+        let intersectingRows = tableView.rows(in: probeRect)
+        return intersectingRows.location == NSNotFound ? -1 : intersectingRows.location
     }
 
     private func bindViewModel() {
