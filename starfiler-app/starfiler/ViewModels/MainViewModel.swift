@@ -437,6 +437,45 @@ final class MainViewModel {
         )
     }
 
+    @discardableResult
+    func executeExternalFileOperation(_ operation: FileOperation) async throws -> FileOperationRecord {
+        suspendDirectoryMonitoring()
+        defer {
+            resumeDirectoryMonitoring()
+        }
+
+        let stream = await fileOperationQueue.enqueue(operation: operation)
+        var completedRecord: FileOperationRecord?
+        var failedError: FileOperationError?
+
+        for await progress in stream {
+            switch progress {
+            case .progress:
+                break
+            case .completed(let record):
+                lastOperationError = nil
+                registerUndo(for: record)
+                refreshPanesAfterFileOperation()
+                onFileOperationCompleted?(record, .normal)
+                completedRecord = record
+            case .failed(let error):
+                lastOperationError = error.message
+                onFileOperationFailed?(error.message)
+                failedError = error
+            }
+        }
+
+        if let failedError {
+            throw failedError
+        }
+
+        guard let completedRecord else {
+            throw FileOperationError(message: "File operation did not complete.")
+        }
+
+        return completedRecord
+    }
+
     func undo() {
         if let undoManager, undoManager.canUndo {
             undoManager.undo()

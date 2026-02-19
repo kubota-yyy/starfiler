@@ -6,6 +6,7 @@ final class FileDropTarget: NSObject {
     private let dropDestinationDirectoryProvider: ((NSDraggingInfo) -> URL?)?
     private let fileManager: FileManager
 
+    var performFileOperation: ((FileOperation) async throws -> Void)?
     var onHighlightChanged: ((Bool) -> Void)?
     var onDropCompleted: ((NSDragOperation, Int) -> Void)?
     var onDropFailed: ((String) -> Void)?
@@ -108,7 +109,11 @@ final class FileDropTarget: NSObject {
             }
 
             do {
-                _ = try await self.fileOperationService.execute(fileOperation) { _, _, _ in }
+                if let performFileOperation = self.performFileOperation {
+                    try await performFileOperation(fileOperation)
+                } else {
+                    _ = try await self.fileOperationService.execute(fileOperation) { _, _, _ in }
+                }
 
                 await MainActor.run {
                     self.onHighlightChanged?(false)

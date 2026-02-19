@@ -291,6 +291,11 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     var onFileOperationRequested: ((KeyAction) -> Bool)?
     var onBookmarkJump: ((String) -> Void)?
     var onDropOperationCompleted: ((NSDragOperation, Int) -> Void)?
+    var onDropFileOperationRequested: ((FileOperation) async throws -> Void)? {
+        didSet {
+            fileDropTarget.performFileOperation = onDropFileOperationRequested
+        }
+    }
     var onSpotlightSearchScopeChanged: ((SpotlightSearchScope) -> Void)?
     var onFileIconSizeChanged: ((CGFloat) -> Void)?
     var onMarkdownPreviewRequested: (([URL]) -> Void)?

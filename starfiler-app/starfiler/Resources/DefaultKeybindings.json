@@ -61,6 +61,7 @@
       "Ctrl-s Ctrl-o": "sortBySelectionOrder",
       "Ctrl-s Ctrl-r": "reverseSortOrder",
       "Ctrl-U": "undo",
+      "Cmd-z": "undo",
       "Ctrl-7": "openBookmarkSearch",
       "Ctrl-r": "openFileInFinder",
       "Ctrl-b": "addBookmark",

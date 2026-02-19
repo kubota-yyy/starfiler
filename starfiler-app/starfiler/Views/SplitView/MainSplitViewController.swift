@@ -743,6 +743,16 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
         pane.onDropOperationCompleted = { [weak self] operation, itemCount in
             self?.handleDropOperationCompleted(operation: operation, itemCount: itemCount)
         }
+        pane.onDropFileOperationRequested = { [weak self] operation in
+            guard let self else {
+                return
+            }
+
+            await MainActor.run {
+                self.setActivePane(side)
+            }
+            _ = try await self.viewModel.executeExternalFileOperation(operation)
+        }
         pane.onSpotlightSearchScopeChanged = { [weak self] scope in
             self?.handleSpotlightSearchScopeChanged(scope)
         }

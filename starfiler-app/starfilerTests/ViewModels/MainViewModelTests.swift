@@ -424,6 +424,44 @@ final class MainViewModelTests: XCTestCase {
         XCTAssertNotNil(capturedRecord)
     }
 
+    // MARK: - External File Operation
+
+    func testExecuteExternalFileOperationEnqueuesAndReturnsRecord() async throws {
+        let sut = makeSUT()
+        await waitForLoad()
+
+        let source = URL(fileURLWithPath: "/tmp/source.txt")
+        let expectedRecord = FileOperationRecord(
+            operation: .trash(items: [source]),
+            result: .trashed([FileLocationChange(source: source, destination: source)]),
+            timestamp: Date(),
+            undoOperation: .move(items: [FileLocationChange(source: source, destination: source)])
+        )
+        mockExecutor.executeResult = .success(expectedRecord)
+
+        let record = try await sut.executeExternalFileOperation(.trash(items: [source]))
+
+        XCTAssertEqual(record.operation, expectedRecord.operation)
+        XCTAssertEqual(mockExecutor.executeCallCount, 1)
+    }
+
+    func testExecuteExternalFileOperationPropagatesFailure() async {
+        let sut = makeSUT()
+        await waitForLoad()
+        mockExecutor.executeResult = .failure(
+            NSError(domain: "MainViewModelTests", code: 99, userInfo: [NSLocalizedDescriptionKey: "expected"])
+        )
+
+        do {
+            _ = try await sut.executeExternalFileOperation(.trash(items: [URL(fileURLWithPath: "/tmp/fail.txt")]))
+            XCTFail("Expected executeExternalFileOperation to throw")
+        } catch {
+            // expected
+        }
+
+        XCTAssertEqual(mockExecutor.executeCallCount, 1)
+    }
+
     // MARK: - Toggle Pin
 
     func testTogglePinForActivePanePinsCurrentDirectory() async {

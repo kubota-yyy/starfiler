@@ -9,6 +9,7 @@ final class DefaultShortcutCoverageTests: XCTestCase {
         XCTAssertEqual(normalBindings["Space"], "toggleMark")
         XCTAssertEqual(normalBindings["Shift-Space"], "toggleMark")
         XCTAssertEqual(normalBindings["Ctrl-p"], "togglePreview")
+        XCTAssertEqual(normalBindings["Cmd-z"], "undo")
     }
 
     func testDefaultBindingsCoverAllKeyActions() throws {
