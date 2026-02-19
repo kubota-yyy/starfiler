@@ -185,9 +185,14 @@ final class FileDropTarget: NSObject {
     }
 
     private func fileURLs(from sender: NSDraggingInfo) -> [URL]? {
-        sender.draggingPasteboard.readObjects(
+        if let urls = sender.draggingPasteboard.readObjects(
             forClasses: [NSURL.self],
             options: [.urlReadingFileURLsOnly: true]
-        ) as? [URL]
+        ) as? [URL], !urls.isEmpty {
+            return urls
+        }
+
+        let localDragURLs = FileDragSource.currentLocalDragURLs
+        return localDragURLs.isEmpty ? nil : localDragURLs
     }
 }

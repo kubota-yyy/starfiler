@@ -1253,8 +1253,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private func dropDestinationDirectory(for draggingInfo: NSDraggingInfo) -> URL? {
-        let dropPoint = tableView.convert(draggingInfo.draggingLocation, from: nil)
-        let row = dropDestinationRow(at: dropPoint)
+        let row = dropDestinationRow(for: draggingInfo)
         guard viewModel.directoryContents.displayedItems.indices.contains(row) else {
             return nil
         }
@@ -1265,6 +1264,32 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         return item.url.standardizedFileURL
+    }
+
+    private func dropDestinationRow(for draggingInfo: NSDraggingInfo) -> Int {
+        let draggingPoint = draggingInfo.draggingLocation
+        var candidatePoints: [NSPoint] = []
+
+        // Most destinations receive draggingLocation in window coordinates.
+        candidatePoints.append(tableView.convert(draggingPoint, from: nil))
+
+        // Some environments can report screen coordinates.
+        if let window = tableView.window {
+            let windowPoint = window.convertPoint(fromScreen: draggingPoint)
+            candidatePoints.append(tableView.convert(windowPoint, from: nil))
+        }
+
+        // Fallback for cases where draggingLocation is already local coordinates.
+        candidatePoints.append(draggingPoint)
+
+        for point in candidatePoints {
+            let row = dropDestinationRow(at: point)
+            if row >= 0 {
+                return row
+            }
+        }
+
+        return -1
     }
 
     private func dropDestinationRow(at point: NSPoint) -> Int {

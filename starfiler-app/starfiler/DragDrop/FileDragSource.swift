@@ -1,6 +1,12 @@
 import AppKit
 
 final class FileDragSource: NSObject, NSDraggingSource {
+    private static var localDragURLs: [URL] = []
+
+    static var currentLocalDragURLs: [URL] {
+        localDragURLs
+    }
+
     func beginDragging(from sourceView: NSView, with event: NSEvent, urls: [URL], draggingFrame: NSRect? = nil) -> Bool {
         let normalizedURLs = urls.map(\.standardizedFileURL)
         guard !normalizedURLs.isEmpty else {
@@ -17,6 +23,8 @@ final class FileDragSource: NSObject, NSDraggingSource {
             draggingItem.setDraggingFrame(frame, contents: icon)
             return draggingItem
         }
+
+        Self.localDragURLs = normalizedURLs
 
         let session = sourceView.beginDraggingSession(with: draggingItems, event: event, source: self)
         session.animatesToStartingPositionsOnCancelOrFail = true
@@ -49,5 +57,9 @@ final class FileDragSource: NSObject, NSDraggingSource {
 
     func ignoreModifierKeys(for session: NSDraggingSession) -> Bool {
         false
+    }
+
+    func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
+        Self.localDragURLs = []
     }
 }
