@@ -1065,6 +1065,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         let doubleClickGesture = NSClickGestureRecognizer(target: self, action: #selector(handleMediaDoubleClick(_:)))
         doubleClickGesture.numberOfClicksRequired = 2
+        doubleClickGesture.delaysPrimaryMouseButtonEvents = false
         mediaCollectionView.addGestureRecognizer(doubleClickGesture)
     }
 

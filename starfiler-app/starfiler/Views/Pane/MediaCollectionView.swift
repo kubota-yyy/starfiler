@@ -25,6 +25,10 @@ final class MediaCollectionView: NSCollectionView {
     private var isShortcutGuideVisible = false
     private static let minimumDragDistance: CGFloat = 5
 
+    override var acceptsFirstResponder: Bool {
+        true
+    }
+
     override func keyDown(with event: NSEvent) {
         normalizeFilterModeForKeyboardInputIfNeeded()
 
@@ -187,6 +191,8 @@ final class MediaCollectionView: NSCollectionView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        // Keep pane activation responsive on single-click selection.
+        _ = window?.makeFirstResponder(self)
         mouseDownLocation = convert(event.locationInWindow, from: nil)
         mouseDownEvent = event
         isDragging = false
