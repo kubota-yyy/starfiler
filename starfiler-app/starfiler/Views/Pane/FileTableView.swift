@@ -127,6 +127,26 @@ final class FileTableView: NSTableView {
             return
         }
 
+        if keyEvent.modifiers.isEmpty {
+            let treeAction: KeyAction?
+            switch keyEvent.key {
+            case "ArrowRight":
+                treeAction = .treeExpand
+            case "ArrowLeft":
+                treeAction = .treeCollapse
+            default:
+                treeAction = nil
+            }
+
+            if let treeAction,
+               keyActionDelegate?.fileTableView(self, didTrigger: treeAction) == true
+            {
+                keyInterpreter.clearPendingSequence()
+                endShortcutGuideIfNeeded()
+                return
+            }
+        }
+
         switch keyInterpreter.interpret(keyEvent) {
         case .action(let action):
             endShortcutGuideIfNeeded()

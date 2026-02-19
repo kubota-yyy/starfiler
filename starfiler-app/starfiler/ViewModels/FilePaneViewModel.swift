@@ -268,14 +268,6 @@ final class FilePaneViewModel {
         let url = item.url.standardizedFileURL
 
         if directoryContents.treeExpansionState.isExpanded(url) {
-            let currentIndex = paneState.cursorIndex
-            if currentIndex + 1 < directoryContents.displayedItems.count {
-                let nextItem = directoryContents.displayedItems[currentIndex + 1]
-                let nextTreeItem = directoryContents.displayedTreeItems[currentIndex + 1]
-                if nextTreeItem.parentURL == url {
-                    setCursor(index: currentIndex + 1)
-                }
-            }
             return
         }
 

@@ -262,6 +262,35 @@ final class FilePaneViewModelTests: XCTestCase {
         XCTAssertTrue(sut.directoryContents.displayedItems.contains(where: { $0.url.standardizedFileURL == child.url.standardizedFileURL }))
     }
 
+    func testExpandSelectedFolderDoesNotMoveCursorWhenAlreadyExpanded() async {
+        let folder = makeFileItem(name: "Folder", isDirectory: true)
+        let child = FileItem(
+            url: folder.url.appendingPathComponent("inside.txt"),
+            name: "inside.txt",
+            isDirectory: false,
+            size: 1,
+            dateModified: Date(),
+            isHidden: false,
+            isSymlink: false,
+            isPackage: false
+        )
+
+        let sut = makeSUT(items: [folder])
+        await waitForLoad()
+
+        fileSystem.contentsOfDirectoryResult = .success([child])
+        sut.expandSelectedFolder()
+        await waitForCondition(timeout: 2.0, description: "Folder expansion before second expand") {
+            sut.directoryContents.displayedItems.contains(where: { $0.url.standardizedFileURL == child.url.standardizedFileURL })
+        }
+
+        XCTAssertEqual(sut.paneState.cursorIndex, 0)
+
+        sut.expandSelectedFolder()
+
+        XCTAssertEqual(sut.paneState.cursorIndex, 0)
+    }
+
     func testCollapseSelectedFolderHidesChildrenAfterExpansion() async {
         let folder = makeFileItem(name: "Folder", isDirectory: true)
         let child = FileItem(
