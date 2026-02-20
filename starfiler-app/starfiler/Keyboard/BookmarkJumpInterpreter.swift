@@ -36,7 +36,7 @@ struct BookmarkJumpInterpreter: Sendable {
         case awaitingSelection(prefix: [String])
     }
 
-    private let leaderKey: String = "'"
+    private let leaderKeys: Set<String> = ["'", "’", "‘", "＇"]
     private var bookmarksConfig: BookmarksConfig
     private(set) var state: State = .idle
 
@@ -54,7 +54,7 @@ struct BookmarkJumpInterpreter: Sendable {
 
         switch state {
         case .idle:
-            if event.key == leaderKey {
+            if isLeaderKey(event.key) {
                 guard !targets.isEmpty else {
                     reset()
                     return .unhandled
@@ -213,5 +213,9 @@ struct BookmarkJumpInterpreter: Sendable {
 
     private func hasMatchingTarget(for prefix: [String], in targets: [BookmarkJumpTarget]) -> Bool {
         !matchingTargets(for: prefix, in: targets).isEmpty
+    }
+
+    private func isLeaderKey(_ key: String) -> Bool {
+        leaderKeys.contains(key)
     }
 }

@@ -373,4 +373,26 @@ final class KeyInterpreterTests: XCTestCase {
 
         XCTAssertEqual(result, .jumpTo(path: "/Users/workspace/RWD/rwd/docs/unity"))
     }
+
+    func testBookmarkJumpSupportsCurlyApostropheLeader() {
+        let config = BookmarksConfig(groups: [
+            BookmarkGroup(
+                name: "Default",
+                entries: [
+                    BookmarkEntry(displayName: "workspace", path: "/Users/workspace", shortcutKey: "w")
+                ],
+                shortcutKey: nil,
+                isDefault: true
+            )
+        ])
+        var interpreter = makeBookmarkJumpInterpreter(config: config)
+
+        let pending = interpreter.interpret(KeyEvent(key: "’"))
+        guard case .pending = pending else {
+            return XCTFail("Expected pending result for curly apostrophe leader")
+        }
+
+        let result = interpreter.interpret(KeyEvent(key: "w"))
+        XCTAssertEqual(result, .jumpTo(path: "/Users/workspace"))
+    }
 }
