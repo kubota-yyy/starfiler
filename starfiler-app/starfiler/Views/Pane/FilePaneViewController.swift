@@ -281,6 +281,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private let disableAnimationsForUITest = ProcessInfo.processInfo.arguments.contains("--disable-animations")
     private weak var lastCursorRippleLayer: CALayer?
     private var isSearchFieldFocused = false
+    private var pendingBreadcrumbDirectoryURL: URL?
+    private var lastAppliedBreadcrumbDirectoryURL: URL?
+    private var isBreadcrumbUpdateScheduled = false
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
     var onSelectionChanged: ((FileItem?) -> Void)?
@@ -1424,21 +1427,48 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     private func publishStatus() {
         let directoryURL = viewModel.paneState.currentDirectory.standardizedFileURL
-        updateBreadcrumbs(for: directoryURL)
+        scheduleBreadcrumbUpdate(for: directoryURL)
         onStatusChanged?(directoryURL.path, viewModel.directoryContents.displayedItems.count, viewModel.markedCount)
     }
 
-    private func updateBreadcrumbs(for directoryURL: URL) {
-        for subview in breadcrumbStackView.arrangedSubviews {
-            breadcrumbStackView.removeArrangedSubview(subview)
-            subview.removeFromSuperview()
-        }
-
-        let pathComponents = directoryURL.pathComponents
-        guard !pathComponents.isEmpty else {
+    private func scheduleBreadcrumbUpdate(for directoryURL: URL) {
+        pendingBreadcrumbDirectoryURL = directoryURL
+        guard !isBreadcrumbUpdateScheduled else {
             return
         }
 
+        isBreadcrumbUpdateScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            self?.applyPendingBreadcrumbUpdate()
+        }
+    }
+
+    private func applyPendingBreadcrumbUpdate() {
+        isBreadcrumbUpdateScheduled = false
+        guard let directoryURL = pendingBreadcrumbDirectoryURL else {
+            return
+        }
+
+        pendingBreadcrumbDirectoryURL = nil
+
+        // Avoid tearing down and recreating arranged subviews when the path is unchanged.
+        guard directoryURL != lastAppliedBreadcrumbDirectoryURL else {
+            updateBreadcrumbAppearance()
+            return
+        }
+
+        updateBreadcrumbs(for: directoryURL)
+        lastAppliedBreadcrumbDirectoryURL = directoryURL
+    }
+
+    private func updateBreadcrumbs(for directoryURL: URL) {
+        let pathComponents = directoryURL.pathComponents
+        guard !pathComponents.isEmpty else {
+            breadcrumbStackView.setViews([], in: .leading)
+            return
+        }
+
+        var breadcrumbViews: [NSView] = []
         var currentURL = URL(fileURLWithPath: "/", isDirectory: true)
         for (index, component) in pathComponents.enumerated() {
             let title: String
@@ -1464,7 +1494,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             button.toolTip = targetURL.path
             button.setContentHuggingPriority(.required, for: .horizontal)
             button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            breadcrumbStackView.addArrangedSubview(button)
+            breadcrumbViews.append(button)
 
             if index < pathComponents.count - 1 {
                 let separator = NSTextField(labelWithString: ">")
@@ -1472,9 +1502,11 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
                 separator.alignment = .center
                 separator.setContentHuggingPriority(.required, for: .horizontal)
                 separator.setContentCompressionResistancePriority(.required, for: .horizontal)
-                breadcrumbStackView.addArrangedSubview(separator)
+                breadcrumbViews.append(separator)
             }
         }
+
+        breadcrumbStackView.setViews(breadcrumbViews, in: .leading)
         updateBreadcrumbAppearance()
     }
 
