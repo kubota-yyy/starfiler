@@ -206,6 +206,9 @@ final class FileTableView: NSTableView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        // Keep pane activation responsive on single-click selection/drag.
+        _ = window?.makeFirstResponder(self)
+
         let location = convert(event.locationInWindow, from: nil)
         if shouldHandleMouseDown?(event, location) == true {
             mouseDownLocation = nil

@@ -1214,7 +1214,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         tableView.setDraggingSourceOperationMask([.copy], forLocal: false)
         tableView.dragSourceHandler = fileDragSource
         tableView.dragURLsProvider = { [weak self] in
-            self?.viewModel.markedOrSelectedURLs() ?? []
+            self?.dragURLsForTableView() ?? []
         }
         tableView.dropTargetHandler = fileDropTarget
 
@@ -1253,6 +1253,30 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         fileDropTarget.onDropFailed = { [weak self] message in
             self?.presentDropError(message)
         }
+    }
+
+    private func dragURLsForTableView() -> [URL] {
+        if !viewModel.paneState.markedIndices.isEmpty {
+            return viewModel.markedOrSelectedURLs()
+        }
+
+        let displayedItems = viewModel.directoryContents.displayedItems
+        let selectedURLs = tableView.selectedRowIndexes.compactMap { row -> URL? in
+            guard displayedItems.indices.contains(row) else {
+                return nil
+            }
+            return displayedItems[row].url
+        }
+        if !selectedURLs.isEmpty {
+            return selectedURLs
+        }
+
+        let clickedRow = tableView.clickedRow
+        if displayedItems.indices.contains(clickedRow) {
+            return [displayedItems[clickedRow].url]
+        }
+
+        return viewModel.markedOrSelectedURLs()
     }
 
     private func dropDestinationDirectory(for draggingInfo: NSDraggingInfo) -> URL? {
