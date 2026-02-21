@@ -198,7 +198,7 @@ struct DirectoryContents: Sendable {
         into flatItems: inout [FileItem],
         treeItems: inout [TreeDisplayItem]
     ) {
-        guard let children = treeExpansionState.childrenByParent[parentURL] else {
+        guard let children = treeExpansionState.children(for: parentURL) else {
             return
         }
 

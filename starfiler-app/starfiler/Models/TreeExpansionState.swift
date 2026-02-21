@@ -5,20 +5,22 @@ struct TreeExpansionState: Sendable {
     private(set) var childrenByParent: [URL: [FileItem]] = [:]
 
     mutating func expand(_ url: URL, children: [FileItem]) {
-        expandedURLs.insert(url)
-        childrenByParent[url] = children
+        let normalizedURL = normalize(url)
+        expandedURLs.insert(normalizedURL)
+        childrenByParent[normalizedURL] = children
     }
 
     mutating func collapse(_ url: URL) {
-        expandedURLs.remove(url)
-        let directChildren = childrenByParent.removeValue(forKey: url) ?? []
+        let normalizedURL = normalize(url)
+        expandedURLs.remove(normalizedURL)
+        let directChildren = childrenByParent.removeValue(forKey: normalizedURL) ?? []
         for child in directChildren where child.isDirectory && !child.isPackage {
             collapse(child.url)
         }
     }
 
     func isExpanded(_ url: URL) -> Bool {
-        expandedURLs.contains(url)
+        expandedURLs.contains(normalize(url))
     }
 
     mutating func clear() {
@@ -27,9 +29,18 @@ struct TreeExpansionState: Sendable {
     }
 
     mutating func updateChildren(for url: URL, children: [FileItem]) {
-        guard expandedURLs.contains(url) else {
+        let normalizedURL = normalize(url)
+        guard expandedURLs.contains(normalizedURL) else {
             return
         }
-        childrenByParent[url] = children
+        childrenByParent[normalizedURL] = children
+    }
+
+    func children(for parentURL: URL) -> [FileItem]? {
+        childrenByParent[normalize(parentURL)]
+    }
+
+    private func normalize(_ url: URL) -> URL {
+        url.standardizedFileURL
     }
 }

@@ -353,6 +353,46 @@ final class DirectoryContentsTests: XCTestCase {
         XCTAssertEqual(contents.displayedItems[0].name, "photo.jpg")
     }
 
+    // MARK: - Tree Expansion
+
+    func testTreeExpansionResolvesUnicodeNormalizationDifferences() {
+        let folderURL = URL(string: "file:///test/%E3%82%AC/")!
+        XCTAssertNotEqual(folderURL, folderURL.standardizedFileURL)
+
+        let folder = FileItem(
+            url: folderURL,
+            name: "ガ",
+            isDirectory: true,
+            size: nil,
+            dateModified: nil,
+            isHidden: false,
+            isSymlink: false,
+            isPackage: false
+        )
+        let child = FileItem(
+            url: folderURL.appendingPathComponent("inside.txt", isDirectory: false),
+            name: "inside.txt",
+            isDirectory: false,
+            size: 1,
+            dateModified: nil,
+            isHidden: false,
+            isSymlink: false,
+            isPackage: false
+        )
+
+        var contents = DirectoryContents(
+            allItems: [folder],
+            sortDescriptor: .selection(ascending: true)
+        )
+        contents.treeExpansionState.expand(folderURL.standardizedFileURL, children: [child])
+        contents.recompute()
+
+        XCTAssertEqual(contents.displayedItems.map(\.name), ["ガ", "inside.txt"])
+        XCTAssertEqual(contents.displayedTreeItems.count, 2)
+        XCTAssertTrue(contents.displayedTreeItems[0].isExpanded)
+        XCTAssertEqual(contents.displayedTreeItems[1].depth, 1)
+    }
+
     // MARK: - Recompute
 
     func testRecompute() {
