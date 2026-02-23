@@ -517,6 +517,20 @@ final class FilePaneViewModel {
         paneState.markedIndices.removeAll()
     }
 
+    func setMarkedRange(anchorIndex: Int, currentIndex: Int) {
+        let count = directoryContents.displayedItems.count
+        guard count > 0 else {
+            paneState.markedIndices.removeAll()
+            return
+        }
+
+        let clampedAnchor = min(max(anchorIndex, 0), count - 1)
+        let clampedCurrent = min(max(currentIndex, 0), count - 1)
+        let lowerBound = min(clampedAnchor, clampedCurrent)
+        let upperBound = max(clampedAnchor, clampedCurrent)
+        paneState.markedIndices = IndexSet(integersIn: lowerBound ..< (upperBound + 1))
+    }
+
     func enterVisualMode() {
         guard !directoryContents.displayedItems.isEmpty else {
             paneState.visualAnchorIndex = nil

@@ -507,6 +507,24 @@ final class FilePaneViewModelTests: XCTestCase {
         XCTAssertEqual(sut.markedCount, 0)
     }
 
+    func testSetMarkedRangeMarksInclusiveRange() async {
+        let sut = makeSUT()
+        await waitForLoad()
+
+        sut.setMarkedRange(anchorIndex: 3, currentIndex: 1)
+
+        XCTAssertEqual(sut.paneState.markedIndices, IndexSet(integersIn: 1 ... 3))
+    }
+
+    func testSetMarkedRangeClampsToBounds() async {
+        let sut = makeSUT()
+        await waitForLoad()
+
+        sut.setMarkedRange(anchorIndex: -10, currentIndex: 99)
+
+        XCTAssertEqual(sut.paneState.markedIndices, IndexSet(integersIn: 0 ... 4))
+    }
+
     func testOnMarkedIndicesChangedCallbackFires() async {
         let sut = makeSUT()
         await waitForLoad()

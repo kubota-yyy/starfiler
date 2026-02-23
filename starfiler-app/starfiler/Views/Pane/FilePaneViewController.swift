@@ -284,6 +284,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private var pendingBreadcrumbDirectoryURL: URL?
     private var lastAppliedBreadcrumbDirectoryURL: URL?
     private var isBreadcrumbUpdateScheduled = false
+    private var rangeSelectionAnchorIndex: Int?
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
     var onSelectionChanged: ((FileItem?) -> Void)?
@@ -746,10 +747,18 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     func tableViewSelectionDidChange(_ notification: Notification) {
-        let selectedRow = tableView.selectedRow
+        let isShiftRangeSelection = isShiftMouseRangeSelectionEvent()
+        let selectedRow = isShiftRangeSelection ? tableView.clickedRow : tableView.selectedRow
         guard selectedRow >= 0 else {
             return
         }
+
+        if isShiftRangeSelection {
+            applyShiftRangeSelection(to: selectedRow)
+            return
+        }
+
+        rangeSelectionAnchorIndex = selectedRow
         viewModel.setCursor(index: selectedRow)
     }
 
@@ -817,6 +826,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         guard let indexPath = indexPaths.first else {
             return
         }
+        if isShiftMouseRangeSelectionEvent() {
+            applyShiftRangeSelection(to: indexPath.item)
+            return
+        }
+
+        rangeSelectionAnchorIndex = indexPath.item
         viewModel.setCursor(index: indexPath.item)
     }
 
@@ -837,6 +852,25 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     func mediaCollectionView(_ collectionView: MediaCollectionView, didTrigger action: KeyAction) -> Bool {
         handleKeyAction(action)
+    }
+
+    private func isShiftMouseRangeSelectionEvent() -> Bool {
+        guard let event = NSApp.currentEvent else {
+            return false
+        }
+
+        guard event.type == .leftMouseDown || event.type == .leftMouseUp else {
+            return false
+        }
+
+        let relevantModifiers = event.modifierFlags.intersection([.shift, .control, .option, .command])
+        return relevantModifiers == [.shift]
+    }
+
+    private func applyShiftRangeSelection(to targetIndex: Int) {
+        let anchor = rangeSelectionAnchorIndex ?? viewModel.paneState.cursorIndex
+        viewModel.setCursor(index: targetIndex)
+        viewModel.setMarkedRange(anchorIndex: anchor, currentIndex: targetIndex)
     }
 
     private func configureContainerAppearance() {
