@@ -786,6 +786,9 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
                 self?.presentSidebarBookmarkEditor(for: entry, sectionKind: sectionKind)
             case .deleteBookmark:
                 self?.deleteSidebarBookmark(entry, sectionKind: sectionKind)
+            case .unpinPinnedItem:
+                self?.sidebarViewModel.removePinnedEntry(entry)
+                self?.showActionToast("Unpinned \"\(entry.displayName)\"")
             }
         }
     }

@@ -4,6 +4,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     enum BookmarkContextAction {
         case editBookmark
         case deleteBookmark
+        case unpinPinnedItem
     }
 
     private final class BookmarkTreeNode: NSObject {
@@ -846,27 +847,36 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         let item = outlineView.item(atRow: clickedRow)
         guard let entry = sidebarEntry(from: item),
               let section = regularSection(for: item, in: outlineView),
-              supportsBookmarkContextMenu(for: section.kind) else {
+              supportsContextMenu(for: section.kind) else {
             return
         }
 
         outlineView.selectRowIndexes(IndexSet(integer: clickedRow), byExtendingSelection: false)
         contextMenuTarget = (section, entry)
 
-        let editItem = NSMenuItem(title: "Edit Bookmark…", action: #selector(handleEditBookmarkFromContextMenu(_:)), keyEquivalent: "")
-        editItem.target = self
-        menu.addItem(editItem)
+        switch section.kind {
+        case .favorites, .bookmarkGroup:
+            let editItem = NSMenuItem(title: "Edit Bookmark…", action: #selector(handleEditBookmarkFromContextMenu(_:)), keyEquivalent: "")
+            editItem.target = self
+            menu.addItem(editItem)
 
-        let deleteItem = NSMenuItem(title: "Delete Bookmark", action: #selector(handleDeleteBookmarkFromContextMenu(_:)), keyEquivalent: "")
-        deleteItem.target = self
-        menu.addItem(deleteItem)
+            let deleteItem = NSMenuItem(title: "Delete Bookmark", action: #selector(handleDeleteBookmarkFromContextMenu(_:)), keyEquivalent: "")
+            deleteItem.target = self
+            menu.addItem(deleteItem)
+        case .pinned:
+            let unpinItem = NSMenuItem(title: "Unpin", action: #selector(handleUnpinPinnedItemFromContextMenu(_:)), keyEquivalent: "")
+            unpinItem.target = self
+            menu.addItem(unpinItem)
+        case .recent:
+            return
+        }
     }
 
-    private func supportsBookmarkContextMenu(for sectionKind: SidebarViewModel.SectionKind) -> Bool {
+    private func supportsContextMenu(for sectionKind: SidebarViewModel.SectionKind) -> Bool {
         switch sectionKind {
-        case .favorites, .bookmarkGroup:
+        case .favorites, .bookmarkGroup, .pinned:
             return true
-        case .pinned, .recent:
+        case .recent:
             return false
         }
     }
@@ -887,5 +897,14 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         }
 
         onBookmarkContextActionRequested?(.deleteBookmark, contextMenuTarget.section.kind, contextMenuTarget.entry)
+    }
+
+    @objc
+    private func handleUnpinPinnedItemFromContextMenu(_ sender: Any?) {
+        guard let contextMenuTarget else {
+            return
+        }
+
+        onBookmarkContextActionRequested?(.unpinPinnedItem, contextMenuTarget.section.kind, contextMenuTarget.entry)
     }
 }
