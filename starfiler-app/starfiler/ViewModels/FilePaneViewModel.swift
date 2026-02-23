@@ -459,12 +459,6 @@ final class FilePaneViewModel {
             return
         }
 
-        if hasActiveFilter {
-            paneState.cursorIndex = 0
-            updateVisualSelectionForCurrentCursorIfNeeded()
-            return
-        }
-
         let clampedIndex = min(max(index, 0), directoryContents.displayedItems.count - 1)
         paneState.cursorIndex = clampedIndex
         updateVisualSelectionForCurrentCursorIfNeeded()

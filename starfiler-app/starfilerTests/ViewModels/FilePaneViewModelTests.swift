@@ -692,6 +692,26 @@ final class FilePaneViewModelTests: XCTestCase {
         XCTAssertEqual(sut.selectedItem?.name, "alpha-one.txt")
     }
 
+    func testSetCursorAllowsSelectingFilteredResult() async {
+        let items = [
+            makeFileItem(name: "alpha-one.txt"),
+            makeFileItem(name: "alpha-two.txt"),
+            makeFileItem(name: "beta.txt"),
+        ]
+        let sut = makeSUT(items: items)
+        await waitForLoad()
+
+        sut.setSortDescriptor(.selection(ascending: true))
+        sut.setFilterText("alpha")
+        XCTAssertEqual(sut.directoryContents.displayedItems.count, 2)
+        XCTAssertEqual(sut.paneState.cursorIndex, 0)
+
+        sut.setCursor(index: 1)
+
+        XCTAssertEqual(sut.paneState.cursorIndex, 1)
+        XCTAssertEqual(sut.selectedItem?.name, "alpha-two.txt")
+    }
+
     // MARK: - Sort
 
     func testSetSortDescriptorResorts() async {
