@@ -10,11 +10,13 @@
 		26291D95CC1DE84D46C97B18 /* GlobalActionRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB62D59F8B8F0D0859950655 /* GlobalActionRouter.swift */; };
 		41EE05820918C9D664F40420 /* FeatureRegressionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCA70B511E56E61D85B994DC /* FeatureRegressionUITests.swift */; };
 		45DFBE0D6C1ABE4E2390F550 /* SecurityScopedBookmarkServiceIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02AAF2688F1616CD1D0FD85C /* SecurityScopedBookmarkServiceIntegrationTests.swift */; };
+		47039FE7ECB2C497486CAADD /* TaskCenterEntryRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D676FD68894D5E45182BC14 /* TaskCenterEntryRowView.swift */; };
 		609C81EFEC2EC739DF00A1A9 /* GlobalActionRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 060024D18787057241DAE6D4 /* GlobalActionRouterTests.swift */; };
 		817C3301D10A09566C8D98B5 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 060CBF0D5054826A7CCFB945 /* Cocoa.framework */; };
 		893B9717C9949290E99BE6E0 /* DefaultShortcutCoverageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2533AA15ECD04A067DEC511D /* DefaultShortcutCoverageTests.swift */; };
 		8A3765E00AAE2C3258403B70 /* DragDropSmokeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 756FB87F81BD373FD51CB70A /* DragDropSmokeUITests.swift */; };
 		8E4331A82F9C8E9640C4A956 /* BaseUITestCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DA02617092C30A871EDC359 /* BaseUITestCase.swift */; };
+		95DC124F2E566D7FC0F5A7E2 /* TaskCenterEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD55A301B5172AC835D08ACF /* TaskCenterEntry.swift */; };
 		A044C0BCB493112E23403E93 /* ShortcutRegressionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 230E7EDA0891551B6E0419BC /* ShortcutRegressionUITests.swift */; };
 		A6F98E73AAE0447658073E71 /* SandboxFixtureWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 625BBF22ED7C8DF9F963DCEE /* SandboxFixtureWorkspace.swift */; };
 		BA1730EC76F454E2A789144E /* FileOperationServiceIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8744C2A33062020B5AC45A7 /* FileOperationServiceIntegrationTests.swift */; };
@@ -116,6 +118,14 @@
 		CC0000000000000000000072 /* PinnedItemsConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000072 /* PinnedItemsConfig.swift */; };
 		CC0000000000000000000073 /* PinnedItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000073 /* PinnedItem.swift */; };
 		CC0000000000000000000074 /* PinnedItemsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000074 /* PinnedItemsService.swift */; };
+		CC0000000000000000000075 /* TerminalSessionsConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000075 /* TerminalSessionsConfig.swift */; };
+		CC0000000000000000000076 /* TerminalSessionManagerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000076 /* TerminalSessionManagerViewModel.swift */; };
+		CC0000000000000000000077 /* TerminalSessionManagerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000077 /* TerminalSessionManagerViewController.swift */; };
+		CC0000000000000000000078 /* LoggingLocalProcessTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000078 /* LoggingLocalProcessTerminalView.swift */; };
+		CC0000000000000000000079 /* TerminalSessionManagerWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000079 /* TerminalSessionManagerWindowController.swift */; };
+		D2D7B2A18F78C9CD87D8BA4B /* TaskCenterViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A274C82907F638E806D82CD /* TaskCenterViewModel.swift */; };
+		DD000000000000000000002A /* TerminalSessionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000001A /* TerminalSessionServiceTests.swift */; };
+		DD000000000000000000002B /* TerminalSessionManagerViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000001B /* TerminalSessionManagerViewModelTests.swift */; };
 		DF99C6034CD13D0468E0FD89 /* FileSystemServiceIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 876B6E0CED4A9C9FCAB9CF9C /* FileSystemServiceIntegrationTests.swift */; };
 		EE0000000000000000000001 /* NavigationHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000001 /* NavigationHistoryTests.swift */; };
 		EE0000000000000000000002 /* DirectoryContentsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000002 /* DirectoryContentsTests.swift */; };
@@ -145,17 +155,11 @@
 		EE0000000000000000000028 /* FileOperationQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000028 /* FileOperationQueueTests.swift */; };
 		EE0000000000000000000029 /* ConfigManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0000000000000000000029 /* ConfigManagerTests.swift */; };
 		EE000000000000000000002A /* PinnedItemsServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000002A /* PinnedItemsServiceTests.swift */; };
-		DD000000000000000000002A /* TerminalSessionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000001A /* TerminalSessionServiceTests.swift */; };
-		DD000000000000000000002B /* TerminalSessionManagerViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000001B /* TerminalSessionManagerViewModelTests.swift */; };
 		EE000000000000000000A001 /* FileItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A001 /* FileItemFactory.swift */; };
 		EE000000000000000000A002 /* TestURLFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A002 /* TestURLFactory.swift */; };
 		EE000000000000000000A003 /* AsyncTestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A003 /* AsyncTestHelpers.swift */; };
 		EE000000000000000000A004 /* MockPinnedItemsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000000000000000000A004 /* MockPinnedItemsService.swift */; };
-		CC0000000000000000000075 /* TerminalSessionsConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000075 /* TerminalSessionsConfig.swift */; };
-		CC0000000000000000000076 /* TerminalSessionManagerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000076 /* TerminalSessionManagerViewModel.swift */; };
-		CC0000000000000000000077 /* TerminalSessionManagerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000077 /* TerminalSessionManagerViewController.swift */; };
-		CC0000000000000000000078 /* LoggingLocalProcessTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000078 /* LoggingLocalProcessTerminalView.swift */; };
-		CC0000000000000000000079 /* TerminalSessionManagerWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000079 /* TerminalSessionManagerWindowController.swift */; };
+		F62B990D1CDE6CB6E6DB412B /* TaskCenterPopoverViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 203ECE8A9D19B20DB7058AB6 /* TaskCenterPopoverViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -180,10 +184,13 @@
 		060024D18787057241DAE6D4 /* GlobalActionRouterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GlobalActionRouterTests.swift; sourceTree = "<group>"; };
 		060CBF0D5054826A7CCFB945 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 		1DA02617092C30A871EDC359 /* BaseUITestCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BaseUITestCase.swift; sourceTree = "<group>"; };
+		203ECE8A9D19B20DB7058AB6 /* TaskCenterPopoverViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskCenterPopoverViewController.swift; sourceTree = "<group>"; };
 		230E7EDA0891551B6E0419BC /* ShortcutRegressionUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShortcutRegressionUITests.swift; sourceTree = "<group>"; };
 		2533AA15ECD04A067DEC511D /* DefaultShortcutCoverageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DefaultShortcutCoverageTests.swift; sourceTree = "<group>"; };
+		3D676FD68894D5E45182BC14 /* TaskCenterEntryRowView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskCenterEntryRowView.swift; sourceTree = "<group>"; };
 		625BBF22ED7C8DF9F963DCEE /* SandboxFixtureWorkspace.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SandboxFixtureWorkspace.swift; sourceTree = "<group>"; };
 		756FB87F81BD373FD51CB70A /* DragDropSmokeUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DragDropSmokeUITests.swift; sourceTree = "<group>"; };
+		7A274C82907F638E806D82CD /* TaskCenterViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskCenterViewModel.swift; sourceTree = "<group>"; };
 		876B6E0CED4A9C9FCAB9CF9C /* FileSystemServiceIntegrationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FileSystemServiceIntegrationTests.swift; sourceTree = "<group>"; };
 		A8744C2A33062020B5AC45A7 /* FileOperationServiceIntegrationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FileOperationServiceIntegrationTests.swift; sourceTree = "<group>"; };
 		BB0000000000000000000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -286,8 +293,16 @@
 		BB0000000000000000000072 /* PinnedItemsConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedItemsConfig.swift; sourceTree = "<group>"; };
 		BB0000000000000000000073 /* PinnedItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedItem.swift; sourceTree = "<group>"; };
 		BB0000000000000000000074 /* PinnedItemsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedItemsService.swift; sourceTree = "<group>"; };
+		BB0000000000000000000075 /* TerminalSessionsConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionsConfig.swift; sourceTree = "<group>"; };
+		BB0000000000000000000076 /* TerminalSessionManagerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionManagerViewModel.swift; sourceTree = "<group>"; };
+		BB0000000000000000000077 /* TerminalSessionManagerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionManagerViewController.swift; sourceTree = "<group>"; };
+		BB0000000000000000000078 /* LoggingLocalProcessTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingLocalProcessTerminalView.swift; sourceTree = "<group>"; };
+		BB0000000000000000000079 /* TerminalSessionManagerWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionManagerWindowController.swift; sourceTree = "<group>"; };
 		BCA70B511E56E61D85B994DC /* FeatureRegressionUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeatureRegressionUITests.swift; sourceTree = "<group>"; };
+		BD55A301B5172AC835D08ACF /* TaskCenterEntry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskCenterEntry.swift; sourceTree = "<group>"; };
 		DB62D59F8B8F0D0859950655 /* GlobalActionRouter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GlobalActionRouter.swift; sourceTree = "<group>"; };
+		DD000000000000000000001A /* TerminalSessionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionServiceTests.swift; sourceTree = "<group>"; };
+		DD000000000000000000001B /* TerminalSessionManagerViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionManagerViewModelTests.swift; sourceTree = "<group>"; };
 		E0EA844564F4E9B8E81C9467 /* starfilerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = starfilerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FF0000000000000000000001 /* NavigationHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationHistoryTests.swift; sourceTree = "<group>"; };
 		FF0000000000000000000002 /* DirectoryContentsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectoryContentsTests.swift; sourceTree = "<group>"; };
@@ -318,17 +333,10 @@
 		FF0000000000000000000028 /* FileOperationQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileOperationQueueTests.swift; sourceTree = "<group>"; };
 		FF0000000000000000000029 /* ConfigManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigManagerTests.swift; sourceTree = "<group>"; };
 		FF000000000000000000002A /* PinnedItemsServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedItemsServiceTests.swift; sourceTree = "<group>"; };
-		DD000000000000000000001A /* TerminalSessionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionServiceTests.swift; sourceTree = "<group>"; };
-		DD000000000000000000001B /* TerminalSessionManagerViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionManagerViewModelTests.swift; sourceTree = "<group>"; };
 		FF000000000000000000A001 /* FileItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileItemFactory.swift; sourceTree = "<group>"; };
 		FF000000000000000000A002 /* TestURLFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestURLFactory.swift; sourceTree = "<group>"; };
 		FF000000000000000000A003 /* AsyncTestHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AsyncTestHelpers.swift; sourceTree = "<group>"; };
 		FF000000000000000000A004 /* MockPinnedItemsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockPinnedItemsService.swift; sourceTree = "<group>"; };
-		BB0000000000000000000075 /* TerminalSessionsConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionsConfig.swift; sourceTree = "<group>"; };
-		BB0000000000000000000076 /* TerminalSessionManagerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionManagerViewModel.swift; sourceTree = "<group>"; };
-		BB0000000000000000000077 /* TerminalSessionManagerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionManagerViewController.swift; sourceTree = "<group>"; };
-		BB0000000000000000000078 /* LoggingLocalProcessTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingLocalProcessTerminalView.swift; sourceTree = "<group>"; };
-		BB0000000000000000000079 /* TerminalSessionManagerWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionManagerWindowController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -365,6 +373,15 @@
 				060CBF0D5054826A7CCFB945 /* Cocoa.framework */,
 			);
 			name = "OS X";
+			sourceTree = "<group>";
+		};
+		65590A6DDB49E9F765915A72 /* TaskCenter */ = {
+			isa = PBXGroup;
+			children = (
+				203ECE8A9D19B20DB7058AB6 /* TaskCenterPopoverViewController.swift */,
+				3D676FD68894D5E45182BC14 /* TaskCenterEntryRowView.swift */,
+			);
+			path = TaskCenter;
 			sourceTree = "<group>";
 		};
 		7B9EEF0DD0AACEB46DB90D2F /* Frameworks */ = {
@@ -453,6 +470,7 @@
 				AA0000000000000000000035 /* Effects */,
 				AA0000000000000000000036 /* MarkdownPreview */,
 				AA0000000000000000000037 /* Terminal */,
+				65590A6DDB49E9F765915A72 /* TaskCenter */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -493,6 +511,7 @@
 				BB000000000000000000004F /* TerminalSessionListViewModel.swift */,
 				BB0000000000000000000050 /* TerminalSessionViewModel.swift */,
 				BB0000000000000000000076 /* TerminalSessionManagerViewModel.swift */,
+				7A274C82907F638E806D82CD /* TaskCenterViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -535,6 +554,7 @@
 				BB0000000000000000000070 /* TreeExpansionState.swift */,
 				BB0000000000000000000071 /* TreeDisplayItem.swift */,
 				BB0000000000000000000073 /* PinnedItem.swift */,
+				BD55A301B5172AC835D08ACF /* TaskCenterEntry.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -1075,6 +1095,10 @@
 				CC0000000000000000000077 /* TerminalSessionManagerViewController.swift in Sources */,
 				CC0000000000000000000078 /* LoggingLocalProcessTerminalView.swift in Sources */,
 				CC0000000000000000000079 /* TerminalSessionManagerWindowController.swift in Sources */,
+				95DC124F2E566D7FC0F5A7E2 /* TaskCenterEntry.swift in Sources */,
+				D2D7B2A18F78C9CD87D8BA4B /* TaskCenterViewModel.swift in Sources */,
+				F62B990D1CDE6CB6E6DB412B /* TaskCenterPopoverViewController.swift in Sources */,
+				47039FE7ECB2C497486CAADD /* TaskCenterEntryRowView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

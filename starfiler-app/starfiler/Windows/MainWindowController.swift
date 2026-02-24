@@ -715,6 +715,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         mainSplitViewController.setShortcutGuideEnabled(shortcutGuideEnabled)
         mainContainerViewController.setStatusBarStarEffectsEnabled(effectiveStarEffects)
         mainContainerViewController.setStatusBarAnimationEffectSettings(effectiveAnimationSettings)
+        mainContainerViewController.bindTaskCenter(mainViewModel.taskCenter)
         window.contentViewController = mainContainerViewController
         renderFooterStatus()
         attachWindowControlButtons(to: window)

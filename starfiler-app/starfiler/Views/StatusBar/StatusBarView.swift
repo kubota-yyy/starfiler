@@ -3,12 +3,26 @@ import AppKit
 final class StatusBarView: NSView {
     private let primaryLabel = NSTextField(labelWithString: "")
     private let secondaryLabel = NSTextField(labelWithString: "")
+    private let taskCenterButton: NSButton = {
+        let button = NSButton()
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.bezelStyle = .inline
+        button.isBordered = false
+        button.imagePosition = .imageOnly
+        button.image = NSImage(systemSymbolName: "square.stack.3d.up", accessibilityDescription: "Task Center")
+        button.imageScaling = .scaleProportionallyDown
+        button.contentTintColor = .secondaryLabelColor
+        button.toolTip = "Task Center"
+        return button
+    }()
     private var currentTheme: FilerTheme = .system
     private var backgroundOpacity: CGFloat = 1.0
     private var previousMarkedCount: Int = 0
     private var previousSecondaryText: String = ""
     private var starEffectsEnabled = true
     private var animationEffectSettings = AnimationEffectSettings.allEnabled
+
+    var onTaskCenterButtonClicked: (() -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -40,6 +54,28 @@ final class StatusBarView: NSView {
         updateSecondaryText(secondaryText, accentuate: markedCount > oldMarkedCount)
     }
 
+    func updateTaskCenterIndicator(activeCount: Int, hasFailedEntries: Bool) {
+        if activeCount > 0 {
+            taskCenterButton.image = NSImage(
+                systemSymbolName: "arrow.triangle.2.circlepath",
+                accessibilityDescription: "Task Center - \(activeCount) active"
+            )
+            taskCenterButton.contentTintColor = .controlAccentColor
+        } else if hasFailedEntries {
+            taskCenterButton.image = NSImage(
+                systemSymbolName: "exclamationmark.triangle.fill",
+                accessibilityDescription: "Task Center - has failures"
+            )
+            taskCenterButton.contentTintColor = .systemYellow
+        } else {
+            taskCenterButton.image = NSImage(
+                systemSymbolName: "square.stack.3d.up",
+                accessibilityDescription: "Task Center"
+            )
+            taskCenterButton.contentTintColor = .secondaryLabelColor
+        }
+    }
+
     func setStarEffectsEnabled(_ enabled: Bool) {
         starEffectsEnabled = enabled
     }
@@ -64,6 +100,10 @@ final class StatusBarView: NSView {
         layer?.backgroundColor = palette.statusBarBackgroundColor.applyingBackgroundOpacity(backgroundOpacity).cgColor
     }
 
+    var taskCenterButtonView: NSView {
+        taskCenterButton
+    }
+
     private func setupView() {
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
@@ -79,19 +119,32 @@ final class StatusBarView: NSView {
         secondaryLabel.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         secondaryLabel.textColor = currentTheme.palette.statusBarTextColor
 
+        taskCenterButton.target = self
+        taskCenterButton.action = #selector(taskCenterButtonAction)
+
         addSubview(primaryLabel)
+        addSubview(taskCenterButton)
         addSubview(secondaryLabel)
 
         NSLayoutConstraint.activate([
             primaryLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
             primaryLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-            primaryLabel.trailingAnchor.constraint(lessThanOrEqualTo: secondaryLabel.leadingAnchor, constant: -12),
+            primaryLabel.trailingAnchor.constraint(lessThanOrEqualTo: taskCenterButton.leadingAnchor, constant: -8),
+
+            taskCenterButton.trailingAnchor.constraint(equalTo: secondaryLabel.leadingAnchor, constant: -6),
+            taskCenterButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            taskCenterButton.widthAnchor.constraint(equalToConstant: 20),
+            taskCenterButton.heightAnchor.constraint(equalToConstant: 20),
 
             secondaryLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
             secondaryLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
 
             heightAnchor.constraint(equalToConstant: 28)
         ])
+    }
+
+    @objc private func taskCenterButtonAction() {
+        onTaskCenterButtonClicked?()
     }
 
     private func updateSecondaryText(_ text: String, accentuate: Bool) {

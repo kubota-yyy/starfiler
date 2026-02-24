@@ -140,6 +140,7 @@ struct FileOperationService: FileOperationExecuting {
         changes.reserveCapacity(items.count)
 
         for (index, source) in items.enumerated() {
+            try Task.checkCancellation()
             let normalizedSource = source.standardizedFileURL
             let change = try copySingleItem(source: normalizedSource, destinationDirectory: normalizedDirectory)
             changes.append(change)
@@ -165,6 +166,7 @@ struct FileOperationService: FileOperationExecuting {
         movedChanges.reserveCapacity(items.count)
 
         for (index, item) in items.enumerated() {
+            try Task.checkCancellation()
             let source = item.source.standardizedFileURL
             if let change = try moveSingleItem(item) {
                 movedChanges.append(change)
@@ -187,6 +189,7 @@ struct FileOperationService: FileOperationExecuting {
         trashedChanges.reserveCapacity(items.count)
 
         for (index, source) in items.enumerated() {
+            try Task.checkCancellation()
             let normalizedSource = source.standardizedFileURL
             let change = try await trashSingleItem(source: normalizedSource)
             trashedChanges.append(change)
@@ -213,6 +216,7 @@ struct FileOperationService: FileOperationExecuting {
         var completedCount = 0
 
         for source in items {
+            try Task.checkCancellation()
             let normalizedSource = source.standardizedFileURL
 
             copyAttempt: while true {
@@ -274,6 +278,7 @@ struct FileOperationService: FileOperationExecuting {
         var completedCount = 0
 
         for item in items {
+            try Task.checkCancellation()
             let source = item.source.standardizedFileURL
             let destination = item.destination.standardizedFileURL
 
@@ -329,6 +334,7 @@ struct FileOperationService: FileOperationExecuting {
         var completedCount = 0
 
         for source in items {
+            try Task.checkCancellation()
             let normalizedSource = source.standardizedFileURL
 
             trashAttempt: while true {
@@ -475,6 +481,7 @@ struct FileOperationService: FileOperationExecuting {
 
         // Phase 2: Execute renames (using temp paths where needed)
         for (index, item) in items.enumerated() {
+            try Task.checkCancellation()
             let source = item.source.standardizedFileURL
             let destination = item.destination.standardizedFileURL
 

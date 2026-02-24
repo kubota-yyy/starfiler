@@ -145,4 +145,5 @@ enum OperationProgress: Sendable {
     case progress(completed: Int, total: Int, currentFile: URL)
     case completed(record: FileOperationRecord)
     case failed(error: FileOperationError)
+    case cancelled
 }

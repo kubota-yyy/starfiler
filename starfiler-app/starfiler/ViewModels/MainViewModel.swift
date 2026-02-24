@@ -27,6 +27,7 @@ final class MainViewModel {
     let pinnedItemsService: any PinnedItemsProviding
 
     private let fileOperationQueue: FileOperationQueue
+    let taskCenter: TaskCenterViewModel
 
     private(set) var activePaneSide: PaneSide
     var previewVisible: Bool
@@ -95,6 +96,7 @@ final class MainViewModel {
         )
 
         self.previewPane = PreviewViewModel()
+        self.taskCenter = TaskCenterViewModel()
         self.activePaneSide = .left
         self.previewVisible = initialPreviewVisible
         self.sidebarVisible = initialSidebarVisible
@@ -106,6 +108,21 @@ final class MainViewModel {
         self.onFileOperationCompleted = nil
         self.onFileOperationFailed = nil
         self.resolveFileOperationFailure = nil
+
+        taskCenter.onRetryRequested = { [weak self] operation in
+            self?.execute(
+                operation: operation,
+                registerUndoWithManager: true,
+                clearCutClipboardOnSuccess: false
+            )
+        }
+        taskCenter.onCancelRequested = { [weak self] entryID in
+            Task { [weak self] in
+                guard let self else { return }
+                await self.fileOperationQueue.cancelOperation(id: entryID)
+                self.taskCenter.markCancelled(id: entryID)
+            }
+        }
 
         leftPane.setShowHiddenFiles(initialShowHiddenFiles)
         rightPane.setShowHiddenFiles(initialShowHiddenFiles)
@@ -446,27 +463,36 @@ final class MainViewModel {
             resumeDirectoryMonitoring()
         }
 
-        let stream = await fileOperationQueue.enqueue(
+        let (entryID, stream) = await fileOperationQueue.enqueueTracked(
             operation: operation,
             failureResolver: makeFailureResolver()
         )
+        taskCenter.addEntry(id: entryID, operation: operation)
         var completedRecord: FileOperationRecord?
         var failedError: FileOperationError?
 
         for await progress in stream {
             switch progress {
-            case .progress:
-                break
+            case .progress(let completed, let total, let currentFile):
+                taskCenter.updateProgress(id: entryID, completed: completed, total: total, currentFile: currentFile)
             case .completed(let record):
                 lastOperationError = nil
                 registerUndo(for: record)
                 refreshPanesAfterFileOperation()
                 onFileOperationCompleted?(record, .normal)
+                taskCenter.markCompleted(id: entryID, record: record)
                 completedRecord = record
             case .failed(let error):
                 lastOperationError = error.message
                 onFileOperationFailed?(error.message)
+                taskCenter.markFailed(
+                    id: entryID,
+                    error: error,
+                    detail: makeErrorDetail(for: operation, error: error)
+                )
                 failedError = error
+            case .cancelled:
+                taskCenter.markCancelled(id: entryID)
             }
         }
 
@@ -507,11 +533,14 @@ final class MainViewModel {
                 self.resumeDirectoryMonitoring()
             }
 
-            let stream = await self.fileOperationQueue.enqueue(
+            let (entryID, stream) = await self.fileOperationQueue.enqueueTracked(
                 operation: operation,
                 failureResolver: self.makeFailureResolver()
             )
+            self.taskCenter.addEntry(id: entryID, operation: operation)
             await self.consume(
+                entryID: entryID,
+                operation: operation,
                 stream: stream,
                 registerUndoWithManager: registerUndoWithManager,
                 clearCutClipboardOnSuccess: clearCutClipboardOnSuccess,
@@ -530,7 +559,7 @@ final class MainViewModel {
             resumeDirectoryMonitoring()
         }
 
-        await consume(
+        await consumeUntracked(
             stream: stream,
             registerUndoWithManager: registerUndoWithManager,
             clearCutClipboardOnSuccess: false,
@@ -539,6 +568,47 @@ final class MainViewModel {
     }
 
     private func consume(
+        entryID: TaskCenterEntryID,
+        operation: FileOperation,
+        stream: AsyncStream<OperationProgress>,
+        registerUndoWithManager: Bool,
+        clearCutClipboardOnSuccess: Bool,
+        completionContext: FileOperationCompletionContext
+    ) async {
+        for await progress in stream {
+            switch progress {
+            case .progress(let completed, let total, let currentFile):
+                taskCenter.updateProgress(id: entryID, completed: completed, total: total, currentFile: currentFile)
+            case .completed(let record):
+                lastOperationError = nil
+
+                if registerUndoWithManager {
+                    registerUndo(for: record)
+                }
+
+                if clearCutClipboardOnSuccess {
+                    clipboard.removeAll()
+                    clipboardOperation = nil
+                }
+
+                refreshPanesAfterFileOperation()
+                onFileOperationCompleted?(record, completionContext)
+                taskCenter.markCompleted(id: entryID, record: record)
+            case .failed(let error):
+                lastOperationError = error.message
+                onFileOperationFailed?(error.message)
+                taskCenter.markFailed(
+                    id: entryID,
+                    error: error,
+                    detail: makeErrorDetail(for: operation, error: error)
+                )
+            case .cancelled:
+                taskCenter.markCancelled(id: entryID)
+            }
+        }
+    }
+
+    private func consumeUntracked(
         stream: AsyncStream<OperationProgress>,
         registerUndoWithManager: Bool,
         clearCutClipboardOnSuccess: Bool,
@@ -565,8 +635,53 @@ final class MainViewModel {
             case .failed(let error):
                 lastOperationError = error.message
                 onFileOperationFailed?(error.message)
+            case .cancelled:
+                break
             }
         }
+    }
+
+    private func makeErrorDetail(for operation: FileOperation, error: FileOperationError) -> TaskCenterErrorDetail {
+        let sourceURLs: [URL]
+        let destinationURL: URL?
+        switch operation {
+        case .copy(let items, let dest):
+            sourceURLs = items
+            destinationURL = dest
+        case .move(let items):
+            sourceURLs = items.map(\.source)
+            destinationURL = items.first?.destination
+        case .trash(let items):
+            sourceURLs = items
+            destinationURL = nil
+        case .rename(let item, _):
+            sourceURLs = [item]
+            destinationURL = nil
+        case .createDirectory(let parent, _):
+            sourceURLs = [parent]
+            destinationURL = nil
+        case .batchRename(let items):
+            sourceURLs = items.map(\.source)
+            destinationURL = items.first?.destination
+        }
+
+        let appVersion: String
+        if let short = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
+           let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
+            appVersion = "\(short) (\(build))"
+        } else {
+            appVersion = "unknown"
+        }
+
+        return TaskCenterErrorDetail(
+            operationType: operation.type,
+            sourceURLs: sourceURLs,
+            destinationURL: destinationURL,
+            errorMessage: error.message,
+            timestamp: Date(),
+            appVersion: appVersion,
+            macOSVersion: ProcessInfo.processInfo.operatingSystemVersionString
+        )
     }
 
     private func registerUndo(for record: FileOperationRecord) {

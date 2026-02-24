@@ -1,6 +1,6 @@
 import AppKit
 
-final class MainContainerViewController: NSSplitViewController {
+final class MainContainerViewController: NSSplitViewController, NSPopoverDelegate {
     private let mainSplitViewController: MainSplitViewController
     private let statusBarView = StatusBarView()
     private lazy var statusBarViewController: NSViewController = {
@@ -26,6 +26,9 @@ final class MainContainerViewController: NSSplitViewController {
         return item
     }()
 
+    private var taskCenterPopover: NSPopover?
+    private weak var taskCenterViewModel: TaskCenterViewModel?
+
     private static let statusBarHeight: CGFloat = 28
 
     init(
@@ -45,6 +48,10 @@ final class MainContainerViewController: NSSplitViewController {
         addSplitViewItem(mainSplitItem)
 
         addSplitViewItem(statusBarSplitItem)
+
+        statusBarView.onTaskCenterButtonClicked = { [weak self] in
+            self?.toggleTaskCenterPopover()
+        }
     }
 
     required init?(coder: NSCoder) {
@@ -65,5 +72,51 @@ final class MainContainerViewController: NSSplitViewController {
 
     func setStatusBarAnimationEffectSettings(_ settings: AnimationEffectSettings) {
         statusBarView.setAnimationEffectSettings(settings)
+    }
+
+    func bindTaskCenter(_ viewModel: TaskCenterViewModel) {
+        self.taskCenterViewModel = viewModel
+        viewModel.onActiveCountChanged = { [weak self, weak viewModel] activeCount in
+            let hasFailed = viewModel?.hasFailedEntries ?? false
+            self?.statusBarView.updateTaskCenterIndicator(activeCount: activeCount, hasFailedEntries: hasFailed)
+        }
+        viewModel.onHasFailedEntriesChanged = { [weak self, weak viewModel] hasFailed in
+            let activeCount = viewModel?.activeCount ?? 0
+            self?.statusBarView.updateTaskCenterIndicator(activeCount: activeCount, hasFailedEntries: hasFailed)
+        }
+        viewModel.onCopyErrorDetailRequested = { text in
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+        }
+    }
+
+    // MARK: - Task Center Popover
+
+    private func toggleTaskCenterPopover() {
+        if let popover = taskCenterPopover, popover.isShown {
+            popover.performClose(nil)
+            return
+        }
+
+        guard let viewModel = taskCenterViewModel else {
+            return
+        }
+
+        let contentController = TaskCenterPopoverViewController(viewModel: viewModel)
+
+        let popover = NSPopover()
+        popover.behavior = .semitransient
+        popover.animates = true
+        popover.delegate = self
+        popover.contentViewController = contentController
+
+        let anchorView = statusBarView.taskCenterButtonView
+        popover.show(relativeTo: anchorView.bounds, of: anchorView, preferredEdge: .maxY)
+        taskCenterPopover = popover
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        taskCenterPopover?.delegate = nil
+        taskCenterPopover = nil
     }
 }
