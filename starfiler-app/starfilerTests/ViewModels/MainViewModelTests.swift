@@ -43,12 +43,13 @@ final class MainViewModelTests: XCTestCase {
 
     private func makeSUT(
         initialLeftDirectory: URL? = nil,
-        initialRightDirectory: URL? = nil
+        initialRightDirectory: URL? = nil,
+        fileOperationQueue: FileOperationQueue? = nil
     ) -> MainViewModel {
         MainViewModel(
             fileSystemService: fileSystem,
             securityScopedBookmarkService: bookmarkService,
-            fileOperationQueue: fileOpQueue,
+            fileOperationQueue: fileOperationQueue ?? fileOpQueue,
             visitHistoryService: visitHistory,
             pinnedItemsService: MockPinnedItemsService(),
             initialLeftDirectory: initialLeftDirectory ?? testDir,
@@ -462,6 +463,81 @@ final class MainViewModelTests: XCTestCase {
         XCTAssertEqual(mockExecutor.executeCallCount, 1)
     }
 
+    func testExecuteExternalFileOperationInvokesFailureResolverWhenInteractiveExecutorIsUsed() async throws {
+        let interactiveExecutor = InteractiveMainViewModelFileOperationExecutor()
+        let queue = FileOperationQueue(executor: interactiveExecutor)
+        let sut = makeSUT(fileOperationQueue: queue)
+        await waitForLoad()
+
+        let source = URL(fileURLWithPath: "/tmp/source.txt")
+        let destination = URL(fileURLWithPath: "/tmp/destination", isDirectory: true)
+        interactiveExecutor.executeResult = .success(
+            FileOperationRecord(
+                operation: .copy(items: [source], destinationDirectory: destination),
+                result: .copied([]),
+                timestamp: Date(),
+                undoOperation: .trash(items: [])
+            )
+        )
+        interactiveExecutor.interactiveFailureContext = FileOperationFailureContext(
+            operationType: .copy,
+            sourceURL: source,
+            destinationURL: destination,
+            message: "mock failure"
+        )
+
+        let counter = AsyncInvocationCounter()
+        sut.resolveFileOperationFailure = { _ in
+            await counter.increment()
+            return FileOperationFailureDecision(action: .skip, applyToRemaining: false)
+        }
+
+        _ = try await sut.executeExternalFileOperation(.copy(items: [source], destinationDirectory: destination))
+
+        let resolverCallCount = await counter.value()
+        XCTAssertEqual(resolverCallCount, 1)
+        XCTAssertEqual(interactiveExecutor.executeInteractiveCallCount, 1)
+        XCTAssertEqual(sut.lastOperationError, nil)
+    }
+
+    func testRecoveredInteractiveFailureDoesNotTriggerOnFileOperationFailed() async throws {
+        let interactiveExecutor = InteractiveMainViewModelFileOperationExecutor()
+        let queue = FileOperationQueue(executor: interactiveExecutor)
+        let sut = makeSUT(fileOperationQueue: queue)
+        await waitForLoad()
+
+        let source = URL(fileURLWithPath: "/tmp/source.txt")
+        let destination = URL(fileURLWithPath: "/tmp/destination", isDirectory: true)
+        interactiveExecutor.executeResult = .success(
+            FileOperationRecord(
+                operation: .copy(items: [source], destinationDirectory: destination),
+                result: .copied([]),
+                timestamp: Date(),
+                undoOperation: .trash(items: [])
+            )
+        )
+        interactiveExecutor.interactiveFailureContext = FileOperationFailureContext(
+            operationType: .copy,
+            sourceURL: source,
+            destinationURL: destination,
+            message: "mock failure"
+        )
+
+        sut.resolveFileOperationFailure = { _ in
+            FileOperationFailureDecision(action: .skip, applyToRemaining: true)
+        }
+
+        var failureMessages: [String] = []
+        sut.onFileOperationFailed = { message in
+            failureMessages.append(message)
+        }
+
+        _ = try await sut.executeExternalFileOperation(.copy(items: [source], destinationDirectory: destination))
+
+        XCTAssertTrue(failureMessages.isEmpty)
+        XCTAssertEqual(sut.lastOperationError, nil)
+    }
+
     // MARK: - Toggle Pin
 
     func testTogglePinForActivePanePinsCurrentDirectory() async {
@@ -487,5 +563,52 @@ final class MainViewModelTests: XCTestCase {
         await waitForLoad()
 
         XCTAssertFalse(sut.isPinnedActiveItem())
+    }
+}
+
+private final class InteractiveMainViewModelFileOperationExecutor: InteractiveFileOperationExecuting, @unchecked Sendable {
+    var executeResult: Result<FileOperationRecord, Error> = .success(
+        FileOperationRecord(
+            operation: .trash(items: []),
+            result: .trashed([]),
+            timestamp: Date(),
+            undoOperation: .trash(items: [])
+        )
+    )
+
+    var interactiveFailureContext: FileOperationFailureContext?
+    private(set) var executeCallCount = 0
+    private(set) var executeInteractiveCallCount = 0
+
+    func execute(
+        _ operation: FileOperation,
+        progress: @escaping @Sendable (_ completed: Int, _ total: Int, _ currentFile: URL) -> Void
+    ) async throws -> FileOperationRecord {
+        executeCallCount += 1
+        return try executeResult.get()
+    }
+
+    func executeInteractive(
+        _ operation: FileOperation,
+        progress: @escaping @Sendable (_ completed: Int, _ total: Int, _ currentFile: URL) -> Void,
+        resolveFailure: @escaping (FileOperationFailureContext) async -> FileOperationFailureDecision
+    ) async throws -> FileOperationRecord {
+        executeInteractiveCallCount += 1
+        if let interactiveFailureContext {
+            _ = await resolveFailure(interactiveFailureContext)
+        }
+        return try executeResult.get()
+    }
+}
+
+private actor AsyncInvocationCounter {
+    private var valueStorage = 0
+
+    func increment() {
+        valueStorage += 1
+    }
+
+    func value() -> Int {
+        valueStorage
     }
 }

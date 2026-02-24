@@ -325,6 +325,12 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
                 informativeText: message
             )
         }
+        viewModel.resolveFileOperationFailure = { [weak self] context in
+            guard let self else {
+                return FileOperationFailureDecision(action: .abort, applyToRemaining: true)
+            }
+            return self.presentFileOperationFailureDecision(for: context)
+        }
 
         configureSplitView()
         bindPaneControllers()
@@ -811,8 +817,11 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
     private func handleGlobalAction(_ action: KeyAction) -> Bool {
         let handlers = GlobalActionRouter.Handlers(
             copy: { self.viewModel.copyMarked() },
+            copyToClipboard: { self.triggerSystemClipboardAction(Selector(("copy:"))) },
             paste: { self.viewModel.paste() },
+            pasteFromClipboard: { self.triggerSystemClipboardAction(Selector(("paste:"))) },
             move: { self.viewModel.cutMarked() },
+            cutToClipboard: { self.triggerSystemClipboardAction(Selector(("cut:"))) },
             delete: { self.requestDeleteFromActivePane() },
             rename: { self.viewModel.rename() },
             createDirectory: { self.viewModel.createDirectory() },
@@ -1043,6 +1052,72 @@ final class MainSplitViewController: NSSplitViewController, NSPopoverDelegate {
 
     private func itemLabel(for count: Int) -> String {
         count == 1 ? "item" : "items"
+    }
+
+    private func triggerSystemClipboardAction(_ selector: Selector) {
+        guard NSApp.sendAction(selector, to: nil, from: nil) else {
+            NSSound.beep()
+            return
+        }
+    }
+
+    private func presentFileOperationFailureDecision(
+        for context: FileOperationFailureContext
+    ) -> FileOperationFailureDecision {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = fileOperationFailureTitle(for: context.operationType)
+
+        var lines: [String] = [
+            "Source: \(context.sourceURL.path)"
+        ]
+        if let destinationURL = context.destinationURL {
+            lines.append("Destination: \(destinationURL.path)")
+        }
+        lines.append("")
+        lines.append(context.message)
+        alert.informativeText = lines.joined(separator: "\n")
+
+        alert.addButton(withTitle: "Retry")
+        alert.addButton(withTitle: "Skip")
+        alert.addButton(withTitle: "Abort")
+        alert.showsSuppressionButton = true
+        alert.suppressionButton?.title = "Apply Skip/Abort to remaining failures"
+
+        let response = alert.runModal()
+        let action: FileOperationFailureAction
+        switch response {
+        case .alertFirstButtonReturn:
+            action = .retry
+        case .alertSecondButtonReturn:
+            action = .skip
+        default:
+            action = .abort
+        }
+
+        let applyToRemaining = (alert.suppressionButton?.state == .on)
+            && (action == .skip || action == .abort)
+        return FileOperationFailureDecision(
+            action: action,
+            applyToRemaining: applyToRemaining
+        )
+    }
+
+    private func fileOperationFailureTitle(for operationType: FileOperationType) -> String {
+        switch operationType {
+        case .copy:
+            return "Copy failed"
+        case .move:
+            return "Move failed"
+        case .trash:
+            return "Delete failed"
+        case .rename:
+            return "Rename failed"
+        case .createDirectory:
+            return "Create folder failed"
+        case .batchRename:
+            return "Batch rename failed"
+        }
     }
 
     private func showActionToast(_ message: String) {

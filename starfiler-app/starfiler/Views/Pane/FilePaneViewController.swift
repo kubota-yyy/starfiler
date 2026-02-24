@@ -2109,7 +2109,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         case .treeCollapse:
             viewModel.collapseSelectedFolder()
             handled = true
-        case .copy, .paste, .move, .delete, .rename, .createDirectory, .undo, .togglePreview, .toggleSidebar, .toggleLeftPane, .toggleRightPane, .toggleSinglePane, .equalizePaneWidths, .matchOtherPaneDirectory, .goToOtherPaneDirectory, .openBookmarkSearch, .openHistory, .addBookmark, .batchRename, .syncPanesLeftToRight, .syncPanesRightToLeft, .togglePin, .toggleTerminalPanel, .launchClaude, .launchCodex:
+        case .copy, .copyToClipboard, .paste, .pasteFromClipboard, .move, .cutToClipboard, .delete, .rename, .createDirectory, .undo, .togglePreview, .toggleSidebar, .toggleLeftPane, .toggleRightPane, .toggleSinglePane, .equalizePaneWidths, .matchOtherPaneDirectory, .goToOtherPaneDirectory, .openBookmarkSearch, .openHistory, .addBookmark, .batchRename, .syncPanesLeftToRight, .syncPanesRightToLeft, .togglePin, .toggleTerminalPanel, .launchClaude, .launchCodex:
             handled = onFileOperationRequested?(action) ?? false
         case .enterFilterMode:
             focusSearch(mode: .filter)
@@ -2680,7 +2680,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
         items.append(makeContextMenuItem(
             title: "Copy",
-            action: .copy,
+            action: .copyToClipboard,
             requiresContextItem: true,
             enabled: hasContextItem
         ))
@@ -2692,11 +2692,11 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         ))
         items.append(makeContextMenuItem(
             title: "Cut",
-            action: .move,
+            action: .cutToClipboard,
             requiresContextItem: true,
             enabled: hasContextItem
         ))
-        items.append(makeContextMenuItem(title: "Paste", action: .paste))
+        items.append(makeContextMenuItem(title: "Paste", action: .pasteFromClipboard))
 
         items.append(NSMenuItem.separator())
 

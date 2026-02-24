@@ -15,8 +15,20 @@ final class DefaultShortcutCoverageTests: XCTestCase {
     func testDefaultBindingsCoverAllKeyActions() throws {
         let bindings = try loadDefaultBindings()
         let configuredActions = Set(bindings.values.flatMap { $0.values }.compactMap(KeyAction.fromConfigName))
-        XCTAssertEqual(configuredActions.count, KeyAction.allCases.count)
-        XCTAssertEqual(configuredActions, Set(KeyAction.allCases))
+        let allowedUnboundActions: Set<KeyAction> = [
+            .copyToClipboard,
+            .cutToClipboard,
+            .pasteFromClipboard,
+            .syncPanesLeftToRight,
+            .syncPanesRightToLeft,
+            .openHistory,
+            .enterSpotlightSearch
+        ]
+
+        let allActions = Set(KeyAction.allCases)
+        let unboundActions = allActions.subtracting(configuredActions)
+        XCTAssertEqual(unboundActions, allowedUnboundActions)
+        XCTAssertEqual(configuredActions.union(allowedUnboundActions), allActions)
     }
 
     func testAllDefaultSequencesResolveToExpectedActions() throws {

@@ -25,9 +25,12 @@ enum KeyAction: String, Codable, CaseIterable, Sendable {
     case enterVisualMode
     case exitVisualMode
     case copy
+    case copyToClipboard
     case copySelectedItemPath
     case paste
+    case pasteFromClipboard
     case move
+    case cutToClipboard
     case delete
     case rename
     case createDirectory

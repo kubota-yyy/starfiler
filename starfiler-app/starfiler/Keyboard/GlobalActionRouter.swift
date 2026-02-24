@@ -9,8 +9,11 @@ enum GlobalActionRoutingResult: Equatable {
 struct GlobalActionRouter {
     struct Handlers {
         let copy: () -> Void
+        let copyToClipboard: () -> Void
         let paste: () -> Void
+        let pasteFromClipboard: () -> Void
         let move: () -> Void
+        let cutToClipboard: () -> Void
         let delete: () -> Void
         let rename: () -> Void
         let createDirectory: () -> Void
@@ -38,11 +41,20 @@ struct GlobalActionRouter {
         case .copy:
             handlers.copy()
             return .handled
+        case .copyToClipboard:
+            handlers.copyToClipboard()
+            return .handled
         case .paste:
             handlers.paste()
             return .handled
+        case .pasteFromClipboard:
+            handlers.pasteFromClipboard()
+            return .handled
         case .move:
             handlers.move()
+            return .handled
+        case .cutToClipboard:
+            handlers.cutToClipboard()
             return .handled
         case .delete:
             handlers.delete()

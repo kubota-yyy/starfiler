@@ -123,6 +123,24 @@ struct FileOperationError: LocalizedError, Hashable, Sendable {
     }
 }
 
+struct FileOperationFailureContext: Hashable, Sendable {
+    let operationType: FileOperationType
+    let sourceURL: URL
+    let destinationURL: URL?
+    let message: String
+}
+
+enum FileOperationFailureAction: String, Hashable, Sendable {
+    case retry
+    case skip
+    case abort
+}
+
+struct FileOperationFailureDecision: Hashable, Sendable {
+    let action: FileOperationFailureAction
+    let applyToRemaining: Bool
+}
+
 enum OperationProgress: Sendable {
     case progress(completed: Int, total: Int, currentFile: URL)
     case completed(record: FileOperationRecord)

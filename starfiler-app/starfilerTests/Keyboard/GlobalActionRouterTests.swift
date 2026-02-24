@@ -65,8 +65,11 @@ final class GlobalActionRouterTests: XCTestCase {
     private var globalActions: [KeyAction] {
         [
             .copy,
+            .copyToClipboard,
             .paste,
+            .pasteFromClipboard,
             .move,
+            .cutToClipboard,
             .delete,
             .rename,
             .createDirectory,
@@ -104,8 +107,11 @@ private final class Recorder {
     var handlers: GlobalActionRouter.Handlers {
         GlobalActionRouter.Handlers(
             copy: { self.invocations.append("copy") },
+            copyToClipboard: { self.invocations.append("copyToClipboard") },
             paste: { self.invocations.append("paste") },
+            pasteFromClipboard: { self.invocations.append("pasteFromClipboard") },
             move: { self.invocations.append("move") },
+            cutToClipboard: { self.invocations.append("cutToClipboard") },
             delete: { self.invocations.append("delete") },
             rename: { self.invocations.append("rename") },
             createDirectory: { self.invocations.append("createDirectory") },

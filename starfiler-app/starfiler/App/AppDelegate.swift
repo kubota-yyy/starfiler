@@ -51,6 +51,12 @@ enum StarfilerMain {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private enum FileClipboardPasteboard {
+        static let operationType = NSPasteboard.PasteboardType("com.nilone.starfiler.clipboard-operation")
+        static let copyOperationValue = "copy"
+        static let cutOperationValue = "cut"
+    }
+
     private let launchOptions = LaunchOptions()
     private var mainWindowController: MainWindowController?
     private var settingsWindowController: SettingsWindowController?
@@ -373,7 +379,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSSound.beep()
                 return
             }
-            writeFileURLsToPasteboard(copiedURLs)
+            writeFileURLsToPasteboard(copiedURLs, operation: .copy)
         }
     }
 
@@ -384,7 +390,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSSound.beep()
                 return
             }
-            writeFileURLsToPasteboard(cutURLs)
+            writeFileURLsToPasteboard(cutURLs, operation: .cut)
         }
     }
 
@@ -416,11 +422,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainWindowController?.requestDeleteFromActivePane()
     }
 
-    private func writeFileURLsToPasteboard(_ urls: [URL]) {
+    private func writeFileURLsToPasteboard(_ urls: [URL], operation: ClipboardOperation) {
         let pasteboard = NSPasteboard.general
         let normalizedURLs = urls.map(\.standardizedFileURL)
         pasteboard.clearContents()
         pasteboard.writeObjects(normalizedURLs as [NSURL])
+        pasteboard.setString(
+            pasteboardOperationValue(for: operation),
+            forType: FileClipboardPasteboard.operationType
+        )
         fileClipboardChangeCount = pasteboard.changeCount
     }
 
@@ -434,12 +444,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
         guard let pastedURLs = pasteboard.readObjects(forClasses: classes, options: options) as? [URL], !pastedURLs.isEmpty else {
             fileClipboardChangeCount = pasteboard.changeCount
+            mainWindowController?.performAction { $0.replaceClipboard(urls: [], operation: .copy) }
             return
         }
 
         let normalizedURLs = pastedURLs.map(\.standardizedFileURL)
+        let operation = pasteboardOperation(from: pasteboard)
         fileClipboardChangeCount = pasteboard.changeCount
-        mainWindowController?.performAction { $0.replaceClipboard(urls: normalizedURLs, operation: .copy) }
+        mainWindowController?.performAction { $0.replaceClipboard(urls: normalizedURLs, operation: operation) }
+    }
+
+    private func pasteboardOperation(from pasteboard: NSPasteboard) -> ClipboardOperation {
+        guard let rawValue = pasteboard.string(forType: FileClipboardPasteboard.operationType) else {
+            return .copy
+        }
+
+        switch rawValue {
+        case FileClipboardPasteboard.cutOperationValue:
+            return .cut
+        default:
+            return .copy
+        }
+    }
+
+    private func pasteboardOperationValue(for operation: ClipboardOperation) -> String {
+        switch operation {
+        case .copy:
+            return FileClipboardPasteboard.copyOperationValue
+        case .cut:
+            return FileClipboardPasteboard.cutOperationValue
+        }
     }
 
     @objc private func menuRename(_ sender: Any?) {

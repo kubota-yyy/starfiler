@@ -38,6 +38,7 @@ final class MainViewModel {
     var lastOperationError: String?
     var onFileOperationCompleted: ((FileOperationRecord, FileOperationCompletionContext) -> Void)?
     var onFileOperationFailed: ((String) -> Void)?
+    var resolveFileOperationFailure: ((FileOperationFailureContext) async -> FileOperationFailureDecision)?
 
     init(
         fileSystemService: FileSystemProviding = FileSystemService(),
@@ -104,6 +105,7 @@ final class MainViewModel {
         self.lastOperationError = nil
         self.onFileOperationCompleted = nil
         self.onFileOperationFailed = nil
+        self.resolveFileOperationFailure = nil
 
         leftPane.setShowHiddenFiles(initialShowHiddenFiles)
         rightPane.setShowHiddenFiles(initialShowHiddenFiles)
@@ -444,7 +446,10 @@ final class MainViewModel {
             resumeDirectoryMonitoring()
         }
 
-        let stream = await fileOperationQueue.enqueue(operation: operation)
+        let stream = await fileOperationQueue.enqueue(
+            operation: operation,
+            failureResolver: makeFailureResolver()
+        )
         var completedRecord: FileOperationRecord?
         var failedError: FileOperationError?
 
@@ -502,7 +507,10 @@ final class MainViewModel {
                 self.resumeDirectoryMonitoring()
             }
 
-            let stream = await self.fileOperationQueue.enqueue(operation: operation)
+            let stream = await self.fileOperationQueue.enqueue(
+                operation: operation,
+                failureResolver: self.makeFailureResolver()
+            )
             await self.consume(
                 stream: stream,
                 registerUndoWithManager: registerUndoWithManager,
@@ -591,6 +599,16 @@ final class MainViewModel {
     private func resumeDirectoryMonitoring() {
         leftPane.resumeDirectoryMonitoring()
         rightPane.resumeDirectoryMonitoring()
+    }
+
+    private func makeFailureResolver() -> FileOperationQueue.FailureResolver? {
+        guard let resolveFileOperationFailure else {
+            return nil
+        }
+
+        return { context in
+            await resolveFileOperationFailure(context)
+        }
     }
 
     private static func sortDescriptor(

@@ -32,6 +32,14 @@ protocol FileOperationExecuting: Sendable {
     ) async throws -> FileOperationRecord
 }
 
+protocol InteractiveFileOperationExecuting: FileOperationExecuting {
+    func executeInteractive(
+        _ operation: FileOperation,
+        progress: @escaping @Sendable (_ completed: Int, _ total: Int, _ currentFile: URL) -> Void,
+        resolveFailure: @escaping (_ context: FileOperationFailureContext) async -> FileOperationFailureDecision
+    ) async throws -> FileOperationRecord
+}
+
 enum FileOperationServiceError: LocalizedError, Sendable {
     case noItems
     case invalidName
@@ -53,6 +61,10 @@ enum FileOperationServiceError: LocalizedError, Sendable {
 }
 
 struct FileOperationService: FileOperationExecuting {
+    private struct FailureHandlingStrategy {
+        var persistentAction: FileOperationFailureAction?
+    }
+
     private let fileManager: FileManager
     private let trashRecycler: any TrashRecycling
 
@@ -84,6 +96,36 @@ struct FileOperationService: FileOperationExecuting {
         }
     }
 
+    func executeInteractive(
+        _ operation: FileOperation,
+        progress: @escaping @Sendable (_ completed: Int, _ total: Int, _ currentFile: URL) -> Void,
+        resolveFailure: @escaping (_ context: FileOperationFailureContext) async -> FileOperationFailureDecision
+    ) async throws -> FileOperationRecord {
+        switch operation {
+        case .copy(let items, let destinationDirectory):
+            return try await executeCopyInteractive(
+                items: items,
+                destinationDirectory: destinationDirectory,
+                progress: progress,
+                resolveFailure: resolveFailure
+            )
+        case .move(let items):
+            return try await executeMoveInteractive(
+                items: items,
+                progress: progress,
+                resolveFailure: resolveFailure
+            )
+        case .trash(let items):
+            return try await executeTrashInteractive(
+                items: items,
+                progress: progress,
+                resolveFailure: resolveFailure
+            )
+        case .rename, .createDirectory, .batchRename:
+            return try await execute(operation, progress: progress)
+        }
+    }
+
     private func executeCopy(
         items: [URL],
         destinationDirectory: URL,
@@ -99,20 +141,15 @@ struct FileOperationService: FileOperationExecuting {
 
         for (index, source) in items.enumerated() {
             let normalizedSource = source.standardizedFileURL
-            let destination = uniqueDestinationURL(for: normalizedSource, destinationDirectory: normalizedDirectory)
-            try fileManager.copyItem(at: normalizedSource, to: destination)
-
-            changes.append(FileLocationChange(source: normalizedSource, destination: destination))
+            let change = try copySingleItem(source: normalizedSource, destinationDirectory: normalizedDirectory)
+            changes.append(change)
             progress(index + 1, items.count, normalizedSource)
         }
 
-        let undo = FileOperation.trash(items: changes.map(\.destination))
-
-        return FileOperationRecord(
-            operation: .copy(items: items, destinationDirectory: normalizedDirectory),
-            result: .copied(changes),
-            timestamp: Date(),
-            undoOperation: undo
+        return makeCopyRecord(
+            originalItems: items,
+            destinationDirectory: normalizedDirectory,
+            changes: changes
         )
     }
 
@@ -129,30 +166,13 @@ struct FileOperationService: FileOperationExecuting {
 
         for (index, item) in items.enumerated() {
             let source = item.source.standardizedFileURL
-            let requestedDestination = item.destination.standardizedFileURL
-
-            if source == requestedDestination {
-                progress(index + 1, items.count, source)
-                continue
+            if let change = try moveSingleItem(item) {
+                movedChanges.append(change)
             }
-
-            let resolvedDestination = uniqueDestinationURL(for: requestedDestination)
-            try fileManager.moveItem(at: source, to: resolvedDestination)
-
-            movedChanges.append(FileLocationChange(source: source, destination: resolvedDestination))
             progress(index + 1, items.count, source)
         }
 
-        let undoMappings = movedChanges.map {
-            FileLocationChange(source: $0.destination, destination: $0.source)
-        }
-
-        return FileOperationRecord(
-            operation: .move(items: items),
-            result: .moved(movedChanges),
-            timestamp: Date(),
-            undoOperation: .move(items: undoMappings)
-        )
+        return makeMoveRecord(originalItems: items, movedChanges: movedChanges)
     }
 
     private func executeTrash(
@@ -168,22 +188,183 @@ struct FileOperationService: FileOperationExecuting {
 
         for (index, source) in items.enumerated() {
             let normalizedSource = source.standardizedFileURL
-            let recycledURL = try await recycle(url: normalizedSource)
-
-            trashedChanges.append(FileLocationChange(source: normalizedSource, destination: recycledURL))
+            let change = try await trashSingleItem(source: normalizedSource)
+            trashedChanges.append(change)
             progress(index + 1, items.count, normalizedSource)
         }
 
-        let undoMappings = trashedChanges.map {
-            FileLocationChange(source: $0.destination, destination: $0.source)
+        return makeTrashRecord(originalItems: items, trashedChanges: trashedChanges)
+    }
+
+    private func executeCopyInteractive(
+        items: [URL],
+        destinationDirectory: URL,
+        progress: @escaping @Sendable (_ completed: Int, _ total: Int, _ currentFile: URL) -> Void,
+        resolveFailure: @escaping (_ context: FileOperationFailureContext) async -> FileOperationFailureDecision
+    ) async throws -> FileOperationRecord {
+        guard !items.isEmpty else {
+            throw FileOperationServiceError.noItems
         }
 
-        return FileOperationRecord(
-            operation: .trash(items: items),
-            result: .trashed(trashedChanges),
-            timestamp: Date(),
-            undoOperation: .move(items: undoMappings)
+        let normalizedDirectory = destinationDirectory.standardizedFileURL
+        var changes: [FileLocationChange] = []
+        changes.reserveCapacity(items.count)
+        var strategy = FailureHandlingStrategy()
+        var completedCount = 0
+
+        for source in items {
+            let normalizedSource = source.standardizedFileURL
+
+            copyAttempt: while true {
+                do {
+                    let change = try copySingleItem(source: normalizedSource, destinationDirectory: normalizedDirectory)
+                    changes.append(change)
+                    completedCount += 1
+                    progress(completedCount, items.count, normalizedSource)
+                    break copyAttempt
+                } catch {
+                    let context = FileOperationFailureContext(
+                        operationType: .copy,
+                        sourceURL: normalizedSource,
+                        destinationURL: normalizedDirectory,
+                        message: error.localizedDescription
+                    )
+                    let (action, persistentAction) = await resolveFailureAction(
+                        for: context,
+                        persistentAction: strategy.persistentAction,
+                        resolveFailure: resolveFailure
+                    )
+                    strategy.persistentAction = persistentAction
+
+                    switch action {
+                    case .retry:
+                        continue
+                    case .skip:
+                        break copyAttempt
+                    case .abort:
+                        return makeCopyRecord(
+                            originalItems: items,
+                            destinationDirectory: normalizedDirectory,
+                            changes: changes
+                        )
+                    }
+                }
+            }
+        }
+
+        return makeCopyRecord(
+            originalItems: items,
+            destinationDirectory: normalizedDirectory,
+            changes: changes
         )
+    }
+
+    private func executeMoveInteractive(
+        items: [FileLocationChange],
+        progress: @escaping @Sendable (_ completed: Int, _ total: Int, _ currentFile: URL) -> Void,
+        resolveFailure: @escaping (_ context: FileOperationFailureContext) async -> FileOperationFailureDecision
+    ) async throws -> FileOperationRecord {
+        guard !items.isEmpty else {
+            throw FileOperationServiceError.noItems
+        }
+
+        var movedChanges: [FileLocationChange] = []
+        movedChanges.reserveCapacity(items.count)
+        var strategy = FailureHandlingStrategy()
+        var completedCount = 0
+
+        for item in items {
+            let source = item.source.standardizedFileURL
+            let destination = item.destination.standardizedFileURL
+
+            moveAttempt: while true {
+                do {
+                    if let change = try moveSingleItem(item) {
+                        movedChanges.append(change)
+                    }
+                    completedCount += 1
+                    progress(completedCount, items.count, source)
+                    break moveAttempt
+                } catch {
+                    let context = FileOperationFailureContext(
+                        operationType: .move,
+                        sourceURL: source,
+                        destinationURL: destination,
+                        message: error.localizedDescription
+                    )
+                    let (action, persistentAction) = await resolveFailureAction(
+                        for: context,
+                        persistentAction: strategy.persistentAction,
+                        resolveFailure: resolveFailure
+                    )
+                    strategy.persistentAction = persistentAction
+
+                    switch action {
+                    case .retry:
+                        continue
+                    case .skip:
+                        break moveAttempt
+                    case .abort:
+                        return makeMoveRecord(originalItems: items, movedChanges: movedChanges)
+                    }
+                }
+            }
+        }
+
+        return makeMoveRecord(originalItems: items, movedChanges: movedChanges)
+    }
+
+    private func executeTrashInteractive(
+        items: [URL],
+        progress: @escaping @Sendable (_ completed: Int, _ total: Int, _ currentFile: URL) -> Void,
+        resolveFailure: @escaping (_ context: FileOperationFailureContext) async -> FileOperationFailureDecision
+    ) async throws -> FileOperationRecord {
+        guard !items.isEmpty else {
+            throw FileOperationServiceError.noItems
+        }
+
+        var trashedChanges: [FileLocationChange] = []
+        trashedChanges.reserveCapacity(items.count)
+        var strategy = FailureHandlingStrategy()
+        var completedCount = 0
+
+        for source in items {
+            let normalizedSource = source.standardizedFileURL
+
+            trashAttempt: while true {
+                do {
+                    let change = try await trashSingleItem(source: normalizedSource)
+                    trashedChanges.append(change)
+                    completedCount += 1
+                    progress(completedCount, items.count, normalizedSource)
+                    break trashAttempt
+                } catch {
+                    let context = FileOperationFailureContext(
+                        operationType: .trash,
+                        sourceURL: normalizedSource,
+                        destinationURL: nil,
+                        message: error.localizedDescription
+                    )
+                    let (action, persistentAction) = await resolveFailureAction(
+                        for: context,
+                        persistentAction: strategy.persistentAction,
+                        resolveFailure: resolveFailure
+                    )
+                    strategy.persistentAction = persistentAction
+
+                    switch action {
+                    case .retry:
+                        continue
+                    case .skip:
+                        break trashAttempt
+                    case .abort:
+                        return makeTrashRecord(originalItems: items, trashedChanges: trashedChanges)
+                    }
+                }
+            }
+        }
+
+        return makeTrashRecord(originalItems: items, trashedChanges: trashedChanges)
     }
 
     private func executeRename(
@@ -319,6 +500,91 @@ struct FileOperationService: FileOperationExecuting {
             timestamp: Date(),
             undoOperation: .batchRename(items: undoItems)
         )
+    }
+
+    private func copySingleItem(source: URL, destinationDirectory: URL) throws -> FileLocationChange {
+        let normalizedSource = source.standardizedFileURL
+        let destination = uniqueDestinationURL(for: normalizedSource, destinationDirectory: destinationDirectory)
+        try fileManager.copyItem(at: normalizedSource, to: destination)
+        return FileLocationChange(source: normalizedSource, destination: destination)
+    }
+
+    private func moveSingleItem(_ item: FileLocationChange) throws -> FileLocationChange? {
+        let source = item.source.standardizedFileURL
+        let requestedDestination = item.destination.standardizedFileURL
+        guard source != requestedDestination else {
+            return nil
+        }
+
+        let resolvedDestination = uniqueDestinationURL(for: requestedDestination)
+        try fileManager.moveItem(at: source, to: resolvedDestination)
+        return FileLocationChange(source: source, destination: resolvedDestination)
+    }
+
+    private func trashSingleItem(source: URL) async throws -> FileLocationChange {
+        let normalizedSource = source.standardizedFileURL
+        let recycledURL = try await recycle(url: normalizedSource)
+        return FileLocationChange(source: normalizedSource, destination: recycledURL)
+    }
+
+    private func makeCopyRecord(
+        originalItems: [URL],
+        destinationDirectory: URL,
+        changes: [FileLocationChange]
+    ) -> FileOperationRecord {
+        let undo = FileOperation.trash(items: changes.map(\.destination))
+        return FileOperationRecord(
+            operation: .copy(items: originalItems, destinationDirectory: destinationDirectory),
+            result: .copied(changes),
+            timestamp: Date(),
+            undoOperation: undo
+        )
+    }
+
+    private func makeMoveRecord(
+        originalItems: [FileLocationChange],
+        movedChanges: [FileLocationChange]
+    ) -> FileOperationRecord {
+        let undoMappings = movedChanges.map {
+            FileLocationChange(source: $0.destination, destination: $0.source)
+        }
+        return FileOperationRecord(
+            operation: .move(items: originalItems),
+            result: .moved(movedChanges),
+            timestamp: Date(),
+            undoOperation: .move(items: undoMappings)
+        )
+    }
+
+    private func makeTrashRecord(
+        originalItems: [URL],
+        trashedChanges: [FileLocationChange]
+    ) -> FileOperationRecord {
+        let undoMappings = trashedChanges.map {
+            FileLocationChange(source: $0.destination, destination: $0.source)
+        }
+        return FileOperationRecord(
+            operation: .trash(items: originalItems),
+            result: .trashed(trashedChanges),
+            timestamp: Date(),
+            undoOperation: .move(items: undoMappings)
+        )
+    }
+
+    private func resolveFailureAction(
+        for context: FileOperationFailureContext,
+        persistentAction: FileOperationFailureAction?,
+        resolveFailure: @escaping (_ context: FileOperationFailureContext) async -> FileOperationFailureDecision
+    ) async -> (FileOperationFailureAction, FileOperationFailureAction?) {
+        if let persistentAction {
+            return (persistentAction, persistentAction)
+        }
+
+        let decision = await resolveFailure(context)
+        if decision.applyToRemaining, decision.action == .skip || decision.action == .abort {
+            return (decision.action, decision.action)
+        }
+        return (decision.action, persistentAction)
     }
 
     private func recycle(url: URL) async throws -> URL {
