@@ -318,6 +318,39 @@ final class FilePaneViewModelTests: XCTestCase {
         XCTAssertFalse(sut.directoryContents.displayedItems.contains(where: { $0.url.standardizedFileURL == child.url.standardizedFileURL }))
     }
 
+    func testExpandSelectedFolderDoesNotCrashWhenDisplayedItemsContainDuplicateURLs() async {
+        let folder = makeFileItem(name: "Folder", isDirectory: true)
+        let child = FileItem(
+            url: folder.url.appendingPathComponent("inside.txt"),
+            name: "inside.txt",
+            isDirectory: false,
+            size: 1,
+            dateModified: Date(),
+            isHidden: false,
+            isSymlink: false,
+            isPackage: false
+        )
+
+        let sut = makeSUT(items: [folder])
+        await waitForLoad()
+
+        fileSystem.recursiveContentsOfDirectoryResult = .success([folder, child])
+        sut.setFilesRecursiveEnabled(true)
+        await waitForCondition(timeout: 2.0, description: "Recursive browser load") {
+            sut.directoryContents.displayedItems.contains(where: { $0.url.standardizedFileURL == child.url.standardizedFileURL })
+        }
+
+        fileSystem.contentsOfDirectoryResult = .success([child])
+        let beforeExpandCallCount = fileSystem.contentsOfDirectoryCallCount
+        sut.expandSelectedFolder()
+        await waitForCondition(timeout: 2.0, description: "Folder expansion in recursive mode") {
+            self.fileSystem.contentsOfDirectoryCallCount > beforeExpandCallCount
+        }
+
+        XCTAssertEqual(sut.paneState.cursorIndex, 0)
+        XCTAssertTrue(sut.directoryContents.displayedItems.contains(where: { $0.url.standardizedFileURL == child.url.standardizedFileURL }))
+    }
+
     // MARK: - Spotlight Search
 
     func testEnterSpotlightSearchModeClearsMarksAndVisualAnchor() async {

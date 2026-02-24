@@ -1072,11 +1072,14 @@ final class FilePaneViewModel {
             return
         }
 
-        let indexByURL = Dictionary(
-            uniqueKeysWithValues: displayedItems.enumerated().map { index, item in
-                (item.url.standardizedFileURL, index)
+        var indexByURL: [URL: Int] = [:]
+        indexByURL.reserveCapacity(displayedItems.count)
+        for (index, item) in displayedItems.enumerated() {
+            let normalizedURL = item.url.standardizedFileURL
+            if indexByURL[normalizedURL] == nil {
+                indexByURL[normalizedURL] = index
             }
-        )
+        }
 
         if let cursorURL = snapshot.cursorURL, let restoredCursorIndex = indexByURL[cursorURL] {
             paneState.cursorIndex = restoredCursorIndex
