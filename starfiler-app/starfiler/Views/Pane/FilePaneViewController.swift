@@ -218,6 +218,9 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         return formatter
     }()
 
+    private static let browserModeIconSize: CGFloat = 16
+    private static let browserModeRowHeight: CGFloat = max(24, browserModeIconSize + 8)
+
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy/MM/dd HH:mm"
@@ -671,10 +674,11 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         thumbnailCache.removeAllObjects()
         thumbnailTasks.values.forEach { $0.cancel() }
         thumbnailTasks.removeAll()
-        tableView.rowHeight = max(24, clampedSize + 8)
-        tableView.reloadData()
-        mediaCollectionLayout.invalidateLayout()
-        mediaCollectionView.reloadData()
+        tableView.rowHeight = Self.browserModeRowHeight
+        if currentDisplayMode == .media {
+            mediaCollectionLayout.invalidateLayout()
+            mediaCollectionView.reloadData()
+        }
     }
 
     func numberOfRows(in tableView: NSTableView) -> Int {
@@ -1033,7 +1037,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             self?.hideShortcutGuide()
         }
         tableView.backgroundColor = filerTheme.palette.tableBackgroundColor
-        tableView.rowHeight = max(24, fileIconSize + 8)
+        tableView.rowHeight = Self.browserModeRowHeight
 
         let nameColumn = NSTableColumn(identifier: Column.name)
         nameColumn.title = "Name"
@@ -1689,7 +1693,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             cell.setName(isMarked ? "* \(item.name)" : item.name, textColor: palette.primaryTextColor)
         }
 
-        cell.setIcon(icon(for: item, row: row), size: fileIconSize)
+        cell.setIcon(icon(for: item, row: row), size: Self.browserModeIconSize)
 
         if let treeItem {
             cell.setTreeIndentation(depth: treeItem.depth, isExpandable: treeItem.isExpandable, isExpanded: treeItem.isExpanded)
@@ -1711,7 +1715,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private func createNameCellView() -> FileNameCellView {
         let cell = FileNameCellView()
         cell.identifier = Cell.name
-        cell.setIcon(nil, size: fileIconSize)
+        cell.setIcon(nil, size: Self.browserModeIconSize)
         return cell
     }
 
@@ -1750,7 +1754,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     private func fallbackIcon(for item: FileItem) -> NSImage {
-        let pixelSize = Int(fileIconSize.rounded())
+        let iconSize = currentDisplayMode == .media ? fileIconSize : Self.browserModeIconSize
+        let pixelSize = Int(iconSize.rounded())
         let cacheKey = "\(item.url.path)#\(pixelSize)" as NSString
 
         if let cached = iconCache.object(forKey: cacheKey) {
@@ -1823,7 +1828,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             return max(128, Int((preferredMediaTileWidth() * 2).rounded()))
         }
 
-        return max(16, Int((fileIconSize * 2).rounded()))
+        return max(16, Int((Self.browserModeIconSize * 2).rounded()))
     }
 
     private static func generateThumbnail(for url: URL, maxPixelSize: Int) async -> NSImage? {
@@ -2160,7 +2165,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
            let rowView = tableView.rowView(atRow: cursorIndexBeforeToggle, makeIfNecessary: false),
            let viewLayer = view.layer {
             let palette = filerTheme.palette
-            let starLocalCenter = CGPoint(x: 4 + fileIconSize + 3 + 6, y: rowView.bounds.midY)
+            let starLocalCenter = CGPoint(x: 4 + Self.browserModeIconSize + 3 + 6, y: rowView.bounds.midY)
             let starCenter = rowView.convert(starLocalCenter, to: view)
             StarSparkleAnimator.burst(count: 4, in: viewLayer, at: starCenter,
                 color: palette.starGlowColor, size: 4, duration: 0.25)
