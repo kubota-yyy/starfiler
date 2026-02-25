@@ -235,6 +235,50 @@ final class FilePaneViewModelTests: XCTestCase {
         XCTAssertEqual(sut.paneState.currentDirectory.path, URL(fileURLWithPath: "/tmp/test").standardizedFileURL.path)
     }
 
+    func testGoToParentSelectsPreviousDirectoryInParent() async {
+        let deepDir = URL(fileURLWithPath: "/tmp/test/sub")
+        let siblingDir = URL(fileURLWithPath: "/tmp/test/aaa")
+
+        fileSystem.contentsOfDirectoryResult = .success([])
+        let sut = FilePaneViewModel(
+            fileSystemService: fileSystem,
+            securityScopedBookmarkService: bookmarkService,
+            directoryMonitor: monitor,
+            spotlightSearchService: spotlight,
+            initialDirectory: deepDir
+        )
+        await waitForLoad()
+
+        fileSystem.contentsOfDirectoryResult = .success([
+            FileItem(
+                url: siblingDir,
+                name: "aaa",
+                isDirectory: true,
+                size: 0,
+                dateModified: Date(),
+                isHidden: false,
+                isSymlink: false,
+                isPackage: false
+            ),
+            FileItem(
+                url: deepDir,
+                name: "sub",
+                isDirectory: true,
+                size: 0,
+                dateModified: Date(),
+                isHidden: false,
+                isSymlink: false,
+                isPackage: false
+            ),
+        ])
+
+        sut.goToParent()
+        await waitForLoad()
+
+        XCTAssertEqual(sut.paneState.currentDirectory.path, URL(fileURLWithPath: "/tmp/test").standardizedFileURL.path)
+        XCTAssertEqual(sut.selectedItem?.url.standardizedFileURL, deepDir.standardizedFileURL)
+    }
+
     // MARK: - Tree Expand/Collapse
 
     func testExpandSelectedFolderLoadsChildren() async {

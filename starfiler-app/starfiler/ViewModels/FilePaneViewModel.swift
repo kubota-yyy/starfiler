@@ -241,11 +241,12 @@ final class FilePaneViewModel {
             endSpotlightSearch(restoringDirectoryContents: false)
         }
 
-        let parent = paneState.currentDirectory.deletingLastPathComponent()
-        guard parent.path != paneState.currentDirectory.path else {
+        let currentDirectory = paneState.currentDirectory.standardizedFileURL
+        let parent = currentDirectory.deletingLastPathComponent().standardizedFileURL
+        guard parent.path != currentDirectory.path else {
             return
         }
-        navigate(to: parent)
+        navigate(to: parent, selecting: currentDirectory)
     }
 
     func enterSelected() {
