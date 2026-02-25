@@ -988,6 +988,55 @@ final class FilePaneViewModelTests: XCTestCase {
         XCTAssertEqual(startState.statusText, "Loading media recursively...")
     }
 
+    // MARK: - Cancel Loading
+
+    func testCancelLoadingReturnsFalseAfterLoadCompletes() async {
+        let sut = makeSUT()
+        await waitForCondition(timeout: 2.0, description: "Initial load completes") {
+            sut.directoryContents.displayedItems.count == self.sampleItems.count
+        }
+
+        _ = sut.cancelLoading()
+        XCTAssertFalse(sut.cancelLoading())
+    }
+
+    func testCancelLoadingStopsInFlightNavigationAndClearsLoadingState() async {
+        let destination = URL(fileURLWithPath: "/tmp/slow-destination")
+        fileSystem.contentsOfDirectoryHandler = { [weak self] url in
+            guard let self else {
+                return []
+            }
+
+            if url.standardizedFileURL == destination.standardizedFileURL {
+                try await Task.sleep(for: .seconds(2))
+                return [self.makeFileItem(name: "finished.txt")]
+            }
+            return self.sampleItems
+        }
+
+        let sut = makeSUT()
+        await waitForLoad()
+
+        var capturedStates: [FilePaneViewModel.LoadingContext?] = []
+        sut.onLoadingStateChanged = { context in
+            capturedStates.append(context)
+        }
+
+        sut.navigate(to: destination)
+
+        await waitForCondition(timeout: 2.0, description: "Loading state starts") {
+            capturedStates.contains(where: { $0 != nil })
+        }
+
+        XCTAssertTrue(sut.cancelLoading())
+
+        await waitForCondition(timeout: 2.0, description: "Loading state clears after cancellation") {
+            capturedStates.last.flatMap({ $0 }) == nil
+        }
+
+        XCTAssertEqual(sut.paneState.currentDirectory, testDir.standardizedFileURL)
+    }
+
     // MARK: - Items Changed Callback
 
     func testOnItemsChangedCallbackFires() async {

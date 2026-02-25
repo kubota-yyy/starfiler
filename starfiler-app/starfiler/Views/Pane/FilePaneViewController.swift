@@ -2146,6 +2146,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         case .refresh:
             viewModel.refresh()
             handled = true
+        case .cancelLoading:
+            handled = viewModel.cancelLoading()
         case .quit:
             NSApp.terminate(nil)
             handled = true

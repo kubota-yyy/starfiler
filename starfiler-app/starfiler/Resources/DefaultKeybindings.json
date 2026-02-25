@@ -66,6 +66,7 @@
       "Ctrl-r": "openFileInFinder",
       "Ctrl-b": "addBookmark",
       "Ctrl-R": "refresh",
+      "Escape": "cancelLoading",
       "Cmd-o": "openFile",
       "Ctrl-E": "batchRename",
       "Ctrl-t Ctrl-c": "launchClaude",

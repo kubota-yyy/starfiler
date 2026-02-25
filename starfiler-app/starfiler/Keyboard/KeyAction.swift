@@ -45,6 +45,7 @@ enum KeyAction: String, Codable, CaseIterable, Sendable {
     case sortBySelectionOrder
     case reverseSortOrder
     case refresh
+    case cancelLoading
     case openBookmarkSearch
     case addBookmark
     case openHistory

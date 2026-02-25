@@ -16,19 +16,25 @@ private actor FileSystemWorker {
     }
 
     func contentsOfDirectory(at url: URL) throws -> [FileItem] {
+        try Task.checkCancellation()
         let urls = try fileManager.contentsOfDirectory(
             at: url,
             includingPropertiesForKeys: Array(resourceKeys),
             options: [.skipsSubdirectoryDescendants]
         )
 
-        return urls.map { entryURL in
+        var items: [FileItem] = []
+        items.reserveCapacity(urls.count)
+        for entryURL in urls {
+            try Task.checkCancellation()
             let values = try? entryURL.resourceValues(forKeys: resourceKeys)
-            return makeFileItem(from: entryURL, values: values)
+            items.append(makeFileItem(from: entryURL, values: values))
         }
+        return items
     }
 
     func recursiveContentsOfDirectory(at url: URL, includeHiddenFiles: Bool) throws -> [FileItem] {
+        try Task.checkCancellation()
         let options: FileManager.DirectoryEnumerationOptions = includeHiddenFiles
             ? [.skipsPackageDescendants]
             : [.skipsPackageDescendants, .skipsHiddenFiles]
@@ -43,6 +49,7 @@ private actor FileSystemWorker {
 
         var items: [FileItem] = []
         while let entryURL = enumerator.nextObject() as? URL {
+            try Task.checkCancellation()
             let values = try? entryURL.resourceValues(forKeys: resourceKeys)
             let item = makeFileItem(from: entryURL, values: values)
             if !includeHiddenFiles, item.isHidden {
@@ -57,17 +64,24 @@ private actor FileSystemWorker {
     }
 
     func mediaItems(in directory: URL, recursive: Bool, includeHiddenFiles: Bool) throws -> [FileItem] {
+        try Task.checkCancellation()
         if !recursive {
             let items = try contentsOfDirectory(at: directory)
-            return items.filter { item in
+            var filtered: [FileItem] = []
+            filtered.reserveCapacity(items.count)
+            for item in items {
+                try Task.checkCancellation()
                 if item.isDirectory {
-                    return false
+                    continue
                 }
                 if !includeHiddenFiles, item.isHidden {
-                    return false
+                    continue
                 }
-                return item.url.isMediaFile
+                if item.url.isMediaFile {
+                    filtered.append(item)
+                }
             }
+            return filtered
         }
 
         let options: FileManager.DirectoryEnumerationOptions = includeHiddenFiles
@@ -84,6 +98,7 @@ private actor FileSystemWorker {
 
         var items: [FileItem] = []
         while let entryURL = enumerator.nextObject() as? URL {
+            try Task.checkCancellation()
             let values = try? entryURL.resourceValues(forKeys: resourceKeys)
             let item = makeFileItem(from: entryURL, values: values)
             if item.isDirectory {

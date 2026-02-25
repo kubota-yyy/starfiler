@@ -699,6 +699,20 @@ final class FilePaneViewModel {
         refreshCurrentDirectory(preservingSelectionByURL: true, trigger: .explicit)
     }
 
+    @discardableResult
+    func cancelLoading() -> Bool {
+        guard activeLoadingTaskID != nil else {
+            return false
+        }
+
+        activeNavigationTaskID = nil
+        loadTask?.cancel()
+        activeLoadingTaskID = nil
+        loadingContext = nil
+        onLoadingStateChanged?(nil)
+        return true
+    }
+
     func suspendDirectoryMonitoring() {
         directoryMonitor.suspend()
     }
