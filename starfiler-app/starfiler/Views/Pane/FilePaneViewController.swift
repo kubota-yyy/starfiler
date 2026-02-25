@@ -288,6 +288,8 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private var lastAppliedBreadcrumbDirectoryURL: URL?
     private var isBreadcrumbUpdateScheduled = false
     private var rangeSelectionAnchorIndex: Int?
+    private var isShiftRangeSelectionActive = false
+    private var isApplyingSelectionFromViewModel = false
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
     var onSelectionChanged: ((FileItem?) -> Void)?
@@ -762,6 +764,10 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     func tableViewSelectionDidChange(_ notification: Notification) {
+        guard !isApplyingSelectionFromViewModel else {
+            return
+        }
+
         let isShiftRangeSelection = isShiftMouseRangeSelectionEvent()
         let selectedRow = isShiftRangeSelection ? tableView.clickedRow : tableView.selectedRow
         guard selectedRow >= 0 else {
@@ -769,10 +775,12 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         if isShiftRangeSelection {
+            isShiftRangeSelectionActive = true
             applyShiftRangeSelection(to: selectedRow)
             return
         }
 
+        isShiftRangeSelectionActive = false
         rangeSelectionAnchorIndex = selectedRow
         viewModel.setCursor(index: selectedRow)
     }
@@ -838,14 +846,20 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     }
 
     func collectionView(_ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>) {
+        guard !isApplyingSelectionFromViewModel else {
+            return
+        }
+
         guard let indexPath = indexPaths.first else {
             return
         }
         if isShiftMouseRangeSelectionEvent() {
+            isShiftRangeSelectionActive = true
             applyShiftRangeSelection(to: indexPath.item)
             return
         }
 
+        isShiftRangeSelectionActive = false
         rangeSelectionAnchorIndex = indexPath.item
         viewModel.setCursor(index: indexPath.item)
     }
@@ -1030,6 +1044,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.delegate = self
         tableView.dataSource = self
+        tableView.allowsMultipleSelection = true
         tableView.setAccessibilityIdentifier("filePane.tableView")
         tableView.headerView = NSTableHeaderView()
         tableView.intercellSpacing = NSSize(width: 8, height: 0)
@@ -1096,7 +1111,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         mediaCollectionView.dataSource = self
         mediaCollectionView.setAccessibilityIdentifier("filePane.mediaCollectionView")
         mediaCollectionView.isSelectable = true
-        mediaCollectionView.allowsMultipleSelection = false
+        mediaCollectionView.allowsMultipleSelection = true
         mediaCollectionView.backgroundColors = [filerTheme.palette.tableBackgroundColor]
         mediaCollectionView.register(MediaCollectionItem.self, forItemWithIdentifier: MediaCollectionItem.identifier)
         mediaCollectionView.keyActionDelegate = self
@@ -1495,22 +1510,66 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         let rowCount = viewModel.directoryContents.displayedItems.count
 
         guard rowCount > 0 else {
+            isShiftRangeSelectionActive = false
             tableView.deselectAll(nil)
             mediaCollectionView.deselectAll(nil)
             return
         }
 
         let clampedRow = min(max(row, 0), rowCount - 1)
+        isApplyingSelectionFromViewModel = true
+        defer {
+            isApplyingSelectionFromViewModel = false
+        }
+
         if currentDisplayMode == .media {
-            let indexPath = IndexPath(item: clampedRow, section: 0)
-            mediaCollectionView.selectionIndexPaths = [indexPath]
+            if isShiftRangeSelectionActive {
+                let markedIndexPaths = clampedMarkedSelectionIndexPaths(rowCount: rowCount)
+                if !markedIndexPaths.isEmpty {
+                    mediaCollectionView.selectionIndexPaths = markedIndexPaths
+                    let targetIndexPath = IndexPath(item: clampedRow, section: 0)
+                    if shouldAutoScrollMediaSelection() {
+                        mediaCollectionView.scrollToItems(at: [targetIndexPath], scrollPosition: .centeredVertically)
+                    }
+                    return
+                }
+                isShiftRangeSelectionActive = false
+            }
+
+            let cursorIndexPath = IndexPath(item: clampedRow, section: 0)
+            mediaCollectionView.selectionIndexPaths = [cursorIndexPath]
             if shouldAutoScrollMediaSelection() {
-                mediaCollectionView.scrollToItems(at: [indexPath], scrollPosition: .centeredVertically)
+                mediaCollectionView.scrollToItems(at: [cursorIndexPath], scrollPosition: .centeredVertically)
             }
         } else {
+            if isShiftRangeSelectionActive {
+                let markedIndexes = clampedMarkedSelectionIndexes(rowCount: rowCount)
+                if !markedIndexes.isEmpty {
+                    tableView.selectRowIndexes(markedIndexes, byExtendingSelection: false)
+                    tableView.scrollRowToVisible(clampedRow)
+                    return
+                }
+                isShiftRangeSelectionActive = false
+            }
+
             tableView.selectRowIndexes(IndexSet(integer: clampedRow), byExtendingSelection: false)
             tableView.scrollRowToVisible(clampedRow)
         }
+    }
+
+    private func clampedMarkedSelectionIndexes(rowCount: Int) -> IndexSet {
+        var clampedIndexes = IndexSet()
+        for index in viewModel.paneState.markedIndices where index >= 0 && index < rowCount {
+            clampedIndexes.insert(index)
+        }
+        return clampedIndexes
+    }
+
+    private func clampedMarkedSelectionIndexPaths(rowCount: Int) -> Set<IndexPath> {
+        let indexPaths = clampedMarkedSelectionIndexes(rowCount: rowCount).map { index in
+            IndexPath(item: index, section: 0)
+        }
+        return Set(indexPaths)
     }
 
     private func shouldAutoScrollMediaSelection() -> Bool {
