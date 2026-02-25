@@ -526,6 +526,20 @@ final class FilePaneViewModel {
         paneState.markedIndices.removeAll()
     }
 
+    func setMarkedIndices(_ indices: IndexSet) {
+        let count = directoryContents.displayedItems.count
+        guard count > 0 else {
+            paneState.markedIndices.removeAll()
+            return
+        }
+
+        var clampedIndices = IndexSet()
+        for index in indices where index >= 0 && index < count {
+            clampedIndices.insert(index)
+        }
+        paneState.markedIndices = clampedIndices
+    }
+
     func setMarkedRange(anchorIndex: Int, currentIndex: Int) {
         let count = directoryContents.displayedItems.count
         guard count > 0 else {

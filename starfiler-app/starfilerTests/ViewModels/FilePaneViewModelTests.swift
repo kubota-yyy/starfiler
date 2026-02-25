@@ -630,6 +630,15 @@ final class FilePaneViewModelTests: XCTestCase {
         XCTAssertEqual(sut.paneState.markedIndices, IndexSet(integersIn: 0 ... 4))
     }
 
+    func testSetMarkedIndicesClampsToBounds() async {
+        let sut = makeSUT()
+        await waitForLoad()
+
+        sut.setMarkedIndices(IndexSet([1, 3, 999]))
+
+        XCTAssertEqual(sut.paneState.markedIndices, IndexSet([1, 3]))
+    }
+
     func testOnMarkedIndicesChangedCallbackFires() async {
         let sut = makeSUT()
         await waitForLoad()

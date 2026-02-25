@@ -288,7 +288,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private var lastAppliedBreadcrumbDirectoryURL: URL?
     private var isBreadcrumbUpdateScheduled = false
     private var rangeSelectionAnchorIndex: Int?
-    private var isShiftRangeSelectionActive = false
+    private var isMouseMultiSelectionActive = false
     private var isApplyingSelectionFromViewModel = false
 
     var onStatusChanged: ((String, Int, Int) -> Void)?
@@ -769,18 +769,39 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         let isShiftRangeSelection = isShiftMouseRangeSelectionEvent()
-        let selectedRow = isShiftRangeSelection ? tableView.clickedRow : tableView.selectedRow
-        guard selectedRow >= 0 else {
-            return
-        }
-
         if isShiftRangeSelection {
-            isShiftRangeSelectionActive = true
+            let selectedRow = tableView.clickedRow
+            guard selectedRow >= 0 else {
+                return
+            }
+
+            isMouseMultiSelectionActive = true
             applyShiftRangeSelection(to: selectedRow)
             return
         }
 
-        isShiftRangeSelectionActive = false
+        if isCommandMouseAdditiveSelectionEvent() {
+            isMouseMultiSelectionActive = true
+            viewModel.setMarkedIndices(tableView.selectedRowIndexes)
+
+            let selectedRow = tableView.clickedRow >= 0 ? tableView.clickedRow : tableView.selectedRow
+            if selectedRow >= 0 {
+                rangeSelectionAnchorIndex = selectedRow
+                viewModel.setCursor(index: selectedRow)
+            }
+            return
+        }
+
+        let selectedRow = tableView.selectedRow
+        guard selectedRow >= 0 else {
+            return
+        }
+
+        if isMouseMultiSelectionActive {
+            isMouseMultiSelectionActive = false
+            viewModel.clearMarks()
+        }
+
         rangeSelectionAnchorIndex = selectedRow
         viewModel.setCursor(index: selectedRow)
     }
@@ -854,14 +875,37 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             return
         }
         if isShiftMouseRangeSelectionEvent() {
-            isShiftRangeSelectionActive = true
+            isMouseMultiSelectionActive = true
             applyShiftRangeSelection(to: indexPath.item)
             return
         }
 
-        isShiftRangeSelectionActive = false
+        if isCommandMouseAdditiveSelectionEvent() {
+            isMouseMultiSelectionActive = true
+            applyCommandAdditiveSelection(preferredCursorIndex: indexPath.item)
+            return
+        }
+
+        if isMouseMultiSelectionActive {
+            isMouseMultiSelectionActive = false
+            viewModel.clearMarks()
+        }
+
         rangeSelectionAnchorIndex = indexPath.item
         viewModel.setCursor(index: indexPath.item)
+    }
+
+    func collectionView(_ collectionView: NSCollectionView, didDeselectItemsAt indexPaths: Set<IndexPath>) {
+        guard !isApplyingSelectionFromViewModel else {
+            return
+        }
+
+        guard isCommandMouseAdditiveSelectionEvent() else {
+            return
+        }
+
+        isMouseMultiSelectionActive = true
+        applyCommandAdditiveSelection(preferredCursorIndex: indexPaths.first?.item)
     }
 
     func collectionView(_ collectionView: NSCollectionView, layout collectionViewLayout: NSCollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> NSSize {
@@ -896,10 +940,36 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         return relevantModifiers == [.shift]
     }
 
+    private func isCommandMouseAdditiveSelectionEvent() -> Bool {
+        guard let event = NSApp.currentEvent else {
+            return false
+        }
+
+        guard event.type == .leftMouseDown || event.type == .leftMouseUp else {
+            return false
+        }
+
+        let relevantModifiers = event.modifierFlags.intersection([.shift, .control, .option, .command])
+        return relevantModifiers == [.command]
+    }
+
     private func applyShiftRangeSelection(to targetIndex: Int) {
         let anchor = rangeSelectionAnchorIndex ?? viewModel.paneState.cursorIndex
-        viewModel.setCursor(index: targetIndex)
         viewModel.setMarkedRange(anchorIndex: anchor, currentIndex: targetIndex)
+        viewModel.setCursor(index: targetIndex)
+    }
+
+    private func applyCommandAdditiveSelection(preferredCursorIndex: Int?) {
+        let selectedIndexes = IndexSet(mediaCollectionView.selectionIndexPaths.map(\.item))
+        viewModel.setMarkedIndices(selectedIndexes)
+
+        let fallbackCursorIndex = selectedIndexes.first
+        guard let cursorIndex = preferredCursorIndex ?? fallbackCursorIndex else {
+            return
+        }
+
+        rangeSelectionAnchorIndex = cursorIndex
+        viewModel.setCursor(index: cursorIndex)
     }
 
     private func configureContainerAppearance() {
@@ -1510,7 +1580,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         let rowCount = viewModel.directoryContents.displayedItems.count
 
         guard rowCount > 0 else {
-            isShiftRangeSelectionActive = false
+            isMouseMultiSelectionActive = false
             tableView.deselectAll(nil)
             mediaCollectionView.deselectAll(nil)
             return
@@ -1523,7 +1593,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         if currentDisplayMode == .media {
-            if isShiftRangeSelectionActive {
+            if isMouseMultiSelectionActive {
                 let markedIndexPaths = clampedMarkedSelectionIndexPaths(rowCount: rowCount)
                 if !markedIndexPaths.isEmpty {
                     mediaCollectionView.selectionIndexPaths = markedIndexPaths
@@ -1533,7 +1603,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
                     }
                     return
                 }
-                isShiftRangeSelectionActive = false
             }
 
             let cursorIndexPath = IndexPath(item: clampedRow, section: 0)
@@ -1542,14 +1611,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
                 mediaCollectionView.scrollToItems(at: [cursorIndexPath], scrollPosition: .centeredVertically)
             }
         } else {
-            if isShiftRangeSelectionActive {
+            if isMouseMultiSelectionActive {
                 let markedIndexes = clampedMarkedSelectionIndexes(rowCount: rowCount)
                 if !markedIndexes.isEmpty {
                     tableView.selectRowIndexes(markedIndexes, byExtendingSelection: false)
                     tableView.scrollRowToVisible(clampedRow)
                     return
                 }
-                isShiftRangeSelectionActive = false
             }
 
             tableView.selectRowIndexes(IndexSet(integer: clampedRow), byExtendingSelection: false)
