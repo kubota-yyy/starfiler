@@ -1504,10 +1504,27 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         if currentDisplayMode == .media {
             let indexPath = IndexPath(item: clampedRow, section: 0)
             mediaCollectionView.selectionIndexPaths = [indexPath]
-            mediaCollectionView.scrollToItems(at: [indexPath], scrollPosition: .centeredVertically)
+            if shouldAutoScrollMediaSelection() {
+                mediaCollectionView.scrollToItems(at: [indexPath], scrollPosition: .centeredVertically)
+            }
         } else {
             tableView.selectRowIndexes(IndexSet(integer: clampedRow), byExtendingSelection: false)
             tableView.scrollRowToVisible(clampedRow)
+        }
+    }
+
+    private func shouldAutoScrollMediaSelection() -> Bool {
+        guard let event = NSApp.currentEvent else {
+            return true
+        }
+
+        switch event.type {
+        case .leftMouseDown, .leftMouseUp, .leftMouseDragged,
+             .rightMouseDown, .rightMouseUp, .rightMouseDragged,
+             .otherMouseDown, .otherMouseUp, .otherMouseDragged:
+            return false
+        default:
+            return true
         }
     }
 
