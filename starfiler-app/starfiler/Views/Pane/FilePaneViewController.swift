@@ -685,6 +685,17 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         viewModel.directoryContents.displayedItems.count
     }
 
+    func tableView(_ tableView: NSTableView, writeRowsWith rowIndexes: IndexSet, to pasteboard: NSPasteboard) -> Bool {
+        let urls = dragURLsForTableView(rowIndexes: rowIndexes)
+            .map(\.standardizedFileURL)
+        guard !urls.isEmpty else {
+            return false
+        }
+
+        pasteboard.clearContents()
+        return pasteboard.writeObjects(urls as [NSURL])
+    }
+
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         guard viewModel.directoryContents.displayedItems.indices.contains(row) else {
             return nil
@@ -1293,7 +1304,20 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
     }
 
-    private func dragURLsForTableView() -> [URL] {
+    private func dragURLsForTableView(rowIndexes: IndexSet? = nil) -> [URL] {
+        if let rowIndexes, !rowIndexes.isEmpty {
+            let displayedItems = viewModel.directoryContents.displayedItems
+            let rowURLs = rowIndexes.compactMap { row -> URL? in
+                guard displayedItems.indices.contains(row) else {
+                    return nil
+                }
+                return displayedItems[row].url
+            }
+            if !rowURLs.isEmpty {
+                return rowURLs
+            }
+        }
+
         if !viewModel.paneState.markedIndices.isEmpty {
             return viewModel.markedOrSelectedURLs()
         }
