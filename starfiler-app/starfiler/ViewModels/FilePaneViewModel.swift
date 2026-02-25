@@ -180,6 +180,8 @@ final class FilePaneViewModel {
             return
         }
 
+        applyNavigationDisplayDefaultsIfNeeded()
+
         let currentDirectory = paneState.currentDirectory
         navigationHistory.push(currentDirectory)
         loadDirectory(at: destination, previousDirectory: currentDirectory)
@@ -209,6 +211,8 @@ final class FilePaneViewModel {
         guard let destination = navigationHistory.goBack(from: currentDirectory) else {
             return
         }
+
+        applyNavigationDisplayDefaultsIfNeeded()
         loadDirectory(at: destination, previousDirectory: currentDirectory)
     }
 
@@ -221,6 +225,8 @@ final class FilePaneViewModel {
         guard let destination = navigationHistory.goForward(from: currentDirectory) else {
             return
         }
+
+        applyNavigationDisplayDefaultsIfNeeded()
         loadDirectory(at: destination, previousDirectory: currentDirectory)
     }
 
@@ -233,6 +239,8 @@ final class FilePaneViewModel {
         guard let destination = navigationHistory.jumpToTimelinePosition(position, from: currentDirectory) else {
             return
         }
+
+        applyNavigationDisplayDefaultsIfNeeded()
         loadDirectory(at: destination, previousDirectory: currentDirectory)
     }
 
@@ -915,6 +923,35 @@ final class FilePaneViewModel {
                 includeHiddenFiles: directoryContents.showHiddenFiles
             )
         }
+    }
+
+    private func applyNavigationDisplayDefaultsIfNeeded() {
+        var didChangeDisplayMode = false
+
+        if displayMode != .browser {
+            displayMode = .browser
+            didChangeDisplayMode = true
+            onDisplayModeChanged?(.browser)
+        }
+
+        if filesRecursiveEnabled {
+            filesRecursiveEnabled = false
+            onFilesRecursiveChanged?(false)
+        }
+
+        if mediaRecursiveEnabled {
+            mediaRecursiveEnabled = false
+            onMediaRecursiveChanged?(false)
+        }
+
+        guard didChangeDisplayMode else {
+            return
+        }
+
+        var updatedContents = directoryContents
+        updatedContents.contentFilter = .allFiles
+        updatedContents.recompute()
+        directoryContents = updatedContents
     }
 
     private func beginLoading(taskID: UUID, directory: URL) {

@@ -157,6 +157,34 @@ final class FilePaneViewModelTests: XCTestCase {
         XCTAssertFalse(sut.canGoForward)
     }
 
+    func testNavigateResetsToBrowserModeAndDisablesRecursiveModes() async {
+        let sut = makeSUT()
+        await waitForLoad()
+
+        sut.setFilesRecursiveEnabled(true)
+        await waitForLoad()
+        XCTAssertTrue(sut.filesRecursiveEnabled)
+
+        fileSystem.mediaItemsResult = .success([makeFileItem(name: "cover.jpg")])
+        sut.setDisplayMode(.media)
+        await waitForLoad()
+        sut.setMediaRecursiveEnabled(true)
+        await waitForLoad()
+        XCTAssertEqual(sut.displayMode, .media)
+        XCTAssertTrue(sut.mediaRecursiveEnabled)
+
+        let destination = URL(fileURLWithPath: "/tmp/reset-target")
+        fileSystem.contentsOfDirectoryResult = .success([makeFileItem(name: "plain.txt")])
+        sut.navigate(to: destination)
+        await waitForLoad()
+
+        XCTAssertEqual(sut.paneState.currentDirectory, destination.standardizedFileURL)
+        XCTAssertEqual(sut.displayMode, .browser)
+        XCTAssertFalse(sut.filesRecursiveEnabled)
+        XCTAssertFalse(sut.mediaRecursiveEnabled)
+        XCTAssertEqual(fileSystem.contentsOfDirectoryCapturedURLs.last?.standardizedFileURL, destination.standardizedFileURL)
+    }
+
     func testInitialNavigationHistoryIsRestored() async {
         let previous = URL(fileURLWithPath: "/tmp/previous")
         let next = URL(fileURLWithPath: "/tmp/next")
