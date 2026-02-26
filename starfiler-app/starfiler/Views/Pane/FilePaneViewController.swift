@@ -156,6 +156,11 @@ private final class ShortcutGuidePopupView: NSView {
 }
 
 final class FilePaneViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSCollectionViewDataSource, NSCollectionViewDelegate, NSCollectionViewDelegateFlowLayout, NSMenuDelegate, KeyActionDelegate, MediaKeyActionDelegate, NSTextFieldDelegate, NSSearchFieldDelegate {
+    private static let pixelmatorProAppURL = URL(
+        fileURLWithPath: "/Applications/Pixelmator Pro.app",
+        isDirectory: true
+    )
+
     private enum SearchMode: Int {
         case filter = 0
         case spotlight = 1
@@ -2671,6 +2676,18 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             requiresContextItem: true,
             enabled: hasContextItem
         ))
+
+        if let contextItem, contextItem.url.isImageFile {
+            let openInPixelmatorItem = NSMenuItem(
+                title: "Open in Pixelmator Pro",
+                action: #selector(handleOpenInPixelmatorFromContextMenu(_:)),
+                keyEquivalent: ""
+            )
+            openInPixelmatorItem.target = self
+            openInPixelmatorItem.tag = 1
+            items.append(openInPixelmatorItem)
+        }
+
         items.append(makeContextMenuItem(
             title: "Show in Finder",
             action: .openFileInFinder,
@@ -3015,6 +3032,33 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         return viewModel.selectedItem != nil
+    }
+
+    @objc
+    private func handleOpenInPixelmatorFromContextMenu(_ sender: NSMenuItem) {
+        let requiresContextItem = sender.tag == 1
+        guard resolveContextSelectionIfNeeded(requiresContextItem: requiresContextItem),
+              let selectedItem = viewModel.selectedItem,
+              selectedItem.url.isImageFile else {
+            NSSound.beep()
+            return
+        }
+
+        let appURL = Self.pixelmatorProAppURL
+        guard FileManager.default.fileExists(atPath: appURL.path) else {
+            NSSound.beep()
+            return
+        }
+
+        NSWorkspace.shared.open(
+            [selectedItem.url],
+            withApplicationAt: appURL,
+            configuration: NSWorkspace.OpenConfiguration()
+        ) { _, error in
+            if error != nil {
+                NSSound.beep()
+            }
+        }
     }
 
     // MARK: - Animation Helpers
