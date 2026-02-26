@@ -150,15 +150,6 @@ final class FilePaneViewModel {
     }
 
     func markedOrSelectedURLs() -> [URL] {
-        if !paneState.markedIndices.isEmpty {
-            return paneState.markedIndices.compactMap { index in
-                guard directoryContents.displayedItems.indices.contains(index) else {
-                    return nil
-                }
-                return directoryContents.displayedItems[index].url
-            }
-        }
-
         guard let selectedItem else {
             return []
         }
@@ -501,57 +492,23 @@ final class FilePaneViewModel {
     }
 
     func toggleMark() {
-        guard directoryContents.displayedItems.indices.contains(paneState.cursorIndex) else {
-            return
-        }
-
-        if paneState.markedIndices.contains(paneState.cursorIndex) {
-            paneState.markedIndices.remove(paneState.cursorIndex)
-        } else {
-            paneState.markedIndices.insert(paneState.cursorIndex)
-        }
+        paneState.markedIndices.removeAll()
     }
 
     func markAll() {
-        let count = directoryContents.displayedItems.count
-        guard count > 0 else {
-            paneState.markedIndices.removeAll()
-            return
-        }
-
-        paneState.markedIndices = IndexSet(integersIn: 0 ..< count)
+        paneState.markedIndices.removeAll()
     }
 
     func clearMarks() {
         paneState.markedIndices.removeAll()
     }
 
-    func setMarkedIndices(_ indices: IndexSet) {
-        let count = directoryContents.displayedItems.count
-        guard count > 0 else {
-            paneState.markedIndices.removeAll()
-            return
-        }
-
-        var clampedIndices = IndexSet()
-        for index in indices where index >= 0 && index < count {
-            clampedIndices.insert(index)
-        }
-        paneState.markedIndices = clampedIndices
+    func setMarkedIndices(_: IndexSet) {
+        paneState.markedIndices.removeAll()
     }
 
-    func setMarkedRange(anchorIndex: Int, currentIndex: Int) {
-        let count = directoryContents.displayedItems.count
-        guard count > 0 else {
-            paneState.markedIndices.removeAll()
-            return
-        }
-
-        let clampedAnchor = min(max(anchorIndex, 0), count - 1)
-        let clampedCurrent = min(max(currentIndex, 0), count - 1)
-        let lowerBound = min(clampedAnchor, clampedCurrent)
-        let upperBound = max(clampedAnchor, clampedCurrent)
-        paneState.markedIndices = IndexSet(integersIn: lowerBound ..< (upperBound + 1))
+    func setMarkedRange(anchorIndex _: Int, currentIndex _: Int) {
+        paneState.markedIndices.removeAll()
     }
 
     func enterVisualMode() {
@@ -1066,22 +1023,7 @@ final class FilePaneViewModel {
     }
 
     private func updateVisualSelectionForCurrentCursorIfNeeded() {
-        guard let visualAnchorIndex = paneState.visualAnchorIndex else {
-            return
-        }
-
-        let count = directoryContents.displayedItems.count
-        guard count > 0 else {
-            paneState.markedIndices.removeAll()
-            return
-        }
-
-        let clampedAnchor = min(max(visualAnchorIndex, 0), count - 1)
-        let clampedCurrent = min(max(paneState.cursorIndex, 0), count - 1)
-
-        let lowerBound = min(clampedAnchor, clampedCurrent)
-        let upperBound = max(clampedAnchor, clampedCurrent)
-        paneState.markedIndices = IndexSet(integersIn: lowerBound ..< (upperBound + 1))
+        paneState.markedIndices.removeAll()
     }
 
     private func startMonitoringCurrentDirectory(_ directory: URL) {
@@ -1153,13 +1095,7 @@ final class FilePaneViewModel {
             clampCursorIndex()
         }
 
-        var restoredMarkedIndices = IndexSet()
-        for markedURL in snapshot.markedURLs {
-            if let markedIndex = indexByURL[markedURL] {
-                restoredMarkedIndices.insert(markedIndex)
-            }
-        }
-        paneState.markedIndices = restoredMarkedIndices
+        paneState.markedIndices.removeAll()
 
         if let visualAnchorURL = snapshot.visualAnchorURL, let restoredVisualAnchorIndex = indexByURL[visualAnchorURL] {
             paneState.visualAnchorIndex = restoredVisualAnchorIndex

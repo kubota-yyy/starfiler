@@ -723,7 +723,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
         let palette = filerTheme.palette
         let rowView = MarkedRowView()
-        rowView.isMarkedRow = viewModel.paneState.markedIndices.contains(row)
+        rowView.isMarkedRow = row == viewModel.paneState.cursorIndex
         rowView.isVisualMode = vimModeState.mode == .visual
         rowView.markedColor = palette.markedColor
         rowView.visualMarkedColor = palette.visualMarkedColor
@@ -768,40 +768,13 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
             return
         }
 
-        let isShiftRangeSelection = isShiftMouseRangeSelectionEvent()
-        if isShiftRangeSelection {
-            let selectedRow = tableView.clickedRow
-            guard selectedRow >= 0 else {
-                return
-            }
-
-            isMouseMultiSelectionActive = true
-            applyShiftRangeSelection(to: selectedRow)
-            return
-        }
-
-        if isCommandMouseAdditiveSelectionEvent() {
-            isMouseMultiSelectionActive = true
-            viewModel.setMarkedIndices(tableView.selectedRowIndexes)
-
-            let selectedRow = tableView.clickedRow >= 0 ? tableView.clickedRow : tableView.selectedRow
-            if selectedRow >= 0 {
-                rangeSelectionAnchorIndex = selectedRow
-                viewModel.setCursor(index: selectedRow)
-            }
-            return
-        }
-
-        let selectedRow = tableView.selectedRow
+        let selectedRow = tableView.clickedRow >= 0 ? tableView.clickedRow : tableView.selectedRow
         guard selectedRow >= 0 else {
             return
         }
 
-        if isMouseMultiSelectionActive {
-            isMouseMultiSelectionActive = false
-            viewModel.clearMarks()
-        }
-
+        isMouseMultiSelectionActive = false
+        viewModel.clearMarks()
         rangeSelectionAnchorIndex = selectedRow
         viewModel.setCursor(index: selectedRow)
     }
@@ -856,7 +829,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         let fileItem = viewModel.directoryContents.displayedItems[indexPath.item]
-        let isMarked = viewModel.paneState.markedIndices.contains(indexPath.item)
+        let isMarked = indexPath.item == viewModel.paneState.cursorIndex
         mediaItem.configure(
             name: fileItem.name,
             thumbnail: icon(for: fileItem, row: indexPath.item),
@@ -874,38 +847,15 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         guard let indexPath = indexPaths.first else {
             return
         }
-        if isShiftMouseRangeSelectionEvent() {
-            isMouseMultiSelectionActive = true
-            applyShiftRangeSelection(to: indexPath.item)
-            return
-        }
 
-        if isCommandMouseAdditiveSelectionEvent() {
-            isMouseMultiSelectionActive = true
-            applyCommandAdditiveSelection(preferredCursorIndex: indexPath.item)
-            return
-        }
-
-        if isMouseMultiSelectionActive {
-            isMouseMultiSelectionActive = false
-            viewModel.clearMarks()
-        }
-
+        isMouseMultiSelectionActive = false
+        viewModel.clearMarks()
         rangeSelectionAnchorIndex = indexPath.item
         viewModel.setCursor(index: indexPath.item)
     }
 
-    func collectionView(_ collectionView: NSCollectionView, didDeselectItemsAt indexPaths: Set<IndexPath>) {
-        guard !isApplyingSelectionFromViewModel else {
-            return
-        }
-
-        guard isCommandMouseAdditiveSelectionEvent() else {
-            return
-        }
-
-        isMouseMultiSelectionActive = true
-        applyCommandAdditiveSelection(preferredCursorIndex: indexPaths.first?.item)
+    func collectionView(_ collectionView: NSCollectionView, didDeselectItemsAt _: Set<IndexPath>) {
+        return
     }
 
     func collectionView(_ collectionView: NSCollectionView, layout collectionViewLayout: NSCollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> NSSize {
@@ -925,51 +875,6 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
 
     func mediaCollectionView(_ collectionView: MediaCollectionView, didTrigger action: KeyAction) -> Bool {
         handleKeyAction(action)
-    }
-
-    private func isShiftMouseRangeSelectionEvent() -> Bool {
-        guard let event = NSApp.currentEvent else {
-            return false
-        }
-
-        guard event.type == .leftMouseDown || event.type == .leftMouseUp else {
-            return false
-        }
-
-        let relevantModifiers = event.modifierFlags.intersection([.shift, .control, .option, .command])
-        return relevantModifiers == [.shift]
-    }
-
-    private func isCommandMouseAdditiveSelectionEvent() -> Bool {
-        guard let event = NSApp.currentEvent else {
-            return false
-        }
-
-        guard event.type == .leftMouseDown || event.type == .leftMouseUp else {
-            return false
-        }
-
-        let relevantModifiers = event.modifierFlags.intersection([.shift, .control, .option, .command])
-        return relevantModifiers == [.command]
-    }
-
-    private func applyShiftRangeSelection(to targetIndex: Int) {
-        let anchor = rangeSelectionAnchorIndex ?? viewModel.paneState.cursorIndex
-        viewModel.setMarkedRange(anchorIndex: anchor, currentIndex: targetIndex)
-        viewModel.setCursor(index: targetIndex)
-    }
-
-    private func applyCommandAdditiveSelection(preferredCursorIndex: Int?) {
-        let selectedIndexes = IndexSet(mediaCollectionView.selectionIndexPaths.map(\.item))
-        viewModel.setMarkedIndices(selectedIndexes)
-
-        let fallbackCursorIndex = selectedIndexes.first
-        guard let cursorIndex = preferredCursorIndex ?? fallbackCursorIndex else {
-            return
-        }
-
-        rangeSelectionAnchorIndex = cursorIndex
-        viewModel.setCursor(index: cursorIndex)
     }
 
     private func configureContainerAppearance() {
@@ -1593,51 +1498,15 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
         }
 
         if currentDisplayMode == .media {
-            if isMouseMultiSelectionActive {
-                let markedIndexPaths = clampedMarkedSelectionIndexPaths(rowCount: rowCount)
-                if !markedIndexPaths.isEmpty {
-                    mediaCollectionView.selectionIndexPaths = markedIndexPaths
-                    let targetIndexPath = IndexPath(item: clampedRow, section: 0)
-                    if shouldAutoScrollMediaSelection() {
-                        mediaCollectionView.scrollToItems(at: [targetIndexPath], scrollPosition: .centeredVertically)
-                    }
-                    return
-                }
-            }
-
             let cursorIndexPath = IndexPath(item: clampedRow, section: 0)
             mediaCollectionView.selectionIndexPaths = [cursorIndexPath]
             if shouldAutoScrollMediaSelection() {
                 mediaCollectionView.scrollToItems(at: [cursorIndexPath], scrollPosition: .centeredVertically)
             }
         } else {
-            if isMouseMultiSelectionActive {
-                let markedIndexes = clampedMarkedSelectionIndexes(rowCount: rowCount)
-                if !markedIndexes.isEmpty {
-                    tableView.selectRowIndexes(markedIndexes, byExtendingSelection: false)
-                    tableView.scrollRowToVisible(clampedRow)
-                    return
-                }
-            }
-
             tableView.selectRowIndexes(IndexSet(integer: clampedRow), byExtendingSelection: false)
             tableView.scrollRowToVisible(clampedRow)
         }
-    }
-
-    private func clampedMarkedSelectionIndexes(rowCount: Int) -> IndexSet {
-        var clampedIndexes = IndexSet()
-        for index in viewModel.paneState.markedIndices where index >= 0 && index < rowCount {
-            clampedIndexes.insert(index)
-        }
-        return clampedIndexes
-    }
-
-    private func clampedMarkedSelectionIndexPaths(rowCount: Int) -> Set<IndexPath> {
-        let indexPaths = clampedMarkedSelectionIndexes(rowCount: rowCount).map { index in
-            IndexPath(item: index, section: 0)
-        }
-        return Set(indexPaths)
     }
 
     private func shouldAutoScrollMediaSelection() -> Bool {
@@ -1850,7 +1719,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private func makeNameCell(for item: FileItem, row: Int, treeItem: TreeDisplayItem? = nil) -> NSTableCellView {
         let cell = tableView.makeView(withIdentifier: Cell.name, owner: self) as? FileNameCellView ?? createNameCellView()
 
-        let isMarked = viewModel.paneState.markedIndices.contains(row)
+        let isMarked = row == viewModel.paneState.cursorIndex
         let palette = filerTheme.palette
 
         if starEffectsEnabled {
@@ -2327,19 +2196,7 @@ final class FilePaneViewController: NSViewController, NSTableViewDataSource, NST
     private func performToggleMarkAction() {
         let itemCount = viewModel.directoryContents.displayedItems.count
         let cursorIndexBeforeToggle = viewModel.paneState.cursorIndex
-        let wasMarked = viewModel.paneState.markedIndices.contains(cursorIndexBeforeToggle)
-
         viewModel.toggleMark()
-
-        if starEffectsEnabled, animationEffectSettings.markSparkle, !wasMarked,
-           let rowView = tableView.rowView(atRow: cursorIndexBeforeToggle, makeIfNecessary: false),
-           let viewLayer = view.layer {
-            let palette = filerTheme.palette
-            let starLocalCenter = CGPoint(x: 4 + Self.browserModeIconSize + 3 + 6, y: rowView.bounds.midY)
-            let starCenter = rowView.convert(starLocalCenter, to: view)
-            StarSparkleAnimator.burst(count: 4, in: viewLayer, at: starCenter,
-                color: palette.starGlowColor, size: 4, duration: 0.25)
-        }
 
         guard let destinationCursorIndex = destinationCursorIndexAfterSpaceMark(
             itemCount: itemCount,
