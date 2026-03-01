@@ -7,6 +7,11 @@ protocol FileSystemProviding {
 }
 
 private actor FileSystemWorker {
+    private struct EnumerationContext {
+        let requestedURL: URL
+        let enumeratedURL: URL
+    }
+
     private let fileManager: FileManager
     private let resourceKeys: Set<URLResourceKey>
 
@@ -17,8 +22,9 @@ private actor FileSystemWorker {
 
     func contentsOfDirectory(at url: URL) throws -> [FileItem] {
         try Task.checkCancellation()
+        let context = resolveEnumerationContext(for: url)
         let urls = try fileManager.contentsOfDirectory(
-            at: url,
+            at: context.enumeratedURL,
             includingPropertiesForKeys: Array(resourceKeys),
             options: [.skipsSubdirectoryDescendants]
         )
@@ -28,19 +34,21 @@ private actor FileSystemWorker {
         for entryURL in urls {
             try Task.checkCancellation()
             let values = try? entryURL.resourceValues(forKeys: resourceKeys)
-            items.append(makeFileItem(from: entryURL, values: values))
+            let mappedURL = mapEnumeratedURL(entryURL, context: context)
+            items.append(makeFileItem(from: mappedURL, values: values))
         }
         return items
     }
 
     func recursiveContentsOfDirectory(at url: URL, includeHiddenFiles: Bool) throws -> [FileItem] {
         try Task.checkCancellation()
+        let context = resolveEnumerationContext(for: url)
         let options: FileManager.DirectoryEnumerationOptions = includeHiddenFiles
             ? [.skipsPackageDescendants]
             : [.skipsPackageDescendants, .skipsHiddenFiles]
 
         guard let enumerator = fileManager.enumerator(
-            at: url,
+            at: context.enumeratedURL,
             includingPropertiesForKeys: Array(resourceKeys),
             options: options
         ) else {
@@ -51,7 +59,8 @@ private actor FileSystemWorker {
         while let entryURL = enumerator.nextObject() as? URL {
             try Task.checkCancellation()
             let values = try? entryURL.resourceValues(forKeys: resourceKeys)
-            let item = makeFileItem(from: entryURL, values: values)
+            let mappedURL = mapEnumeratedURL(entryURL, context: context)
+            let item = makeFileItem(from: mappedURL, values: values)
             if !includeHiddenFiles, item.isHidden {
                 continue
             }
@@ -87,9 +96,10 @@ private actor FileSystemWorker {
         let options: FileManager.DirectoryEnumerationOptions = includeHiddenFiles
             ? [.skipsPackageDescendants]
             : [.skipsPackageDescendants, .skipsHiddenFiles]
+        let context = resolveEnumerationContext(for: directory)
 
         guard let enumerator = fileManager.enumerator(
-            at: directory,
+            at: context.enumeratedURL,
             includingPropertiesForKeys: Array(resourceKeys),
             options: options
         ) else {
@@ -100,7 +110,8 @@ private actor FileSystemWorker {
         while let entryURL = enumerator.nextObject() as? URL {
             try Task.checkCancellation()
             let values = try? entryURL.resourceValues(forKeys: resourceKeys)
-            let item = makeFileItem(from: entryURL, values: values)
+            let mappedURL = mapEnumeratedURL(entryURL, context: context)
+            let item = makeFileItem(from: mappedURL, values: values)
             if item.isDirectory {
                 continue
             }
@@ -131,6 +142,36 @@ private actor FileSystemWorker {
             isSymlink: values?.isSymbolicLink ?? false,
             isPackage: isPackage
         )
+    }
+
+    private func resolveEnumerationContext(for url: URL) -> EnumerationContext {
+        let requestedURL = url.standardizedFileURL
+        let enumeratedURL = requestedURL.resolvingSymlinksInPath().standardizedFileURL
+        return EnumerationContext(requestedURL: requestedURL, enumeratedURL: enumeratedURL)
+    }
+
+    private func mapEnumeratedURL(_ entryURL: URL, context: EnumerationContext) -> URL {
+        let standardizedEntryURL = entryURL.standardizedFileURL
+        guard context.requestedURL.path != context.enumeratedURL.path else {
+            return standardizedEntryURL
+        }
+
+        let rootComponents = context.enumeratedURL.pathComponents
+        let entryComponents = standardizedEntryURL.pathComponents
+        guard entryComponents.starts(with: rootComponents) else {
+            return standardizedEntryURL
+        }
+
+        let relativeComponents = entryComponents.dropFirst(rootComponents.count)
+        guard !relativeComponents.isEmpty else {
+            return context.requestedURL
+        }
+
+        var mappedURL = context.requestedURL
+        for component in relativeComponents {
+            mappedURL.appendPathComponent(component, isDirectory: false)
+        }
+        return mappedURL.standardizedFileURL
     }
 }
 

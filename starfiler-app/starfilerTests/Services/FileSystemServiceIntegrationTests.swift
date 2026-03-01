@@ -13,6 +13,20 @@ final class FileSystemServiceIntegrationTests: XCTestCase {
         XCTAssertTrue(items.contains(where: { $0.name == "docs" && $0.isDirectory }))
     }
 
+    func testContentsOfDirectorySupportsDirectorySymlinkRoots() async throws {
+        let workspace = try SandboxFixtureWorkspace()
+        let fileManager = FileManager.default
+        let targetURL = workspace.url("left/docs")
+        let symlinkURL = workspace.url("left/docs-link")
+        try fileManager.createSymbolicLink(atPath: symlinkURL.path, withDestinationPath: targetURL.path)
+
+        let sut = FileSystemService()
+        let items = try await sut.contentsOfDirectory(at: symlinkURL)
+
+        XCTAssertEqual(Set(items.map(\.name)), Set(["notes.md", "readme.md"]))
+        XCTAssertTrue(items.allSatisfy { $0.url.path.hasPrefix(symlinkURL.path + "/") })
+    }
+
     func testRecursiveContentsRespectsHiddenFlagAndSkipsPackageDescendants() async throws {
         let workspace = try SandboxFixtureWorkspace()
         let sut = FileSystemService()
@@ -29,6 +43,28 @@ final class FileSystemServiceIntegrationTests: XCTestCase {
         XCTAssertFalse(withoutHidden.contains(where: { $0.name == ".hidden.txt" }))
         XCTAssertTrue(withHidden.contains(where: { $0.name == ".hidden.txt" }))
         XCTAssertFalse(withHidden.contains(where: { $0.url.path.contains("Sample.app/Contents") }))
+    }
+
+    func testRecursiveContentsSupportsDirectorySymlinkRoots() async throws {
+        let workspace = try SandboxFixtureWorkspace()
+        let fileManager = FileManager.default
+        let targetURL = workspace.url("left/docs")
+        let symlinkURL = workspace.url("left/docs-recursive-link")
+        try fileManager.createSymbolicLink(atPath: symlinkURL.path, withDestinationPath: targetURL.path)
+
+        let nestedDirectoryURL = targetURL.appendingPathComponent("nested", isDirectory: true)
+        try fileManager.createDirectory(at: nestedDirectoryURL, withIntermediateDirectories: true)
+        let nestedFileURL = nestedDirectoryURL.appendingPathComponent("deep.txt")
+        try "nested".write(to: nestedFileURL, atomically: true, encoding: .utf8)
+
+        let sut = FileSystemService()
+        let items = try await sut.recursiveContentsOfDirectory(at: symlinkURL, includeHiddenFiles: true)
+
+        let expectedPath = symlinkURL
+            .appendingPathComponent("nested", isDirectory: true)
+            .appendingPathComponent("deep.txt")
+            .standardizedFileURL.path
+        XCTAssertTrue(items.contains(where: { $0.url.path == expectedPath }))
     }
 
     func testMediaItemsFiltersByMediaExtensions() async throws {
