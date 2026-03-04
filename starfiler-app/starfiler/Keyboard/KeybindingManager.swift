@@ -86,18 +86,11 @@ struct KeybindingManager: Sendable {
         bundle: Bundle = .main
     ) -> URL? {
         let bundleIdentifier = bundle.bundleIdentifier ?? "com.nilone.starfiler"
-
-        guard let applicationSupportURL = try? fileManager.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        ) else {
-            return nil
-        }
-        let configDirectory = applicationSupportURL
-            .appendingPathComponent(bundleIdentifier, isDirectory: true)
-            .appendingPathComponent("Config", isDirectory: true)
+        let configDirectory = ConfigManager.customConfigDirectoryURL()
+            ?? ConfigManager.defaultFallbackConfigDirectory(
+                fileManager: fileManager,
+                bundleIdentifier: bundleIdentifier
+            )
 
         if !fileManager.fileExists(atPath: configDirectory.path) {
             try? fileManager.createDirectory(at: configDirectory, withIntermediateDirectories: true)

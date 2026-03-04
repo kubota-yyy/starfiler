@@ -15,6 +15,10 @@ enum ConfigManagerError: LocalizedError {
 }
 
 final class ConfigManager {
+    private enum DefaultPath {
+        static let configDirectory = "/Users/cypher/Library/Mobile Documents/com~apple~CloudDocs/myiclouddrive/dotfiles/Starfiler"
+    }
+
     private enum FileName {
         static let appConfig = "AppConfig.json"
         static let keybindingsConfig = "Keybindings.json"
@@ -179,16 +183,9 @@ final class ConfigManager {
         fileManager: FileManager = .default,
         bundleIdentifier: String = Bundle.main.bundleIdentifier ?? "com.nilone.starfiler"
     ) -> URL {
-        let baseURL = (try? fileManager.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )) ?? UserPaths.homeDirectoryURL
-
-        return baseURL
-            .appendingPathComponent(bundleIdentifier, isDirectory: true)
-            .appendingPathComponent("Config", isDirectory: true)
+        _ = fileManager
+        _ = bundleIdentifier
+        return URL(fileURLWithPath: DefaultPath.configDirectory, isDirectory: true).standardizedFileURL
     }
 
     static func existingConfigFileNames(in directory: URL, fileManager: FileManager = .default) -> [String] {

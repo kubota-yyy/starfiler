@@ -255,6 +255,15 @@ final class ConfigManagerTests: XCTestCase {
         XCTAssertTrue(sut.pinnedItemsConfigURL.path.hasSuffix("PinnedItems.json"))
     }
 
+    func testDefaultFallbackConfigDirectoryUsesICloudDotfilesPath() {
+        let url = ConfigManager.defaultFallbackConfigDirectory()
+
+        XCTAssertEqual(
+            url.path,
+            "/Users/cypher/Library/Mobile Documents/com~apple~CloudDocs/myiclouddrive/dotfiles/Starfiler"
+        )
+    }
+
     // MARK: - PinnedItemsConfig
 
     func testLoadPinnedItemsConfigReturnsDefaultWhenNoFile() {
