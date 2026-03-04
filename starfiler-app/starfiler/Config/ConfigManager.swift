@@ -15,7 +15,10 @@ enum ConfigManagerError: LocalizedError {
 }
 
 final class ConfigManager {
-    private static let fixedDefaultConfigDirectoryPath = "/Users/eipoc/Library/CloudStorage/GoogleDrive-yutaka.kubota@nil-one.com/My Drive/DropBox/dotfiles/Starfiler"
+    private static let fixedDefaultConfigDirectoryPath = "/Users/eipoc/Library/Mobile Documents/com~apple~CloudDocs/myiclouddrive/dotfiles/Starfiler"
+    private static let previousFixedDefaultConfigDirectoryPaths = [
+        "/Users/eipoc/Library/CloudStorage/GoogleDrive-yutaka.kubota@nil-one.com/My Drive/DropBox/dotfiles/Starfiler",
+    ]
     private static let legacyConfigMigrationMarkerPrefix = "legacyConfigMigratedToFixedDefault"
 
     private enum FileName {
@@ -230,7 +233,7 @@ final class ConfigManager {
         bundleIdentifier: String,
         destinationDirectory: URL
     ) {
-        let migrationMarkerKey = "\(legacyConfigMigrationMarkerPrefix).\(bundleIdentifier)"
+        let migrationMarkerKey = "\(legacyConfigMigrationMarkerPrefix).\(bundleIdentifier).\(destinationDirectory.path)"
         if UserDefaults.standard.bool(forKey: migrationMarkerKey) {
             return
         }
@@ -238,33 +241,55 @@ final class ConfigManager {
             UserDefaults.standard.set(true, forKey: migrationMarkerKey)
         }
 
-        let legacyDirectory = legacyApplicationSupportConfigDirectory(fileManager: fileManager, bundleIdentifier: bundleIdentifier)
-        guard legacyDirectory.standardizedFileURL != destinationDirectory.standardizedFileURL else {
-            return
-        }
+        let sourceDirectories = migrationSourceDirectories(fileManager: fileManager, bundleIdentifier: bundleIdentifier)
+            .filter { $0.standardizedFileURL != destinationDirectory.standardizedFileURL }
 
-        let legacyFiles = existingConfigFileNames(in: legacyDirectory, fileManager: fileManager)
-        guard !legacyFiles.isEmpty else {
-            return
-        }
+        for sourceDirectory in sourceDirectories {
+            let sourceFiles = existingConfigFileNames(in: sourceDirectory, fileManager: fileManager)
+            guard !sourceFiles.isEmpty else {
+                continue
+            }
 
-        for fileName in primaryConfigFileNames {
-            copyConfigFileIfNeeded(
-                named: fileName,
-                from: legacyDirectory,
-                to: destinationDirectory,
-                overwrite: false,
+            for fileName in primaryConfigFileNames {
+                copyConfigFileIfNeeded(
+                    named: fileName,
+                    from: sourceDirectory,
+                    to: destinationDirectory,
+                    overwrite: false,
+                    fileManager: fileManager
+                )
+            }
+
+            // If Bookmarks.json in the new location was auto-generated defaults, prefer
+            // existing bookmarks from the migration source so users keep real sets.
+            restoreBookmarksFromLegacyIfDestinationHasDefaults(
+                legacyDirectory: sourceDirectory,
+                destinationDirectory: destinationDirectory,
                 fileManager: fileManager
             )
         }
+    }
 
-        // If Bookmarks.json in the new location was auto-generated defaults, prefer
-        // existing legacy bookmarks so users keep their real bookmark sets.
-        restoreBookmarksFromLegacyIfDestinationHasDefaults(
-            legacyDirectory: legacyDirectory,
-            destinationDirectory: destinationDirectory,
-            fileManager: fileManager
+    private static func migrationSourceDirectories(fileManager: FileManager, bundleIdentifier: String) -> [URL] {
+        var directories: [URL] = [
+            legacyApplicationSupportConfigDirectory(fileManager: fileManager, bundleIdentifier: bundleIdentifier),
+        ]
+
+        directories.append(
+            contentsOf: previousFixedDefaultConfigDirectoryPaths.map {
+                URL(fileURLWithPath: $0, isDirectory: true).standardizedFileURL
+            }
         )
+
+        var uniqueDirectories: [URL] = []
+        var seenPaths = Set<String>()
+        for directory in directories {
+            let path = directory.path
+            if seenPaths.insert(path).inserted {
+                uniqueDirectories.append(directory)
+            }
+        }
+        return uniqueDirectories
     }
 
     private static var primaryConfigFileNames: [String] {
