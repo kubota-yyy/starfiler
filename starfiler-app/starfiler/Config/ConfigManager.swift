@@ -16,6 +16,7 @@ enum ConfigManagerError: LocalizedError {
 
 final class ConfigManager {
     private static let fixedDefaultConfigDirectoryPath = "/Users/eipoc/Library/CloudStorage/GoogleDrive-yutaka.kubota@nil-one.com/My Drive/DropBox/dotfiles/Starfiler"
+    private static let legacyConfigMigrationMarkerPrefix = "legacyConfigMigratedToFixedDefault"
 
     private enum FileName {
         static let appConfig = "AppConfig.json"
@@ -229,6 +230,14 @@ final class ConfigManager {
         bundleIdentifier: String,
         destinationDirectory: URL
     ) {
+        let migrationMarkerKey = "\(legacyConfigMigrationMarkerPrefix).\(bundleIdentifier)"
+        if UserDefaults.standard.bool(forKey: migrationMarkerKey) {
+            return
+        }
+        defer {
+            UserDefaults.standard.set(true, forKey: migrationMarkerKey)
+        }
+
         let legacyDirectory = legacyApplicationSupportConfigDirectory(fileManager: fileManager, bundleIdentifier: bundleIdentifier)
         guard legacyDirectory.standardizedFileURL != destinationDirectory.standardizedFileURL else {
             return
@@ -239,12 +248,104 @@ final class ConfigManager {
             return
         }
 
-        let destinationFiles = existingConfigFileNames(in: destinationDirectory, fileManager: fileManager)
-        guard destinationFiles.isEmpty else {
+        for fileName in primaryConfigFileNames {
+            copyConfigFileIfNeeded(
+                named: fileName,
+                from: legacyDirectory,
+                to: destinationDirectory,
+                overwrite: false,
+                fileManager: fileManager
+            )
+        }
+
+        // If Bookmarks.json in the new location was auto-generated defaults, prefer
+        // existing legacy bookmarks so users keep their real bookmark sets.
+        restoreBookmarksFromLegacyIfDestinationHasDefaults(
+            legacyDirectory: legacyDirectory,
+            destinationDirectory: destinationDirectory,
+            fileManager: fileManager
+        )
+    }
+
+    private static var primaryConfigFileNames: [String] {
+        [
+            FileName.appConfig,
+            FileName.keybindingsConfig,
+            FileName.bookmarksConfig,
+            FileName.batchRenamePresetsConfig,
+            FileName.syncletsConfig,
+            FileName.visitHistoryConfig,
+            FileName.pinnedItemsConfig,
+            FileName.terminalSessionsConfig,
+        ]
+    }
+
+    @discardableResult
+    private static func copyConfigFileIfNeeded(
+        named fileName: String,
+        from sourceDirectory: URL,
+        to destinationDirectory: URL,
+        overwrite: Bool,
+        fileManager: FileManager
+    ) -> Bool {
+        let sourceURL = sourceDirectory.appendingPathComponent(fileName, isDirectory: false)
+        let destinationURL = destinationDirectory.appendingPathComponent(fileName, isDirectory: false)
+
+        guard fileManager.fileExists(atPath: sourceURL.path) else {
+            return false
+        }
+
+        if fileManager.fileExists(atPath: destinationURL.path) {
+            guard overwrite else {
+                return false
+            }
+            try? fileManager.removeItem(at: destinationURL)
+        } else if !fileManager.fileExists(atPath: destinationDirectory.path) {
+            try? fileManager.createDirectory(at: destinationDirectory, withIntermediateDirectories: true)
+        }
+
+        do {
+            try fileManager.copyItem(at: sourceURL, to: destinationURL)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    private static func restoreBookmarksFromLegacyIfDestinationHasDefaults(
+        legacyDirectory: URL,
+        destinationDirectory: URL,
+        fileManager: FileManager
+    ) {
+        let legacyURL = legacyDirectory.appendingPathComponent(FileName.bookmarksConfig, isDirectory: false)
+        let destinationURL = destinationDirectory.appendingPathComponent(FileName.bookmarksConfig, isDirectory: false)
+
+        guard fileManager.fileExists(atPath: legacyURL.path),
+              fileManager.fileExists(atPath: destinationURL.path),
+              let legacyBookmarks = try? BookmarksConfig.load(from: legacyURL, fileManager: fileManager),
+              let destinationBookmarks = try? BookmarksConfig.load(from: destinationURL, fileManager: fileManager)
+        else {
             return
         }
 
-        try? migrateConfigFiles(from: legacyDirectory, to: destinationDirectory, fileManager: fileManager)
+        let defaultBookmarks = BookmarksConfig.withDefaults()
+        guard destinationBookmarks.groups == defaultBookmarks.groups else {
+            return
+        }
+
+        guard !legacyBookmarks.groups.isEmpty,
+              legacyBookmarks.groups != destinationBookmarks.groups
+        else {
+            return
+        }
+
+        _ = copyConfigFileIfNeeded(
+            named: FileName.bookmarksConfig,
+            from: legacyDirectory,
+            to: destinationDirectory,
+            overwrite: true,
+            fileManager: fileManager
+        )
     }
 
     private static func legacyApplicationSupportConfigDirectory(fileManager: FileManager, bundleIdentifier: String) -> URL {
