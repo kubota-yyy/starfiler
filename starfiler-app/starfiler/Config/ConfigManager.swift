@@ -15,6 +15,8 @@ enum ConfigManagerError: LocalizedError {
 }
 
 final class ConfigManager {
+    private static let fixedDefaultConfigDirectoryPath = "/Users/eipoc/Library/CloudStorage/GoogleDrive-yutaka.kubota@nil-one.com/My Drive/DropBox/dotfiles/Starfiler"
+
     private enum FileName {
         static let appConfig = "AppConfig.json"
         static let keybindingsConfig = "Keybindings.json"
@@ -176,19 +178,10 @@ final class ConfigManager {
     }
 
     static func defaultFallbackConfigDirectory(
-        fileManager: FileManager = .default,
-        bundleIdentifier: String = Bundle.main.bundleIdentifier ?? "com.nilone.starfiler"
+        fileManager _: FileManager = .default,
+        bundleIdentifier _: String = Bundle.main.bundleIdentifier ?? "com.nilone.starfiler"
     ) -> URL {
-        let baseURL = (try? fileManager.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )) ?? UserPaths.homeDirectoryURL
-
-        return baseURL
-            .appendingPathComponent(bundleIdentifier, isDirectory: true)
-            .appendingPathComponent("Config", isDirectory: true)
+        return URL(fileURLWithPath: fixedDefaultConfigDirectoryPath, isDirectory: true).standardizedFileURL
     }
 
     static func existingConfigFileNames(in directory: URL, fileManager: FileManager = .default) -> [String] {
@@ -222,7 +215,49 @@ final class ConfigManager {
             return customURL
         }
 
-        return defaultFallbackConfigDirectory(fileManager: fileManager, bundleIdentifier: bundleIdentifier)
+        let defaultDirectory = defaultFallbackConfigDirectory(fileManager: fileManager, bundleIdentifier: bundleIdentifier)
+        migrateLegacyDefaultConfigIfNeeded(
+            fileManager: fileManager,
+            bundleIdentifier: bundleIdentifier,
+            destinationDirectory: defaultDirectory
+        )
+        return defaultDirectory
+    }
+
+    private static func migrateLegacyDefaultConfigIfNeeded(
+        fileManager: FileManager,
+        bundleIdentifier: String,
+        destinationDirectory: URL
+    ) {
+        let legacyDirectory = legacyApplicationSupportConfigDirectory(fileManager: fileManager, bundleIdentifier: bundleIdentifier)
+        guard legacyDirectory.standardizedFileURL != destinationDirectory.standardizedFileURL else {
+            return
+        }
+
+        let legacyFiles = existingConfigFileNames(in: legacyDirectory, fileManager: fileManager)
+        guard !legacyFiles.isEmpty else {
+            return
+        }
+
+        let destinationFiles = existingConfigFileNames(in: destinationDirectory, fileManager: fileManager)
+        guard destinationFiles.isEmpty else {
+            return
+        }
+
+        try? migrateConfigFiles(from: legacyDirectory, to: destinationDirectory, fileManager: fileManager)
+    }
+
+    private static func legacyApplicationSupportConfigDirectory(fileManager: FileManager, bundleIdentifier: String) -> URL {
+        let baseURL = (try? fileManager.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )) ?? UserPaths.homeDirectoryURL
+
+        return baseURL
+            .appendingPathComponent(bundleIdentifier, isDirectory: true)
+            .appendingPathComponent("Config", isDirectory: true)
     }
 
     private func createConfigDirectoryIfNeeded() {

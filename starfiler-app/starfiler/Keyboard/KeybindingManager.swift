@@ -86,24 +86,8 @@ struct KeybindingManager: Sendable {
         bundle: Bundle = .main
     ) -> URL? {
         let bundleIdentifier = bundle.bundleIdentifier ?? "com.nilone.starfiler"
-
-        guard let applicationSupportURL = try? fileManager.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        ) else {
-            return nil
-        }
-        let configDirectory = applicationSupportURL
-            .appendingPathComponent(bundleIdentifier, isDirectory: true)
-            .appendingPathComponent("Config", isDirectory: true)
-
-        if !fileManager.fileExists(atPath: configDirectory.path) {
-            try? fileManager.createDirectory(at: configDirectory, withIntermediateDirectories: true)
-        }
-
-        return configDirectory.appendingPathComponent("Keybindings.json", isDirectory: false)
+        let configManager = ConfigManager(fileManager: fileManager, bundleIdentifier: bundleIdentifier)
+        return configManager.keybindingsConfigURL
     }
 
     private static func loadConfig(from url: URL?, fileManager: FileManager) -> KeybindingsConfig? {
